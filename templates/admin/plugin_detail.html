@@ -1,0 +1,178 @@
+{% extends "admin/base.html" %}
+
+{% block title %}插件详情 - {{ plugin.name }} - {{ system.title }}{% endblock %}
+{% block page_title %}插件详情 - {{ plugin.name }}{% endblock %}
+
+{% block content %}
+
+<div class="row row-deck row-cards">
+    <!-- 插件基本信息 -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">基本信息</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">插件名称</label>
+                            <div class="form-control-plaintext">{{ plugin.name }}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">版本</label>
+                            <div class="form-control-plaintext">v{{ plugin.version }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">描述</label>
+                    <div class="form-control-plaintext">{{ plugin.description }}</div>
+                </div>
+
+                <div class="row">
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">作者</label>
+                            <div class="form-control-plaintext">{{ plugin.author }}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">状态</label>
+                            <div class="form-control-plaintext">
+                                {% if plugin.enabled %}
+                                <span class="badge bg-success">已启用</span>
+                                {% else %}
+                                <span class="badge bg-warning">已禁用</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 插件统计 -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">统计信息</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h1 mb-1">{{ plugin.commands|length }}</div>
+                            <div class="text-muted">注册命令</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h1 mb-1">{{ plugin.hooks|length }}</div>
+                            <div class="text-muted">Hook事件</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 命令列表 -->
+    {% if plugin.commands %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">注册命令</h3>
+                <div class="text-muted">通过Hook系统处理</div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-vcenter">
+                        <thead>
+                        <tr>
+                            <th>命令</th>
+                            <th>描述</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for command in plugin.commands %}
+                        <tr>
+                            <td><code>/{{ command.name }}</code></td>
+                            <td>{{ command.description or '无描述' }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 钩子信息 -->
+    {% if plugin.hooks %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">注册的Hook事件</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% if plugin.hooks is mapping %}
+                    <!-- hooks是字典格式 -->
+                    {% for event_type, handlers in plugin.hooks.items() %}
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <span class="badge bg-blue">{{ event_type }}</span>
+                            </div>
+                            <div>
+                                <div class="text-muted small">
+                                    {% if handlers is iterable and handlers is not string %}
+                                    {{ handlers|length }} 个处理器
+                                    {% else %}
+                                    1 个处理器
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <!-- hooks是列表格式 -->
+                    {% for hook in plugin.hooks %}
+                    <div class="col-md-6 mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <span class="badge bg-blue">{{ hook }}</span>
+                            </div>
+                            <div>
+                                <div class="text-muted small">Hook事件</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+                <div class="mt-3">
+                    <a class="btn btn-outline-primary btn-sm" href="{{ url_for('Admin.admin_hooks') }}">
+                        <svg class="icon me-1" fill="none" height="24" stroke="currentColor"
+                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5"/>
+                        </svg>
+                        查看Hook管理
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

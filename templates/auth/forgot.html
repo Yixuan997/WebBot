@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+    <meta content="ie=edge" http-equiv="X-UA-Compatible"/>
+    <title>找回密码 - {{ system.title }}</title>
+    <meta content="{{ system.des }}"
+          name="description">
+    <meta content="{{ system.key }}"
+          name="keywords">
+    <meta content="YAPI" name="author">
+    <meta content="YAPI" name="founder">
+    <link href="{{ url_for('static', filename='favicon.ico') }}" rel="icon" type="image/x-icon">
+    <!-- CSS files -->
+    <link href="{{ url_for('static', filename='css/tabler.min.css') }}" rel="stylesheet">
+
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+
+        :root {
+            --tblr-font-sans-serif: Inter, -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif;
+        }
+    </style>
+</head>
+<body class=" border-top-wide border-primary d-flex flex-column">
+
+{% include 'flash.html' %}
+
+
+<div class="page page-center">
+    <div class="container container-tight py-4">
+        <div class="text-center mb-4">
+            <a class="navbar-brand navbar-brand-autodark" href="."><img alt="" height="36"
+                                                                        src="{{ url_for('static', filename='logo.svg') }}"></a>
+        </div>
+        <form action="{{ url_for('auth.forgot') }}"
+              autocomplete="off"
+              class="card card-md" method="post" novalidate>
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">找回密码</h2>
+                <p class="text-muted mb-4">请输入您的邮箱地址，我们将发送验证码帮助您重置密码</p>
+
+                <!-- 邮箱 -->
+                <div class="mb-3">
+                    <label class="form-label">邮箱地址</label>
+                    <input class="form-control" id="email" name="email" placeholder="请输入注册邮箱" required
+                           type="email">
+                    <div class="invalid-feedback" id="emailError"></div>
+                    <div class="form-text text-success d-none" id="emailSuccess">
+                        <svg class="icon icon-tabler icon-tabler-check" fill="none" height="16"
+                             stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="16" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"></path>
+                            <path d="M5 12l5 5l10 -10"></path>
+                        </svg>
+                        <span id="emailSuccessText"></span>
+                    </div>
+                </div>
+
+                <!-- 邮箱验证码 -->
+                <div class="mb-3">
+                    <label class="form-label">邮箱验证码</label>
+                    <div class="input-group input-group-flat">
+                        <input autocomplete="off" class="form-control" disabled id="email_code"
+                               name="email_code" placeholder="请输入邮箱验证码" required type="text">
+                        <button class="btn btn-outline-primary" disabled id="sendEmailCodeBtn"
+                                onclick="sendEmailCode()" type="button">
+                            <span id="sendEmailCodeText">发送验证码</span>
+                            <span class="spinner-border spinner-border-sm ms-2 d-none" id="emailCodeSpinner"></span>
+                        </button>
+                    </div>
+                    <div class="invalid-feedback" id="emailCodeError"></div>
+                </div>
+
+                <!-- 图片验证码 -->
+                <div class="mb-3">
+                    <label class="form-label">图片验证码</label>
+                    <div class="input-group input-group-flat">
+                        <input autocomplete="off" class="form-control" id="code" name="code" placeholder="请输入验证码"
+                               required type="text">
+                        <span class="input-group-text">
+                            <img alt="验证码" class="cursor-pointer" height="32" id="captchaImage"
+                                 onclick="refreshCaptcha()" src="" width="100">
+                        </span>
+                    </div>
+                    <input id="captcha_id" name="captcha_id" type="hidden">
+                    <div class="form-text">点击图片刷新验证码</div>
+                    <div class="invalid-feedback" id="codeError"></div>
+                </div>
+
+                <!-- 新密码 -->
+                <div class="mb-3">
+                    <label class="form-label">新密码</label>
+                    <div class="input-group input-group-flat">
+                        <input class="form-control" id="new_password" minlength="6" name="new_password"
+                               placeholder="请输入新密码" required type="password">
+                        <span class="input-group-text">
+                            <a class="link-secondary" href="#" id="toggleNewPassword" title="显示密码">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                     width="24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                    <circle cx="12" cy="12" r="2"/>
+                                    <path d="M22 12c-2.667 4.667 -6 7 -10 7s-7.333 -2.333 -10 -7c2.667 -4.667 6 -7 10 -7s7.333 2.333 10 7"/>
+                                </svg>
+                            </a>
+                        </span>
+                    </div>
+                    <div class="form-text">密码长度不少于6位</div>
+                    <div class="invalid-feedback" id="newPasswordError"></div>
+                </div>
+
+                <!-- 确认密码 -->
+                <div class="mb-3">
+                    <label class="form-label">确认新密码</label>
+                    <div class="input-group input-group-flat">
+                        <input class="form-control" id="confirm_password" minlength="6"
+                               name="confirm_password" placeholder="请再次输入新密码" required type="password">
+                        <span class="input-group-text">
+                            <a class="link-secondary" href="#" id="toggleConfirmPassword" title="显示密码">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                     width="24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                    <circle cx="12" cy="12" r="2"/>
+                                    <path d="M22 12c-2.667 4.667 -6 7 -10 7s-7.333 -2.333 -10 -7c2.667 -4.667 6 -7 10 -7s7.333 2.333 10 7"/>
+                                </svg>
+                            </a>
+                        </span>
+                    </div>
+                    <div class="invalid-feedback" id="confirmPasswordError"></div>
+                </div>
+
+                <div class="form-footer">
+                    <button class="btn btn-primary w-100" type="submit">
+                        <svg class="icon icon-tabler icon-tabler-key" fill="none" height="24"
+                             stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"></path>
+                            <circle cx="8" cy="15" r="4"></circle>
+                            <path d="M10.85 12.15l9.15 -9.15"></path>
+                            <path d="M18 6l2 2"></path>
+                            <path d="M15 9l-2 -2"></path>
+                        </svg>
+                        重置密码
+                    </button>
+                </div>
+            </div>
+        </form>
+        <div class="text-center text-muted mt-3">
+            想起密码了？ <a href="{{ url_for('auth.login') }}">返回登录</a>
+        </div>
+    </div>
+</div>
+<!-- Libs JS -->
+<!-- Tabler Core -->
+<script src="{{ url_for('static', filename='js/tabler.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+<script>
+    // 邮箱验证和验证码发送
+    let emailCodeCountdown = 0;
+    let emailVerified = false;
+
+    function showAlert(type, message) {
+        // 创建Toast通知
+        const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+
+        const toastId = 'toast-' + Date.now();
+        const toastHtml = `
+            <div class="toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger'} border-0"
+                 role="alert" aria-live="assertive" aria-atomic="true" id="${toastId}">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        `;
+
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+
+        // 显示Toast
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { delay: 4000 });
+        toast.show();
+
+        // 自动清理DOM
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    }
+
+    function createToastContainer() {
+        const container = document.createElement('div');
+        container.className = 'toast-container position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '1055';
+        document.body.appendChild(container);
+        return container;
+    }
+
+    // 邮箱输入框失焦验证
+    document.getElementById('email').addEventListener('blur', function () {
+        const email = this.value.trim();
+        if (email) {
+            checkEmailExists(email);
+        }
+    });
+
+    // 检查邮箱是否存在
+    function checkEmailExists(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showEmailError('请输入正确的邮箱格式');
+            return;
+        }
+
+        fetch('/auth/check_email', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: email})
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showEmailSuccess(`邮箱验证通过，用户：${data.username}`);
+                    emailVerified = true;
+                    enableEmailCode();
+                } else {
+                    showEmailError(data.message);
+                    emailVerified = false;
+                    disableEmailCode();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showEmailError('验证失败，请重试');
+                emailVerified = false;
+                disableEmailCode();
+            });
+    }
+
+    function showEmailError(message) {
+        const emailInput = document.getElementById('email');
+        const errorDiv = document.getElementById('emailError');
+        const successDiv = document.getElementById('emailSuccess');
+
+        emailInput.classList.add('is-invalid');
+        emailInput.classList.remove('is-valid');
+        errorDiv.textContent = message;
+        successDiv.classList.add('d-none');
+    }
+
+    function showEmailSuccess(message) {
+        const emailInput = document.getElementById('email');
+        const errorDiv = document.getElementById('emailError');
+        const successDiv = document.getElementById('emailSuccess');
+        const successText = document.getElementById('emailSuccessText');
+
+        emailInput.classList.remove('is-invalid');
+        emailInput.classList.add('is-valid');
+        errorDiv.textContent = '';
+        successText.textContent = message;
+        successDiv.classList.remove('d-none');
+    }
+
+    function enableEmailCode() {
+        document.getElementById('email_code').disabled = false;
+        document.getElementById('sendEmailCodeBtn').disabled = false;
+    }
+
+    function disableEmailCode() {
+        document.getElementById('email_code').disabled = true;
+        document.getElementById('sendEmailCodeBtn').disabled = true;
+    }
+
+    // 发送邮箱验证码
+    function sendEmailCode() {
+        if (!emailVerified) {
+            showAlert('warning', '请先验证邮箱地址');
+            return;
+        }
+
+        const email = document.getElementById('email').value.trim();
+        const btn = document.getElementById('sendEmailCodeBtn');
+        const btnText = document.getElementById('sendEmailCodeText');
+        const spinner = document.getElementById('emailCodeSpinner');
+
+        // 显示加载状态
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        btnText.textContent = '发送中...';
+
+        // 使用Ajax发送验证码，不刷新页面
+        fetch('/email/send-code', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email: email,
+                purpose: 'reset_password'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                startEmailCodeCountdown(); // 开始60秒倒计时
+            } else {
+                showAlert('danger', data.message);
+                resetEmailCodeButton(); // 重置按钮状态
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', '发送失败，请重试');
+            resetEmailCodeButton(); // 重置按钮状态
+        });
+    }
+
+    function startEmailCodeCountdown() {
+        emailCodeCountdown = 60;
+        const btn = document.getElementById('sendEmailCodeBtn');
+        const btnText = document.getElementById('sendEmailCodeText');
+        const spinner = document.getElementById('emailCodeSpinner');
+
+        spinner.classList.add('d-none');
+
+        const timer = setInterval(() => {
+            btnText.textContent = `重新发送(${emailCodeCountdown}s)`;
+            emailCodeCountdown--;
+
+            if (emailCodeCountdown < 0) {
+                clearInterval(timer);
+                resetEmailCodeButton();
+            }
+        }, 1000);
+    }
+
+    function resetEmailCodeButton() {
+        const btn = document.getElementById('sendEmailCodeBtn');
+        const btnText = document.getElementById('sendEmailCodeText');
+        const spinner = document.getElementById('emailCodeSpinner');
+
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+        btnText.textContent = '发送验证码';
+        emailCodeCountdown = 0;
+    }
+
+    // 密码显示/隐藏切换
+    document.getElementById('toggleNewPassword').addEventListener('click', function (e) {
+        e.preventDefault();
+        const passwordInput = document.getElementById('new_password');
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+    });
+
+    document.getElementById('toggleConfirmPassword').addEventListener('click', function (e) {
+        e.preventDefault();
+        const passwordInput = document.getElementById('confirm_password');
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+    });
+
+    // 密码确认验证
+    document.getElementById('confirm_password').addEventListener('input', function () {
+        const newPassword = document.getElementById('new_password').value;
+        const confirmPassword = this.value;
+        const errorDiv = document.getElementById('confirmPasswordError');
+
+        if (confirmPassword && newPassword !== confirmPassword) {
+            this.classList.add('is-invalid');
+            errorDiv.textContent = '两次输入的密码不一致';
+        } else {
+            this.classList.remove('is-invalid');
+            errorDiv.textContent = '';
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+{% extends "admin/base.html" %}
+
+{% block title %}编辑机器人 - {{ bot.name }} - {{ system.title }}{% endblock %}
+{% block page_title %}编辑机器人 - {{ bot.name }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">编辑机器人</h3>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('Admin.admin_edit_bot', bot_id=bot.id) }}" method="post">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">机器人名称</label>
+                        <input class="form-control" name="name" placeholder="请输入机器人名称"
+                               required type="text"
+                               value="{{ bot.name }}">
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label">平台</label>
+                        <input class="form-control" readonly type="text" value="QQ">
+                        <small class="form-hint">当前仅支持QQ平台</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">机器人描述</label>
+                <textarea class="form-control" name="description" placeholder="请输入机器人描述（可选）"
+                          rows="3">{{ bot.description or '' }}</textarea>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">AppID</label>
+                        <input class="form-control" name="app_id" placeholder="请输入QQ机器人的AppID"
+                               required type="text"
+                               value="{{ bot.app_id }}">
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">AppSecret</label>
+                        <input class="form-control" name="app_secret" placeholder="请输入AppSecret"
+                               required type="password"
+                               value="{{ bot.app_secret }}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">机器人所有者</label>
+                        <select class="form-select" name="owner_id" required>
+                            {% for user in users %}
+                            <option value="{{ user.id }}" {% if user.id == bot.owner_id %}selected{% endif %}>
+                                {{ user.username }} ({{ user.email }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label">状态</label>
+                        <div class="form-check">
+                            <input class="form-check-input" id="is_active" name="is_active" type="checkbox" {% if bot.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">
+                                启用机器人
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Token</label>
+                <input class="form-control" readonly type="text" value="{{ bot.token }}">
+                <small class="form-hint">系统自动生成的Token，只读</small>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">创建时间</label>
+                <input class="form-control" readonly type="text"
+                       value="{{ bot.created_at.strftime('%Y-%m-%d %H:%M:%S') if bot.created_at else '未知' }}">
+            </div>
+
+            <div class="form-footer">
+                <a class="btn btn-link" href="{{ url_for('Admin.admin_bots') }}">返回机器人列表</a>
+                <button class="btn btn-primary" type="submit">保存更改</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

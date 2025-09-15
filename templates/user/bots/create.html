@@ -1,0 +1,143 @@
+{% extends "user/base.html" %}
+
+{% block title %}创建机器人{% endblock %}
+{% block page_title %}创建机器人{% endblock %}
+
+{% block page_actions %}
+<div class="col-auto ms-auto d-print-none">
+    <div class="btn-list">
+        <a class="btn btn-outline-secondary" href="{{ url_for('user.bots') }}">
+            <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                 stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                <path d="M5 12l14 0"/>
+                <path d="M5 12l6 6"/>
+                <path d="M5 12l6 -6"/>
+            </svg>
+            返回列表
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row row-cards">
+    <!-- 机器人创建表单 -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">机器人基本信息</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label required">机器人名称</label>
+                                <input class="form-control" name="name" placeholder="为您的机器人起一个名字" required
+                                       type="text">
+                                <small class="form-hint">这个名称将显示在机器人列表中</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label required">App ID</label>
+                                <input class="form-control" name="app_id" placeholder="QQ机器人的App ID" required type="text">
+                                <small class="form-hint">在QQ开放平台获取的机器人App ID</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label required">App Secret</label>
+                                <input class="form-control" name="app_secret" placeholder="QQ机器人的App Secret" required
+                                       type="password">
+                                <small class="form-hint">在QQ开放平台获取的机器人App Secret，请妥善保管</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">机器人描述</label>
+                                <textarea class="form-control" name="description" placeholder="简单描述一下这个机器人的功能"
+                                          rows="3"></textarea>
+                                <small class="form-hint">可选，帮助您更好地管理多个机器人</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-footer">
+                        <button class="btn btn-primary" type="submit">创建机器人</button>
+                        <a class="btn btn-link" href="{{ url_for('user.bots') }}">取消</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 帮助信息 -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <svg class="icon me-2" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="9"/>
+                        <path d="M9,9a3,3 0 1,1 6,0c0,2 -3,3 -3,3"/>
+                        <path d="M12 17h.01"/>
+                    </svg>
+                    如何获取App ID和App Secret？
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="steps">
+                    <div class="step-item">
+                        <div class="h4">1. 访问QQ开放平台</div>
+                        <div class="text-muted">前往 <a href="https://q.qq.com/wiki/" target="_blank">QQ开放平台</a>
+                            并登录您的QQ账号
+                        </div>
+                    </div>
+                    <div class="step-item">
+                        <div class="h4">2. 创建机器人应用</div>
+                        <div class="text-muted">在开发者中心创建新的机器人应用，填写相关信息</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="h4">3. 获取凭证</div>
+                        <div class="text-muted">在应用详情页面可以找到App ID和App Secret</div>
+                    </div>
+                    <div class="step-item">
+                        <div class="h4">4. 配置Webhook</div>
+                        <div class="text-muted">将Webhook地址设置为：<code>{{ request.url_root }}webhook/qq</code></div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-4">
+                    <div class="d-flex">
+                        <div>
+                            <svg class="icon alert-icon" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="9"/>
+                                <path d="M12 8v4"/>
+                                <path d="M12 16h.01"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h4 class="alert-title">注意事项</h4>
+                            <div class="text-muted">
+                                <ul class="mb-0">
+                                    <li>App Secret是敏感信息，请勿泄露给他人</li>
+                                    <li>确保您的服务器IP已添加到QQ开放平台的白名单中</li>
+                                    <li>机器人创建后默认为停止状态，需要手动启动</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

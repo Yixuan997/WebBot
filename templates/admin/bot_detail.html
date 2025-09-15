@@ -1,0 +1,668 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ bot.name }} - QQ机器人详情 - {{ system.title }}{% endblock %}
+{% block page_title %}QQ机器人详情{% endblock %}
+
+{% block content %}
+<!-- 页面头部信息 -->
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="d-flex align-items-center">
+            <span class="avatar avatar-lg me-3 {% if runtime_data.is_running %}bg-green{% else %}bg-secondary{% endif %}">
+                <svg class="icon text-white" fill="none" height="32" stroke="currentColor"
+                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="32"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                    <path d="M7 7h10a2 2 0 0 1 2 2v1l1 1v3l-1 1v3a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-3l-1 -1v-3l1 -1v-1a2 2 0 0 1 2 -2z"/>
+                    <path d="M10 16h4"/>
+                    <circle cx="8.5" cy="11.5" fill="currentColor" r=".5"/>
+                    <circle cx="15.5" cy="11.5" fill="currentColor" r=".5"/>
+                </svg>
+            </span>
+            <div class="flex-fill">
+                <h3 class="card-title mb-1">
+                    {{ bot.name }}
+                    {% if runtime_data.is_running %}
+                    <span class="badge bg-green ms-2">运行中</span>
+                    {% else %}
+                    <span class="badge bg-secondary ms-2">已停止</span>
+                    {% endif %}
+                </h3>
+                <div class="text-muted">
+                    <span class="me-3">
+                        <strong>AppID:</strong>
+                        <code class="ms-1">{{ bot.app_id }}</code>
+                        <button class="btn btn-sm btn-ghost-secondary ms-1"
+                                onclick="copyToClipboard('{{ bot.app_id }}')" title="复制AppID">
+                            <svg class="icon icon-sm" fill="none" height="16" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="16" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <rect height="12" rx="2" width="12" x="8" y="8"/>
+                                <path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2"/>
+                            </svg>
+                        </button>
+                    </span>
+                    <span class="me-3">
+                        <strong>所有者:</strong> {{ bot.owner.username if bot.owner else '未知' }}
+                    </span>
+                    <span class="me-3">
+                        <strong>创建时间:</strong> {{ bot.created_at.strftime('%Y-%m-%d %H:%M') if bot.created_at else '未知' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="card-actions">
+            {% if runtime_data.is_running %}
+            <button class="btn btn-warning" id="stop-btn-{{ bot.id }}" onclick="stopBot({{ bot.id }})">
+                <svg class="icon me-1" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                     stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                    <rect height="16" width="4" x="6" y="4"/>
+                    <rect height="16" width="4" x="14" y="4"/>
+                </svg>
+                停止
+            </button>
+            {% else %}
+            <button class="btn btn-success" id="start-btn-{{ bot.id }}" onclick="startBot({{ bot.id }})">
+                <svg class="icon me-1" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                     stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                    <path d="M7 4v16l13 -8z"/>
+                </svg>
+                启动
+            </button>
+            {% endif %}
+            <a class="btn btn-primary" href="{{ url_for('Admin.admin_edit_bot', bot_id=bot.id) }}">
+                <svg class="icon me-1" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                     stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                    <path d="M4 20h4l10.5 -10.5a1.5 1.5 0 0 0 -4 -4l-10.5 10.5v4"/>
+                    <line x1="13.5" x2="17.5" y1="6.5" y2="10.5"/>
+                </svg>
+                编辑
+            </a>
+            <a class="btn btn-outline-secondary" href="{{ url_for('Admin.admin_bots') }}">
+                <svg class="icon me-1" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                     stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                    <polyline points="15,18 9,12 15,6"/>
+                </svg>
+                返回列表
+            </a>
+        </div>
+    </div>
+</div>
+<!-- 状态概览卡片 -->
+<div class="row row-deck row-cards mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader">连接状态</div>
+                    <div class="ms-auto"></div>
+                </div>
+                <div class="h1 mb-3">
+                    {% if runtime_data.is_running %}
+                    <span class="text-green">在线</span>
+                    {% else %}
+                    <span class="text-secondary">离线</span>
+                    {% endif %}
+                </div>
+                <div class="d-flex mb-2">
+                    <div>运行时长</div>
+                    <div class="ms-auto">
+                                <span class="text-green d-inline-flex align-items-center lh-1" id="uptime">
+                                    {{ runtime_data.uptime }}
+                                </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader">消息处理</div>
+                    <div class="ms-auto">
+                        <svg class="icon text-blue" fill="none" height="24" stroke="currentColor"
+                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <path d="M21 14l-3 -3h-7a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1h9a1 1 0 0 1 1 1v10"/>
+                            <path d="M8 21l-2 -2h-3a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1h2"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="h1 mb-3" id="message-count">{{ runtime_data.message_count }}</div>
+                <div class="text-muted">今日处理消息</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader">活跃群聊</div>
+                    <div class="ms-auto">
+                        <svg class="icon text-green" fill="none" height="24" stroke="currentColor"
+                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            <path d="M21 21v-2a4 4 0 0 0 -3 -3.85"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="h1 mb-3" id="group-count">{{ runtime_data.group_count }}</div>
+                <div class="text-muted">本周新增群聊</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader">响应时间</div>
+                    <div class="ms-auto">
+                        <svg class="icon text-yellow" fill="none" height="24" stroke="currentColor"
+                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <circle cx="12" cy="12" r="9"/>
+                            <polyline points="12,7 12,12 15,15"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="h1 mb-3" id="response-time">{{ bot_status.avg_response_time if bot_status else 0 }}ms</div>
+                <div class="text-muted">平均响应时间</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Webhook配置信息 -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg class="icon me-2" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                 stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                 xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                <path d="M12 6l0 -3"/>
+                <path d="M16.25 7.75l2.15 -2.15"/>
+                <path d="M18 12l3 0"/>
+                <path d="M16.25 16.25l2.15 2.15"/>
+                <path d="M12 18l0 3"/>
+                <path d="M7.75 16.25l-2.15 2.15"/>
+                <path d="M6 12l-3 0"/>
+                <path d="M7.75 7.75l-2.15 -2.15"/>
+                <circle cx="12" cy="12" r="3"/>
+            </svg>
+            Webhook配置
+        </h3>
+    </div>
+    <div class="card-body">
+        <!-- Webhook地址 -->
+        <div class="mb-4">
+            <label class="form-label">
+                <strong>Webhook回调地址</strong>
+                <span class="text-muted">(复制此地址到QQ开放平台)</span>
+            </label>
+            <div class="input-group">
+                <input class="form-control" id="webhook-url" readonly
+                       type="text" value="{{ url_for('webhook.qq_webhook', _external=True) }}">
+                <button class="btn btn-outline-secondary" onclick="copyWebhookUrl()" type="button">
+                    <svg class="icon" fill="none" height="16" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <rect height="12" rx="2" width="12" x="8" y="8"/>
+                        <path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2"/>
+                    </svg>
+                    复制
+                </button>
+            </div>
+        </div>
+
+        <!-- 配置步骤 -->
+        <div class="mb-3">
+            <h4>配置步骤</h4>
+            <ol class="text-muted">
+                <li class="mb-2">登录 <a class="text-blue" href="https://bot.q.qq.com/open"
+                                         target="_blank">QQ开放平台</a></li>
+                <li class="mb-2">进入机器人管理 → 事件配置</li>
+                <li class="mb-0">将上方地址设置为Webhook回调地址</li>
+            </ol>
+        </div>
+    </div>
+</div>
+
+<!-- 运行日志和事件 -->
+<div class="row row-deck row-cards">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <svg class="icon me-2" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0"/>
+                        <path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0"/>
+                        <line x1="3" x2="3" y1="6" y2="19"/>
+                        <line x1="12" x2="12" y1="6" y2="19"/>
+                        <line x1="21" x2="21" y1="6" y2="19"/>
+                    </svg>
+                    运行日志
+                </h3>
+                <div class="card-actions">
+                    <button class="btn btn-outline-primary btn-sm" onclick="refreshLogs()">
+                        <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                             stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                             xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>
+                            <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>
+                        </svg>
+                        刷新日志
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-3">
+                <!-- 日志显示区域 -->
+                <div class="bg-dark text-light rounded border p-3" id="terminalBody"
+                     style="height: 600px; overflow-y: auto; font-size: 13px; line-height: 1.4; font-family: 'Consolas', 'Monaco', 'Courier New', monospace;">
+                    {% for log_line in logs %}
+                    <div class="text-light mb-1" style="word-wrap: break-word; white-space: pre-wrap;">{{ log_line }}
+                    </div>
+                    {% else %}
+                    <div class="text-light mb-1">等待日志输出...</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+    function startBot(botId) {
+        console.log('启动机器人按钮被点击，机器人ID:', botId);
+
+        if (confirm('确定要启动这个QQ机器人吗？\n启动后将连接到QQ官方服务器。')) {
+            console.log('用户确认启动机器人');
+
+            // 禁用按钮防止重复点击
+            const startBtn = document.getElementById('start-btn-' + botId);
+            if (startBtn) {
+                startBtn.disabled = true;
+                startBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>启动中...';
+            }
+
+            fetch('/admin/bots/' + botId + '/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+                .then(function (response) {
+                    console.log('启动请求响应状态:', response.status);
+                    console.log('启动请求响应头:', response.headers);
+
+                    // 检查响应是否成功
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    // 检查响应内容类型
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        // 如果不是JSON，先读取文本内容用于调试
+                        return response.text().then(text => {
+                            console.error('期望JSON但收到:', text.substring(0, 200));
+                            throw new Error('服务器返回了非JSON响应，可能是错误页面');
+                        });
+                    }
+
+                    return response.json();
+                })
+                .then(function (data) {
+                    console.log('启动请求响应数据:', data);
+
+                    if (data.success) {
+                        showToast(data.message || '机器人启动成功', 'success');
+                        // 简单刷新页面，让服务器渲染正确状态
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1500);
+                    } else {
+                        throw new Error(data.message || '启动机器人失败');
+                    }
+                })
+                .catch(function (error) {
+                    console.error('启动机器人错误:', error);
+                    showToast('启动机器人失败: ' + error.message, 'error');
+                })
+                .finally(function () {
+                    // 恢复按钮状态
+                    if (startBtn) {
+                        startBtn.disabled = false;
+                        startBtn.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M7 4v16l13 -8z"/>
+                            </svg>
+                            启动
+                        `;
+                    }
+                });
+        } else {
+            console.log('用户取消启动机器人');
+        }
+    }
+
+    function stopBot(botId) {
+        console.log('停止机器人按钮被点击，机器人ID:', botId);
+
+        if (confirm('确定要停止这个QQ机器人吗？\n停止后将断开与QQ服务器的连接。')) {
+            console.log('用户确认停止机器人');
+
+            // 禁用按钮防止重复点击
+            const stopBtn = document.getElementById('stop-btn-' + botId);
+            if (stopBtn) {
+                stopBtn.disabled = true;
+                stopBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>停止中...';
+            }
+
+            fetch('/admin/bots/' + botId + '/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+                .then(function (response) {
+                    console.log('停止请求响应状态:', response.status);
+                    console.log('停止请求响应头:', response.headers);
+
+                    // 检查响应是否成功
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    // 检查响应内容类型
+                    const contentType = response.headers.get('content-type');
+                    if (!contentType || !contentType.includes('application/json')) {
+                        // 如果不是JSON，先读取文本内容用于调试
+                        return response.text().then(text => {
+                            console.error('期望JSON但收到:', text.substring(0, 200));
+                            throw new Error('服务器返回了非JSON响应，可能是错误页面');
+                        });
+                    }
+
+                    return response.json();
+                })
+                .then(function (data) {
+                    console.log('停止请求响应数据:', data);
+
+                    if (data.success) {
+                        showToast(data.message || '机器人停止成功', 'success');
+                        // 简单刷新页面，让服务器渲染正确状态
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1500);
+                    } else {
+                        throw new Error(data.message || '停止机器人失败');
+                    }
+                })
+                .catch(function (error) {
+                    console.error('停止机器人错误:', error);
+                    showToast('停止机器人失败: ' + error.message, 'error');
+                })
+                .finally(function () {
+                    // 恢复按钮状态
+                    if (stopBtn) {
+                        stopBtn.disabled = false;
+                        stopBtn.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <rect x="6" y="4" width="4" height="16"/>
+                                <rect x="14" y="4" width="4" height="16"/>
+                            </svg>
+                            停止
+                        `;
+                    }
+                });
+        } else {
+            console.log('用户取消停止机器人');
+        }
+    }
+
+    function refreshLogs() {
+        const refreshBtn = document.querySelector('button[onclick="refreshLogs()"]');
+        if (refreshBtn) {
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = `
+                <svg class="icon icon-tabler-loader animate-spin" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24">
+                    <path d="M12 6l0 -3"></path>
+                    <path d="M16.25 7.75l2.15 -2.15"></path>
+                    <path d="M18 12l3 0"></path>
+                    <path d="M16.25 16.25l2.15 2.15"></path>
+                    <path d="M12 18l0 3"></path>
+                    <path d="M7.75 16.25l-2.15 2.15"></path>
+                    <path d="M6 12l-3 0"></path>
+                    <path d="M7.75 7.75l-2.15 -2.15"></path>
+                </svg>
+                加载中...
+            `;
+        }
+
+        updateBotLogs().finally(() => {
+            if (refreshBtn) {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = `
+                    <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>
+                        <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>
+                    </svg>
+                    刷新日志
+                `;
+            }
+            showToast('日志已刷新', 'info');
+        });
+    }
+
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(function () {
+            showToast('AppID已复制到剪贴板', 'success');
+        }, function (err) {
+            console.error('复制失败: ', err);
+            showToast('复制失败', 'error');
+        });
+    }
+
+    function copyWebhookUrl() {
+        const webhookUrl = document.getElementById('webhook-url').value;
+        navigator.clipboard.writeText(webhookUrl).then(function () {
+            showToast('Webhook地址已复制到剪贴板', 'success');
+        }, function (err) {
+            console.error('复制失败: ', err);
+            showToast('复制失败', 'error');
+        });
+    }
+
+
+    function showLogDetail(message, time, level) {
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-blur fade';
+        const levelColor = level === 'ERROR' ? 'red' : level === 'WARN' ? 'yellow' : 'blue';
+        modal.innerHTML =
+            '<div class="modal-dialog modal-lg modal-dialog-centered">' +
+            '<div class="modal-content">' +
+            '<div class="modal-header">' +
+            '<h5 class="modal-title">日志详情</h5>' +
+            '<button type="button" class="btn-close" data-bs-dismiss="modal"></button>' +
+            '</div>' +
+            '<div class="modal-body">' +
+            '<div class="row">' +
+            '<div class="col-md-3">' +
+            '<strong>时间:</strong>' +
+            '</div>' +
+            '<div class="col-md-9">' +
+            time +
+            '</div>' +
+            '</div>' +
+            '<div class="row mt-2">' +
+            '<div class="col-md-3">' +
+            '<strong>级别:</strong>' +
+            '</div>' +
+            '<div class="col-md-9">' +
+            '<span class="badge bg-' + levelColor + '">' + level + '</span>' +
+            '</div>' +
+            '</div>' +
+            '<div class="row mt-2">' +
+            '<div class="col-md-3">' +
+            '<strong>详细信息:</strong>' +
+            '</div>' +
+            '<div class="col-md-9">' +
+            '<pre class="bg-light p-3 rounded">' + message + '</pre>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '<div class="modal-footer">' +
+            '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>' +
+            '<button type="button" class="btn btn-primary" onclick="copyToClipboard(\'' + message.replace(/'/g, "\\'") + '\')">复制信息</button>' +
+            '</div>' +
+            '</div>' +
+            '</div>';
+        document.body.appendChild(modal);
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+        modal.addEventListener('hidden.bs.modal', function () {
+            document.body.removeChild(modal);
+        });
+    }
+
+
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        const alertType = type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info';
+        toast.className = 'alert alert-' + alertType + ' alert-dismissible position-fixed';
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        toast.innerHTML =
+            message +
+            '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+        document.body.appendChild(toast);
+        setTimeout(function () {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 3000);
+    }
+
+    // 实时数据更新
+    function updateBotStatus() {
+        fetch(`/admin/bots/{{ bot.id }}/status`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.status) {
+                    const status = data.status;
+
+                    // 更新运行时长
+                    const uptimeElement = document.getElementById('uptime');
+                    if (uptimeElement) {
+                        uptimeElement.textContent = status.uptime;
+                    }
+
+                    // 更新消息计数
+                    const messageCountElement = document.getElementById('message-count');
+                    if (messageCountElement) {
+                        messageCountElement.textContent = status.message_count;
+                    }
+
+                    // 更新群聊数量（暂时使用插件数量）
+                    const groupCountElement = document.getElementById('group-count');
+                    if (groupCountElement) {
+                        groupCountElement.textContent = status.plugins_count || 0;
+                    }
+
+                    // 更新响应时间
+                    const responseTimeElement = document.getElementById('response-time');
+                    if (responseTimeElement) {
+                        responseTimeElement.textContent = `${status.avg_response_time || 0}ms`;
+                    }
+
+                    // 更新连接状态文本
+                    const statusTextElements = document.querySelectorAll('.h1 .text-green, .h1 .text-secondary');
+                    statusTextElements.forEach(statusText => {
+                        if (status.is_running) {
+                            statusText.className = 'text-green';
+                            statusText.textContent = '在线';
+                        } else {
+                            statusText.className = 'text-secondary';
+                            statusText.textContent = '离线';
+                        }
+                    });
+
+                    // 状态更新已简化为页面刷新，无需复杂的DOM操作
+                }
+            })
+            .catch(error => {
+                console.error('更新状态失败:', error);
+            });
+    }
+
+    // 更新日志 - 直接显示完整日志文件内容
+    function updateBotLogs() {
+        return fetch(`/admin/bots/{{ bot.id }}/logs`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.logs) {
+                    const terminalBody = document.querySelector('#terminalBody');
+                    if (terminalBody) {
+                        terminalBody.innerHTML = '';
+
+                        data.logs.forEach((logLine) => {
+                            const line = document.createElement('div');
+                            line.className = 'text-light mb-1';
+                            line.style.cssText = 'word-wrap: break-word; white-space: pre-wrap;';
+                            line.textContent = logLine;
+                            terminalBody.appendChild(line);
+                        });
+
+                        // 自动滚动到底部
+                        terminalBody.scrollTop = terminalBody.scrollHeight;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('更新日志失败:', error);
+                throw error; // 重新抛出错误以便finally处理
+            });
+    }
+
+    // 页面加载完成后的初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        // 立即更新一次状态和日志
+        updateBotStatus();
+        updateBotLogs();
+
+        // 完全手动模式 - 不自动更新任何内容
+        // setInterval(updateBotStatus, 5000); // 已禁用自动状态更新
+    });
+
+
+</script>
+{% endblock %}

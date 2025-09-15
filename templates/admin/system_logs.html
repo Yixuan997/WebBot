@@ -1,0 +1,180 @@
+{% extends "admin/base.html" %}
+
+{% block title %}系统日志 - {{ system.title }}{% endblock %}
+{% block page_title %}系统日志{% endblock %}
+
+{% block content %}
+
+<div class="row row-deck row-cards">
+    <!-- 系统日志显示 -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">系统运行日志</h3>
+                <div class="card-actions">
+                    <button class="btn btn-outline-primary btn-sm" onclick="refreshLogs()" type="button">
+                        <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                             stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                             xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>
+                            <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>
+                        </svg>
+                        刷新日志
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <!-- 日志显示区域 -->
+                <div class="bg-dark text-light" id="terminalBody"
+                     style="height: 650px; overflow-y: auto; font-size: 13px; line-height: 1.4; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; padding: 20px; border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                    <div class="text-light mb-1" style="word-wrap: break-word; white-space: pre-wrap;">
+                        正在加载系统日志...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 日志说明 -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">日志说明</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4 class="card-title h5">日志级别</h4>
+                        <ul class="text-muted">
+                            <li><strong>DEBUG</strong> - 调试信息，详细的程序执行信息</li>
+                            <li><strong>INFO</strong> - 一般信息，程序正常运行的信息</li>
+                            <li><strong>WARNING</strong> - 警告信息，可能的问题但不影响运行</li>
+                            <li><strong>ERROR</strong> - 错误信息，程序执行出现错误</li>
+                            <li><strong>CRITICAL</strong> - 严重错误，可能导致程序停止</li>
+                        </ul>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h4 class="card-title h5">日志内容</h4>
+                        <ul class="text-muted">
+                            <li><strong>系统启动</strong> - 应用启动和初始化信息</li>
+                            <li><strong>用户操作</strong> - 用户登录、操作等记录</li>
+                            <li><strong>机器人管理</strong> - 机器人启动、停止等操作</li>
+                            <li><strong>插件系统</strong> - 插件加载、卸载等信息</li>
+                            <li><strong>错误异常</strong> - 系统运行中的错误和异常</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <div class="alert alert-info">
+                        <h4 class="alert-title">提示</h4>
+                        <div class="text-muted">
+                            <ul class="mb-0">
+                                <li>日志按时间倒序显示，最新的日志在底部</li>
+                                <li>系统会自动清理超过保留期限的日志文件</li>
+                                <li>如果发现异常，请重点关注ERROR和CRITICAL级别的日志</li>
+                                <li>日志文件存储在 <code>logs/</code> 目录下</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function refreshLogs() {
+        updateSystemLogs();
+        showToast('日志已刷新', 'info');
+    }
+
+    // 更新系统日志 - 直接显示原始内容
+    function updateSystemLogs() {
+        fetch('/admin/logs/stats?ajax=1')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.lines) {
+                    const terminalBody = document.querySelector('#terminalBody');
+                    if (terminalBody) {
+                        terminalBody.innerHTML = '';
+
+                        if (data.lines.length === 0) {
+                            const line = document.createElement('div');
+                            line.className = 'text-muted mb-1';
+                            line.style.cssText = 'word-wrap: break-word; white-space: pre-wrap;';
+                            line.textContent = '暂无系统日志记录';
+                            terminalBody.appendChild(line);
+                        } else {
+                            data.lines.forEach((logLine) => {
+                                const line = document.createElement('div');
+                                line.className = 'text-light mb-1';
+                                line.style.cssText = 'word-wrap: break-word; white-space: pre-wrap;';
+                                line.textContent = logLine;
+                                terminalBody.appendChild(line);
+                            });
+                        }
+
+                        // 自动滚动到底部
+                        terminalBody.scrollTop = terminalBody.scrollHeight;
+                    }
+                } else {
+                    const terminalBody = document.querySelector('#terminalBody');
+                    if (terminalBody) {
+                        terminalBody.innerHTML = '<div class="text-danger mb-1">获取系统日志失败: ' + (data.message || '未知错误') + '</div>';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('更新系统日志失败:', error);
+                const terminalBody = document.querySelector('#terminalBody');
+                if (terminalBody) {
+                    terminalBody.innerHTML = '<div class="text-danger mb-1">网络错误: ' + error.message + '</div>';
+                }
+            });
+    }
+
+    function showToast(message, type = 'info') {
+        // 使用与flash消息一致的样式
+        const alertContainer = document.getElementById('alertContainer') || document.body;
+        const toast = document.createElement('div');
+        toast.className = `alert alert-important alert-${type} alert-dismissible`;
+        toast.style.position = 'fixed';
+        toast.style.top = '1rem';
+        toast.style.right = '1rem';
+        toast.style.zIndex = '1050';
+        toast.style.maxWidth = '400px';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div>
+                    ${type === 'success' ?
+                        '<svg class="icon alert-icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"><path d="M5 12l5 5l10 -10"/></svg>' :
+                        '<svg class="icon alert-icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"><circle cx="12" cy="12" r="9"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>'
+                    }
+                </div>
+                <div>${message}</div>
+            </div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+        `;
+
+        alertContainer.appendChild(toast);
+
+        // 5秒后自动移除
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 5000);
+    }
+
+    // 页面加载完成后的初始化
+    document.addEventListener('DOMContentLoaded', function () {
+        // 立即加载一次系统日志
+        updateSystemLogs();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,209 @@
+{% extends "admin/base.html" %}
+
+{% block title %}上传插件 - {{ system.title }}{% endblock %}
+{% block page_title %}上传插件{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">上传插件文件</h3>
+    </div>
+    <div class="card-body">
+        <!-- 上传说明 -->
+        <div class="alert alert-info">
+            <h4 class="alert-title">上传说明</h4>
+            <ul class="mb-0">
+                <li>支持zip格式的插件文件</li>
+                <li>插件必须包含<code>__init__.py</code>文件</li>
+                <li>插件中必须有<code>Plugin</code>类</li>
+                <li>文件大小限制50MB</li>
+                <li>上传后会自动解压并初始化权限</li>
+            </ul>
+        </div>
+
+        <!-- 上传表单 -->
+        <form enctype="multipart/form-data" id="uploadForm" method="POST">
+            <!-- 隐藏的文件输入框 -->
+            <input accept=".zip" id="plugin_file" name="plugin_file" required style="display: none;" type="file">
+
+            <!-- 拖拽上传区域 -->
+            <div class="mb-3">
+                <div class="card card-sm" id="dropzone"
+                     style="cursor: pointer; border: 2px dashed var(--tblr-border-color);">
+                    <div class="card-body text-center py-4">
+                        <div id="dropzone-content">
+                            <svg class="icon icon-lg text-muted mb-2" fill="none" height="48"
+                                 stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="48" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+                                <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/>
+                                <path d="M12 11v6"/>
+                                <path d="M9 14l3 -3l3 3"/>
+                            </svg>
+                            <div class="text-muted">拖拽zip文件到此处或点击选择文件</div>
+                            <div class="text-muted small">支持的格式: .zip，最大50MB</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 进度条 -->
+            <div class="mb-3" id="progress-container" style="display: none;">
+                <label class="form-label">上传进度</label>
+                <div class="progress">
+                    <div aria-valuemax="100" aria-valuemin="0" aria-valuenow="0" class="progress-bar" id="progress-bar"
+                         role="progressbar" style="width: 0%"></div>
+                </div>
+                <div class="text-muted small mt-1" id="progress-text">准备上传...</div>
+            </div>
+
+            <div class="form-footer">
+                <a class="btn btn-link" href="{{ url_for('Admin.admin_plugins') }}">返回插件列表</a>
+                <button class="btn btn-primary" id="upload-btn" type="submit">
+                    <svg class="icon me-1" fill="none" height="16" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M7 18a4.6 4.4 0 0 1 0 -9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7h-1"/>
+                        <path d="M9 15l3 -3l3 3"/>
+                        <path d="M12 12l0 9"/>
+                    </svg>
+                    上传插件
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('plugin_file');
+        const uploadForm = document.getElementById('uploadForm');
+        const uploadBtn = document.getElementById('upload-btn');
+        const progressContainer = document.getElementById('progress-container');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const dropzoneContent = document.getElementById('dropzone-content');
+
+        // 拖拽功能
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.style.borderColor = 'var(--tblr-primary)';
+            dropzone.style.backgroundColor = 'var(--tblr-primary-lt)';
+        });
+
+        dropzone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropzone.style.borderColor = 'var(--tblr-border-color)';
+            dropzone.style.backgroundColor = '';
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.style.borderColor = 'var(--tblr-border-color)';
+            dropzone.style.backgroundColor = '';
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.toLowerCase().endsWith('.zip')) {
+                    fileInput.files = files;
+                    updateDropzoneText(file.name);
+                } else {
+                    alert('只支持zip格式文件');
+                }
+            }
+        });
+
+        // 文件选择变化
+        fileInput.addEventListener('change', function () {
+            if (this.files.length > 0) {
+                updateDropzoneText(this.files[0].name);
+            }
+        });
+
+        function updateDropzoneText(filename) {
+            dropzoneContent.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-lg text-success mb-2" width="48" height="48" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                <path d="M5 12l5 5l10 -10"/>
+            </svg>
+            <div class="text-success">已选择文件: ${filename}</div>
+            <div class="text-muted small">点击重新选择</div>
+        `;
+        }
+
+        // 上传按钮点击事件
+        uploadBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+
+            if (!fileInput.files.length) {
+                alert('请选择插件文件');
+                return;
+            }
+
+            // 手动创建FormData
+            const formData = new FormData();
+            formData.append('plugin_file', fileInput.files[0]);
+
+            // 显示进度条
+            progressContainer.style.display = 'block';
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>上传中...';
+
+            const xhr = new XMLHttpRequest();
+
+            // 上传进度
+            xhr.upload.addEventListener('progress', function (e) {
+                if (e.lengthComputable) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    progressBar.style.width = percent + '%';
+                    progressBar.setAttribute('aria-valuenow', percent);
+                    progressText.textContent = `上传中... ${percent}%`;
+                }
+            });
+
+            // 上传完成
+            xhr.addEventListener('load', function () {
+                if (xhr.status === 200) {
+                    progressText.textContent = '上传完成，正在处理...';
+                    window.location.href = "{{ url_for('Admin.admin_plugins') }}";
+                } else {
+                    alert('上传失败');
+                    resetUploadState();
+                }
+            });
+
+            // 上传错误
+            xhr.addEventListener('error', function () {
+                alert('上传失败');
+                resetUploadState();
+            });
+
+            xhr.open('POST', '{{ url_for("Admin.admin_upload_plugin") }}');
+            xhr.send(formData);
+        });
+
+        function resetUploadState() {
+            progressContainer.style.display = 'none';
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                <path d="M7 18a4.6 4.4 0 0 1 0 -9a5 4.5 0 0 1 11 2h1a3.5 3.5 0 0 1 0 7h-1"/>
+                <path d="M9 15l3 -3l3 3"/>
+                <path d="M12 12l0 9"/>
+            </svg>
+            上传插件
+        `;
+            progressBar.style.width = '0%';
+            progressBar.setAttribute('aria-valuenow', '0');
+            progressText.textContent = '准备上传...';
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,564 @@
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* 首页特定样式 */
+.home-page .header-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 400px;
+    padding: 0;
+    background-color: #343a40;
+    position: relative;
+    top: -1px;
+}
+
+.home-page .page-title {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    color: #ffffff;
+}
+
+.home-page .header-content h2 {
+    font-size: 1.5rem;
+    color: #ffffff;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-weight: 300;
+    text-align: center;
+}
+
+/* API 详情页特定样式 */
+.api-detail-page .page-header {
+    margin-bottom: 2rem;
+    padding: 2rem 0;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.api-detail-page .page-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #343a40;
+    margin-bottom: 0.5rem;
+}
+
+.api-detail-page .page-subtitle {
+    font-size: 1.1rem;
+    color: #6c757d;
+}
+
+/* 其他样式保持不变 */
+.header-content form {
+    width: 100% !important;
+    max-width: 1000px !important;
+    margin: 20px auto 0 !important;
+}
+
+.header-content .input-group.input-group-lg.search-input {
+    width: 100% !important;
+}
+
+.header-content .input-group.input-group-lg.search-input .form-control {
+    width: 100% !important;
+    border-radius: 25px !important;
+    padding: 15px 25px !important;
+    font-size: 1.2rem !important;
+    height: 60px !important;
+    line-height: 1.3 !important;
+}
+
+.navbar {
+    background-color: #343a40;
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+.navbar .navbar-brand,
+.navbar .nav-link {
+    color: #ffffff;
+}
+
+.page {
+    overflow: hidden;
+    flex: 1 0 auto;
+}
+
+/* 添加响应式设计 */
+@media (max-width: 768px) {
+    .home-page .header-content {
+        height: 370px;
+    }
+
+    .home-page .page-title {
+        font-size: 2rem;
+        margin-bottom: 15px;
+    }
+
+    .home-page .header-content h2 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+    }
+
+    .api-detail-page .page-header {
+        padding: 1.5rem 0;
+    }
+
+    .api-detail-page .page-title {
+        font-size: 2rem;
+    }
+
+    .api-detail-page .page-subtitle {
+        font-size: 1rem;
+    }
+}
+
+/* 修改 API 列表样式 */
+.row-cards {
+    margin-bottom: 0;
+    margin-top: 0;
+}
+
+.row-cards .col-12:first-child {
+    margin-top: 0;
+}
+
+.row-cards .col-12 {
+    margin-bottom: 0.5rem;
+}
+
+.card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    transition: box-shadow 0.3s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 修改卡片样式 */
+.card-body {
+    position: relative;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.card-info {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #495057;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+    pointer-events: none;
+}
+
+.card-info:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.card-status,
+.card-visits {
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+
+.card-status {
+    margin-right: 0.75rem;
+}
+
+.card-status .icon,
+.card-visits .icon {
+    margin-right: 0.5rem;
+    flex-shrink: 0;
+}
+
+.card-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.card-title {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.text-muted {
+    font-size: 0.9rem;
+    margin-bottom: 0;
+}
+
+/* 图标样式 */
+.icon {
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+    vertical-align: middle;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.1));
+}
+
+.icon-plug-check {
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-progress-check"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M10 20.777a8.942 8.942 0 0 1 -2.48 -.969" /><path d="M14 3.223a9.003 9.003 0 0 1 0 17.554" /> <path d="M4.579 17.093a8.961 8.961 0 0 1 -1.227 -2.592" /> <path d="M3.124 10.5c.16 -.95 .468 -1.85 .9 -2.675l.169 -.305" /> <path d="M6.907 4.579a8.954 8.954 0 0 1 3.093 -1.356" /> <path d="M9 12l2 2l4 -4" /> </svg>') no-repeat center center;
+}
+
+.icon-plug-x {
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-progress-x"> <path stroke="none" d="M0 0h24v24H0z" fill="none" /> <path d="M10 20.777a8.942 8.942 0 0 1 -2.48 -.969" /> <path d="M14 3.223a9.003 9.003 0 0 1 0 17.554" /> <path d="M4.579 17.093a8.961 8.961 0 0 1 -1.227 -2.592" /> <path d="M3.124 10.5c.16 -.95 .468 -1.85 .9 -2.675l.169 -.305" /> <path d="M6.907 4.579a8.954 8.954 0 0 1 3.093 -1.356" /> <path d="M14 14l-4 -4" /> <path d="M10 14l4 -4" /> </svg>') no-repeat center center;
+}
+
+.icon-plug-connected {
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="%23495057" class="bi bi-plug-fill" viewBox="0 0 16 16"><path d="M6 0a.5.5 0 0 1 .5.5V3h3V.5a.5.5 0 0 1 1 0V3h1a.5.5 0 0 1 .5.5v3A3.5 3.5 0 0 1 8.5 10c-.002.434-.01.845-.04 1.22-.041.514-.126 1.003-.317 1.424a2.083 2.083 0 0 1-.97 1.028C6.725 13.9 6.169 14 5.5 14c-.998 0-1.61.33-1.974.718A1.922 1.922 0 0 0 3 16H2c0-.616.232-1.367.797-1.968C3.374 13.42 4.261 13 5.5 13c.581 0 .962-.088 1.218-.219.241-.123.4-.3.514-.55.121-.266.193-.621.23-1.09.027-.34.035-.718.037-1.141A3.5 3.5 0 0 1 4 6.5v-3a.5.5 0 0 1 .5-.5h1V.5A.5.5 0 0 1 6 0z"/></svg>') no-repeat center center;
+}
+
+/* HTTPS 提示样式 */
+.https-notice {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    color: #721c24;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    margin-bottom: 0;
+    min-height: 40px;
+}
+
+.footer {
+    background-color: #343a40;
+    color: #ffffff;
+    padding: 2rem 0 0;
+    margin-top: 0;
+}
+
+.footer h3 {
+    color: #ffffff;
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.footer p, .footer ul {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.footer a {
+    color: #ffffff;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+.footer .list-unstyled {
+    padding-left: 0;
+    list-style: none;
+}
+
+.footer .list-unstyled li {
+    margin-bottom: 0.5rem;
+}
+
+.page-wrapper {
+    flex: 1 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 0 0 0;
+}
+
+.footer-copyright {
+    text-align: center;
+    padding: 0.5rem 0;
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    line-height: 1.2;
+}
+
+.qr-code-container {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.qr-code-image {
+    max-width: 120px;
+    height: auto;
+}
+
+/* 导航栏链接样式 */
+.navbar .nav-link {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    padding: 0.5rem 0.75rem;
+    transition: color 0.3s ease;
+}
+
+.navbar .nav-link:hover {
+    color: #ffffff;
+}
+
+/* 响应式设计 */
+@media (max-width: 767px) {
+    .navbar-nav.flex-row {
+        flex-direction: row !important;
+    }
+
+    .navbar .nav-item {
+        display: flex !important;
+        margin-left: 0.5rem;
+    }
+
+    .navbar .nav-link {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
+}
+
+/* API 详情页样式 */
+.page-header {
+    margin-bottom: 2rem;
+    padding: 2rem 0;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.page-pretitle {
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+.page-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #343a40;
+    margin-bottom: 0.5rem;
+}
+
+.page-subtitle {
+    font-size: 1.1rem;
+    color: #6c757d;
+}
+
+.card h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.card h4 {
+    font-size: 1.1rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.table {
+    margin-bottom: 1.5rem;
+    border: 1px solid #e0e0e0;
+}
+
+.table th,
+.table td {
+    border: 1px solid #e0e0e0;
+}
+
+.table thead th {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+pre {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+}
+
+code {
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.875em;
+    color: #e83e8c;
+}
+
+/* JSON 语法高亮 */
+.json-string {
+    color: #28a745;
+}
+
+.json-number {
+    color: #17a2b8;
+}
+
+.json-boolean {
+    color: #dc3545;
+}
+
+.json-null {
+    color: #6c757d;
+}
+
+.json-key {
+    color: #007bff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .page-header {
+        padding: 1.5rem 0;
+    }
+
+    .page-title {
+        font-size: 2rem;
+    }
+
+    .page-subtitle {
+        font-size: 1rem;
+    }
+}
+
+/* API 详情页标题样式 */
+.api-detail-page .header-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 300px; /* 减小高度，因为没有搜索框 */
+    padding: 0;
+    background-color: #343a40;
+    position: relative;
+    top: -1px;
+}
+
+.api-detail-page .page-title {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    color: #ffffff;
+    text-align: center;
+}
+
+.api-detail-page .header-content h2 {
+    font-size: 1.5rem;
+    color: #ffffff;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-weight: 300;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .api-detail-page .header-content {
+        height: 250px;
+    }
+
+    .api-detail-page .page-title {
+        font-size: 2rem;
+        margin-bottom: 15px;
+    }
+
+    .api-detail-page .header-content h2 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+    }
+}
+
+/* 更新复制按钮样式 */
+.copy-btn {
+    margin-left: 10px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    color: #6c757d;
+    background-color: transparent;
+    border: 1px solid #6c757d;
+    border-radius: 4px;
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.copy-btn:hover {
+    color: #fff;
+    background-color: #6c757d;
+}
+
+.copy-btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
+}
+
+.api-detail-page .card-body p {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.api-detail-page .card-body p span {
+    word-break: break-all;
+    margin-right: 10px;
+}
+
+/* 添加动画效果 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.copy-btn.copied {
+    animation: fadeIn 0.3s;
+    background-color: #28a745;
+    border-color: #28a745;
+    color: #fff;
+}
+
+/* 在文件末尾添加以下样式 */
+.api-detail-page .page-wrapper {
+    padding-top: 2rem;
+}
+
+.api-detail-page .card {
+    height: 100%;
+}
+
+@media (min-width: 992px) {
+    .api-detail-page .col-lg-8 {
+        padding-right: 2rem;
+    }
+}
+
+#response-container {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.api-item {
+    transition: display 0.3s ease-in-out;
+}
+

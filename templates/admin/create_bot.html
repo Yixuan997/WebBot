@@ -1,0 +1,91 @@
+{% extends "admin/base.html" %}
+
+{% block title %}创建机器人 - {{ system.title }}{% endblock %}
+{% block page_title %}创建机器人{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">创建机器人</h3>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('Admin.admin_create_bot') }}" method="post">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">机器人名称</label>
+                        <input class="form-control" name="name" placeholder="请输入机器人名称"
+                               required type="text"
+                               value="{{ form_data.name if form_data else '' }}">
+                        <small class="form-hint">给机器人起一个好听的名字</small>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label">平台</label>
+                        <input class="form-control" readonly type="text" value="QQ">
+                        <small class="form-hint">当前仅支持QQ平台</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">机器人描述</label>
+                <textarea class="form-control" name="description" placeholder="请输入机器人描述（可选）"
+                          rows="3">{{ form_data.description if form_data else '' }}</textarea>
+            </div>
+
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">AppID</label>
+                        <input class="form-control" name="app_id" placeholder="请输入QQ机器人的AppID"
+                               required type="text"
+                               value="{{ form_data.app_id if form_data else '' }}">
+                        <small class="form-hint">从QQ开放平台获取</small>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">AppSecret</label>
+                        <input class="form-control" name="app_secret" placeholder="请输入AppSecret"
+                               required type="password"
+                               value="{{ form_data.app_secret if form_data else '' }}">
+                        <small class="form-hint">从QQ开放平台获取</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label required">机器人所有者</label>
+                <select class="form-select" name="owner_id" required>
+                    <option value="">请选择用户</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if form_data and form_data.owner_id and form_data.owner_id == user.id|string %}selected{% endif %}>
+                        {{ user.username }} ({{ user.email }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <small class="form-hint">选择机器人的所有者</small>
+            </div>
+
+            <div class="alert alert-info">
+                <h4 class="alert-title">配置说明</h4>
+                <div class="text-muted">
+                    <ol class="mb-0">
+                        <li>请先在 <a href="https://bot.q.qq.com/" target="_blank">QQ开放平台</a> 创建机器人应用</li>
+                        <li>获取 <strong>AppID</strong> 和 <strong>AppSecret</strong></li>
+                        <li>选择机器人的所有者用户</li>
+                        <li>系统会自动生成Token并配置机器人</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="form-footer">
+                <a class="btn btn-link" href="{{ url_for('Admin.admin_bots') }}">返回机器人列表</a>
+                <button class="btn btn-primary" type="submit">创建机器人</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

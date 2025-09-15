@@ -1,0 +1,260 @@
+{
+  "rows": [
+    {
+      "buttons": [
+        {
+          "id": "1",
+          "render_data": {
+            "label": "💰 经济面板",
+            "visited_label": "💰 经济面板",
+            "style": 1
+          },
+          "action": {
+            "type": 2,
+            "permission": {
+              "type": 2,
+              "specify_role_ids": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "click_limit": 9999,
+            "unsupport_tips": "请先登录王者荣耀营地",
+            "data": "经济面板",
+            "at_bot_show_channel_list": false,
+            "enter": true
+          }
+        },
+        {
+          "id": "2",
+          "render_data": {
+            "label": "📊 具体信息",
+            "visited_label": "📊 具体信息",
+            "style": 1
+          },
+          "action": {
+            "type": 2,
+            "permission": {
+              "type": 2,
+              "specify_role_ids": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "click_limit": 9999,
+            "unsupport_tips": "请先登录王者荣耀营地",
+            "data": "具体信息",
+            "at_bot_show_channel_list": false,
+            "enter": true
+          }
+        },
+        {
+          "id": "3",
+          "render_data": {
+            "label": "⚔️ 最近战绩",
+            "visited_label": "⚔️ 最近战绩",
+            "style": 1
+          },
+          "action": {
+            "type": 2,
+            "permission": {
+              "type": 2,
+              "specify_role_ids": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "click_limit": 9999,
+            "unsupport_tips": "请先登录王者荣耀营地",
+            "data": "最近战绩",
+            "at_bot_show_channel_list": false,
+            "enter": true
+          }
+        }
+      ]
+    },
+    {
+      "buttons": [
+        {
+          "id": "4",
+          "render_data": {
+            "label": "🏕️ 营地信息",
+            "visited_label": "🏕️ 营地信息",
+            "style": 1
+          },
+          "action": {
+            "type": 2,
+            "permission": {
+              "type": 2,
+              "specify_role_ids": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "click_limit": 9999,
+            "unsupport_tips": "请先登录王者荣耀营地",
+            "data": "营地信息",
+            "at_bot_show_channel_list": false,
+            "enter": true
+          }
+        },
+        {
+          "id": "5",
+          "render_data": {
+            "label": "🏆 赛季统计",
+            "visited_label": "🏆 赛季统计",
+            "style": 1
+          },
+          "action": {
+            "type": 2,
+            "permission": {
+              "type": 2,
+              "specify_role_ids": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "click_limit": 9999,
+            "unsupport_tips": "请先登录王者荣耀营地",
+            "data": "赛季统计",
+            "at_bot_show_channel_list": false,
+            "enter": true
+          }
+        },
+        {
+          "id": "6",
+          "render_data": {
+            "label": "🔥 英雄热度",
+            "visited_label": "🔥 英雄热度",
+            "style": 1
+          },
+          "action": {
+            "type": 2,
+            "permission": {
+              "type": 2,
+              "specify_role_ids": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "click_limit": 9999,
+            "unsupport_tips": "请先登录王者荣耀营地",
+            "data": "英雄热度",
+            "at_bot_show_channel_list": false,
+            "enter": true
+          }
+        }
+      ]
+    },
+    {
+      "buttons": [
+        {
+          "id": "7",
+          "render_data": {
+            "label": "🎮 王者登录",
+            "visited_label": "🎮 王者登录",
+            "style": 2
+          },
+          "action": {
+            "type": 2,
+            "permission": {
+              "type": 2,
+              "specify_role_ids": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "click_limit": 9999,
+            "unsupport_tips": "登录功能暂时不可用",
+            "data": "王者登录",
+            "at_bot_show_channel_list": false,
+            "enter": true
+          }
+        },
+        {
+          "id": "8",
+          "render_data": {
+            "label": "🚪 退出登录",
+            "visited_label": "🚪 退出登录",
+            "style": 0
+          },
+          "action": {
+            "type": 2,
+            "permission": {
+              "type": 2,
+              "specify_role_ids": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "click_limit": 9999,
+            "unsupport_tips": "退出登录功能暂时不可用",
+            "data": "退出登录",
+            "at_bot_show_channel_list": false,
+            "enter": true
+          }
+        }
+      ]
+    },
+    {
+      "buttons": [
+        {
+          "id": "9",
+          "render_data": {
+            "label": "⚙️ 出装推荐",
+            "visited_label": "⚙️ 出装推荐",
+            "style": 1
+          },
+          "action": {
+            "type": 2,
+            "permission": {
+              "type": 2,
+              "specify_role_ids": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "click_limit": 9999,
+            "unsupport_tips": "请先登录王者荣耀营地",
+            "data": "出装推荐",
+            "at_bot_show_channel_list": false,
+            "enter": true
+          }
+        },
+        {
+          "id": "10",
+          "render_data": {
+            "label": "📋 王者菜单",
+            "visited_label": "📋 王者菜单",
+            "style": 3
+          },
+          "action": {
+            "type": 2,
+            "permission": {
+              "type": 2,
+              "specify_role_ids": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "click_limit": 9999,
+            "unsupport_tips": "菜单功能暂时不可用",
+            "data": "王者菜单",
+            "at_bot_show_channel_list": true,
+            "enter": true
+          }
+        }
+      ]
+    }
+  ]
+}

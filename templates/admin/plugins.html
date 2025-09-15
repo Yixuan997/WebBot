@@ -1,0 +1,286 @@
+{% extends "admin/base.html" %}
+
+{% block title %}插件管理 - {{ system.title }}{% endblock %}
+{% block page_title %}插件管理{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <!-- 左侧统计信息 - 使用 Tabler 的 subheader 样式 -->
+    {% if plugins %}
+    {% set total_count = plugins|length %}
+    {% set enabled_count = plugins|selectattr('enabled')|list|length %}
+    {% set disabled_count = plugins|selectattr('loaded')|selectattr('enabled', 'equalto', false)|list|length %}
+    {% set unloaded_count = plugins|rejectattr('loaded')|list|length %}
+
+    <div class="subheader">
+        <div class="d-flex align-items-center">
+            <span class="subheader-title me-3">
+                总数 {{ total_count }}
+            </span>
+            <span class="badge bg-success me-2">已启用 {{ enabled_count }}</span>
+            <span class="badge bg-warning me-2">已禁用 {{ disabled_count }}</span>
+            <span class="badge bg-secondary">未加载 {{ unloaded_count }}</span>
+        </div>
+    </div>
+    {% else %}
+    <div class="subheader">
+        <span class="subheader-title">插件管理</span>
+    </div>
+    {% endif %}
+
+    <!-- 右侧操作按钮 -->
+    <div class="btn-list">
+        <form action="{{ url_for('Admin.admin_rescan_plugins') }}" class="d-inline" method="POST">
+            <button class="btn btn-outline-secondary btn-sm" type="submit"
+                    title="热重载所有已加载插件 + 扫描新插件">
+                <svg class="icon me-1" fill="none" height="16" stroke="currentColor" stroke-linecap="round"
+                     stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                    <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>
+                    <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>
+                </svg>
+                重载全部
+            </button>
+        </form>
+        <a class="btn btn-success btn-sm" href="{{ url_for('Admin.admin_upload_plugin') }}">
+            <svg class="icon me-1" fill="none" height="16" stroke="currentColor" stroke-linecap="round"
+                 stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                <path d="M12 5l0 14"/>
+                <path d="M5 12l14 0"/>
+            </svg>
+            上传插件
+        </a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ url_for('Admin.admin_test_plugin_command') }}">
+            <svg class="icon me-1" fill="none" height="16" stroke="currentColor" stroke-linecap="round"
+                 stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                <path d="M8 9l3 3l-3 3"/>
+                <path d="M13 15l3 -3l-3 -3"/>
+                <rect height="16" rx="2" width="18" x="3" y="4"/>
+            </svg>
+            测试命令
+        </a>
+    </div>
+</div>
+
+<!-- 插件小卡片网格 -->
+<div class="row row-deck row-cards">
+    {% if plugins %}
+    {% for plugin in plugins %}
+    <div class="col-sm-6 col-lg-4 col-xl-3">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <div class="avatar avatar-sm"
+                             style="background-color: {% if plugin.loaded %}{% if plugin.enabled %}#2fb344{% else %}#f59f00{% endif %}{% else %}#6c757d{% endif %};">
+                            <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5"/>
+                                <path d="M12 12l8 -4.5"/>
+                                <path d="M12 12l0 9"/>
+                                <path d="M12 12l-8 -4.5"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="flex-fill">
+                        <h3 class="card-title mb-1">{{ plugin.name }}</h3>
+                        <div class="text-muted small">v{{ plugin.version }}</div>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    {% if plugin.loaded %}
+                    {% if plugin.enabled %}
+                    <span class="badge bg-success">已启用</span>
+                    {% else %}
+                    <span class="badge bg-warning">已禁用</span>
+                    {% endif %}
+                    {% else %}
+                    <span class="badge bg-secondary">未加载</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-3" style="min-height: 3rem;">{{ plugin.description[:60] }}{% if
+                    plugin.description|length > 60 %}...{% endif %}</p>
+
+                {% if plugin.loaded %}
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="text-muted">命令</div>
+                            <div class="h4 mb-0 text-blue">{{ plugin.commands|length }}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="text-muted">Hook事件</div>
+                            <div class="h4 mb-0 text-green">{{ plugin.hooks|length }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="text-muted small text-center">
+                    <svg class="icon icon-sm me-1" fill="none" height="16" stroke="currentColor"
+                         stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0"/>
+                        <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/>
+                    </svg>
+                    {{ plugin.author or '未知作者' }}
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="btn-list w-100 justify-content-center">
+                    {% if plugin.loaded %}
+                    <a class="btn btn-outline-primary btn-sm"
+                       href="{{ url_for('Admin.admin_plugin_detail', plugin_name=plugin.name) }}">
+                        详情
+                    </a>
+                    {% if plugin.enabled %}
+                    <form action="{{ url_for('Admin.admin_disable_plugin', plugin_name=plugin.name) }}" class="d-inline"
+                          method="POST">
+                        <button class="btn btn-outline-warning btn-sm" type="submit">
+                            禁用
+                        </button>
+                    </form>
+                    {% else %}
+                    <form action="{{ url_for('Admin.admin_enable_plugin', plugin_name=plugin.name) }}" class="d-inline"
+                          method="POST">
+                        <button class="btn btn-outline-success btn-sm" type="submit">
+                            启用
+                        </button>
+                    </form>
+                    {% endif %}
+                    <form action="{{ url_for('Admin.admin_reload_plugin', plugin_name=plugin.name) }}" class="d-inline"
+                          method="POST" title="热重载插件（不重启应用）">
+                        <button class="btn btn-outline-info btn-sm" type="submit">
+                            重载
+                        </button>
+                    </form>
+                    <form action="{{ url_for('Admin.admin_unload_plugin', plugin_name=plugin.name) }}" class="d-inline"
+                          method="POST" onsubmit="return confirmUnload('{{ plugin.name }}')">
+                        <button class="btn btn-outline-danger btn-sm" type="submit">
+                            卸载
+                        </button>
+                    </form>
+                    {% else %}
+                    <form action="{{ url_for('Admin.admin_load_plugin', plugin_name=plugin.name) }}" class="d-inline"
+                          method="POST">
+                        <button class="btn btn-primary btn-sm w-100" type="submit">
+                            加载插件
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="col-12">
+        <div class="empty">
+            <div class="empty-icon">
+                <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                     stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                    <path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5"/>
+                    <path d="M12 12l8 -4.5"/>
+                    <path d="M12 12l0 9"/>
+                    <path d="M12 12l-8 -4.5"/>
+                </svg>
+            </div>
+            <p class="empty-title">暂无插件</p>
+            <p class="empty-subtitle text-muted">
+                系统中还没有发现任何插件，您可以上传新插件或重新扫描
+            </p>
+            <div class="empty-action">
+                <a class="btn btn-primary" href="{{ url_for('Admin.admin_upload_plugin') }}">
+                    <svg class="icon me-1" fill="none" height="16" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M12 5l0 14"/>
+                        <path d="M5 12l14 0"/>
+                    </svg>
+                    上传插件
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 分页导航 -->
+{% if pagination and pagination.pages > 1 %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-center">
+            <nav aria-label="插件列表分页">
+                <ul class="pagination">
+                    <!-- 上一页 -->
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a aria-label="上一页" class="page-link"
+                           href="{{ url_for('Admin.admin_plugins', page=pagination.prev_num) }}">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&laquo;</span>
+                    </li>
+                    {% endif %}
+
+                    <!-- 页码 -->
+                    {% for page_num in pagination_pages %}
+                    {% if page_num == '...' %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('Admin.admin_plugins', page=page_num) }}">{{ page_num
+                            }}</a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    <!-- 下一页 -->
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a aria-label="下一页" class="page-link"
+                           href="{{ url_for('Admin.admin_plugins', page=pagination.next_num) }}">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">&raquo;</span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function confirmUnload(pluginName) {
+        // 使用Bootstrap模态框替代confirm
+        if (confirm(`确定要卸载插件 ${pluginName} 吗？`)) {
+            return true;
+        }
+        return false;
+    }
+</script>
+{% endblock %}

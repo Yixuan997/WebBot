@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+
+{% block title %}关于我们 - {{ super() }}{% endblock %}
+
+{% block page_class %}about-page{% endblock %}
+
+{% block content %}
+<div class="container-xl py-4">
+    <div class="row g-4">
+        <div class="col-12">
+            <h1 class="page-title mb-4">关于我们</h1>
+        </div>
+
+        <!-- 公司简介 -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">
+                        <svg class="icon icon-tabler icon-tabler-building" fill="none"
+                             height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                             stroke-width="2"
+                             viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"></path>
+                            <line x1="3" x2="21" y1="21" y2="21"></line>
+                            <line x1="9" x2="10" y1="8" y2="8"></line>
+                            <line x1="9" x2="10" y1="12" y2="12"></line>
+                            <line x1="9" x2="10" y1="16" y2="16"></line>
+                            <line x1="14" x2="15" y1="8" y2="8"></line>
+                            <line x1="14" x2="15" y1="12" y2="12"></line>
+                            <line x1="14" x2="15" y1="16" y2="16"></line>
+                            <path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16"></path>
+                        </svg>
+                        团队介绍
+                    </h2>
+                    <p>{{ system.title
+                        }}一个免费提供API数据接口调用服务平台。我们成立于2023年，旨在为开发者和企业提供便捷、可靠的API解决方案。通过不断创新和优化，我们的服务已经帮助众多客户提高了开发效率，降低了成本。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 使命和愿景 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">
+                        <svg class="icon icon-tabler icon-tabler-target" fill="none"
+                             height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                             stroke-width="2"
+                             viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"></path>
+                            <circle cx="12" cy="12" r="1"></circle>
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <circle cx="12" cy="12" r="9"></circle>
+                        </svg>
+                        我们的使命
+                    </h2>
+                    <p>
+                        我们的使命是通过提供优质的API服务，简化开发流程，助力企业快速实现数字化转型。我们致力于成为开发者最信赖的API服务提供商。</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">
+                        <svg class="icon icon-tabler icon-tabler-eye" fill="none" height="24"
+                             stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                             viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"></path>
+                            <circle cx="12" cy="12" r="2"></circle>
+                            <path d="M22 12c-2.667 4.667 -6 7 -10 7s-7.333 -2.333 -10 -7c2.667 -4.667 6 -7 10 -7s7.333 2.333 10 7"></path>
+                        </svg>
+                        我们的愿景
+                    </h2>
+                    <p>
+                        我们的愿景是打造一个开放、共享的API生态系统，推动技术创新，为全球开发者和企业提供更多可能性。我们期望通过我们的努力，让每一个创意都能轻松实现。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 核心价值观 -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">
+                        <svg class="icon icon-tabler icon-tabler-heart" fill="none"
+                             height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                             stroke-width="2"
+                             viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"></path>
+                            <path d="M19.5 13.572l-7.5 7.428l-7.5 -7.428m0 0a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"></path>
+                        </svg>
+                        核心价值观
+                    </h2>
+                    <div class="row row-cards">
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="card card-sm">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <span class="avatar bg-blue-lt">创</span>
+                                        <div class="ms-3">
+                                            <h3 class="card-title mb-1">创新</h3>
+                                            <div class="text-muted">不断探索新技术，推动行业发展</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="card card-sm">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <span class="avatar bg-green-lt">质</span>
+                                        <div class="ms-3">
+                                            <h3 class="card-title mb-1">质量</h3>
+                                            <div class="text-muted">提供稳定、可靠的高质量服务</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="card card-sm">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <span class="avatar bg-red-lt">诚</span>
+                                        <div class="ms-3">
+                                            <h3 class="card-title mb-1">诚信</h3>
+                                            <div class="text-muted">诚实守信，赢得客户信赖</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="card card-sm">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center">
+                                        <span class="avatar bg-yellow-lt">合</span>
+                                        <div class="ms-3">
+                                            <h3 class="card-title mb-1">合作</h3>
+                                            <div class="text-muted">与合作伙伴共同成长</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 联系我们 -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">
+                        <svg class="icon icon-tabler icon-tabler-mail" fill="none" height="24"
+                             stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                             viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"></path>
+                            <rect height="14" rx="2" width="18" x="3" y="5"></rect>
+                            <polyline points="3 7 12 13 21 7"></polyline>
+                        </svg>
+                        联系我们
+                    </h2>
+                    <p>如果您对我们的服务有任何疑问或建议，欢迎随时与我们联系：</p>
+                    <ul>
+                        <li>邮箱：{{ system.email }}</li>
+                        <li>QQ群：583862455</li>
+                    </ul>
+                    <a class="btn btn-primary mt-3"
+                       href="http://wpa.qq.com/msgrd?v=3&uin=93653142&site=qq&menu=yes">
+                        联系我们
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

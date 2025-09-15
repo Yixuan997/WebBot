@@ -1,0 +1,317 @@
+{% extends "admin/base.html" %}
+
+{% block title %}测试插件Hook - {{ system.title }}{% endblock %}
+{% block page_title %}测试插件Hook{% endblock %}
+
+{% block content %}
+
+<div class="row row-deck row-cards">
+    <!-- Hook测试表单 -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Hook测试</h3>
+            </div>
+            <div class="card-body">
+                <form id="testForm">
+                    <div class="mb-3">
+                        <label class="form-label required">测试消息</label>
+                        <textarea class="form-control" id="messageInput" name="message"
+                                  placeholder="输入要测试的消息内容" required
+                                  rows="3"></textarea>
+                        <small class="form-hint">例如: /help, 你好, /echo Hello World</small>
+                    </div>
+
+                    <div class="form-footer">
+                        <button class="btn btn-primary" type="submit">
+                            <svg class="icon me-1" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M5 12l5 5l10 -10"/>
+                            </svg>
+                            执行测试
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="clearForm()" type="button">
+                            清空
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 测试结果 -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">执行结果</h3>
+                <div class="card-actions">
+                    <span class="badge bg-secondary" id="statusBadge">等待测试</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="resultContainer">
+                    <div class="empty">
+                        <div class="empty-icon">
+                            <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M7 7h10a2 2 0 0 1 2 2v1l1 1v3l-1 1v3a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-3l-1 -1v-3l1 -1v-1a2 2 0 0 1 2 -2z"/>
+                            </svg>
+                        </div>
+                        <p class="empty-title">等待Hook测试</p>
+                        <p class="empty-subtitle text-muted">
+                            输入消息并点击执行测试按钮
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 常用消息示例 -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">常用消息示例</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h4 class="card-title h5">帮助命令</h4>
+                        <div class="list-group list-group-flush">
+                            <a class="list-group-item list-group-item-action" href="#"
+                               onclick="fillMessage('/help')">
+                                <div class="d-flex">
+                                    <div>
+                                        <div><code>/help</code></div>
+                                        <div class="text-muted">显示帮助信息</div>
+                                    </div>
+                                </div>
+                            </a>
+                            <a class="list-group-item list-group-item-action" href="#"
+                               onclick="fillMessage('/commands')">
+                                <div class="d-flex">
+                                    <div>
+                                        <div><code>/commands</code></div>
+                                        <div class="text-muted">列出所有命令</div>
+                                    </div>
+                                </div>
+                            </a>
+                            <a class="list-group-item list-group-item-action" href="#"
+                               onclick="fillMessage('/about')">
+                                <div class="d-flex">
+                                    <div>
+                                        <div><code>/about</code></div>
+                                        <div class="text-muted">关于机器人</div>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <h4 class="card-title h5">Echo命令</h4>
+                        <div class="list-group list-group-flush">
+                            <a class="list-group-item list-group-item-action" href="#"
+                               onclick="fillMessage('/echo Hello World')">
+                                <div class="d-flex">
+                                    <div>
+                                        <div><code>/echo Hello World</code></div>
+                                        <div class="text-muted">重复发送内容</div>
+                                    </div>
+                                </div>
+                            </a>
+                            <a class="list-group-item list-group-item-action" href="#"
+                               onclick="fillMessage('/ping')">
+                                <div class="d-flex">
+                                    <div>
+                                        <div><code>/ping</code></div>
+                                        <div class="text-muted">测试响应</div>
+                                    </div>
+                                </div>
+                            </a>
+                            <a class="list-group-item list-group-item-action" href="#"
+                               onclick="fillMessage('/time')">
+                                <div class="d-flex">
+                                    <div>
+                                        <div><code>/time</code></div>
+                                        <div class="text-muted">获取时间</div>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <h4 class="card-title h5">自然语言</h4>
+                        <div class="list-group list-group-flush">
+                            <a class="list-group-item list-group-item-action" href="#"
+                               onclick="fillMessage('你好')">
+                                <div class="d-flex">
+                                    <div>
+                                        <div><code>你好</code></div>
+                                        <div class="text-muted">问候语测试</div>
+                                    </div>
+                                </div>
+                            </a>
+                            <a class="list-group-item list-group-item-action" href="#"
+                               onclick="fillMessage('谢谢')">
+                                <div class="d-flex">
+                                    <div>
+                                        <div><code>谢谢</code></div>
+                                        <div class="text-muted">感谢语测试</div>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('testForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const message = document.getElementById('messageInput').value.trim();
+
+        if (!message) {
+            showAlert('error', '请输入测试消息');
+            return;
+        }
+
+        // 更新状态
+        updateStatus('testing', '测试中...');
+
+        // 发送测试请求
+        fetch('{{ url_for("Admin.admin_test_plugin_command") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                message: message
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateStatus('success', '执行成功');
+                    showResult(data);
+                } else {
+                    updateStatus('error', '执行失败');
+                    showError(data.message);
+                }
+            })
+            .catch(error => {
+                updateStatus('error', '请求失败');
+                showError('网络错误: ' + error.message);
+            });
+    });
+
+    function updateStatus(type, message) {
+        const badge = document.getElementById('statusBadge');
+        badge.className = `badge bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'warning'}`;
+        badge.textContent = message;
+    }
+
+    function showResult(data) {
+        const container = document.getElementById('resultContainer');
+
+        container.innerHTML = `
+        <div class="mb-3">
+            <label class="form-label">测试消息</label>
+            <div class="form-control-plaintext">
+                <code>${escapeHtml(data.message)}</code>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Hook处理结果</label>
+            <div class="card">
+                <div class="card-body">
+                    <pre class="mb-0">${escapeHtml(data.response)}</pre>
+                </div>
+            </div>
+        </div>
+    `;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text || '';
+        return div.innerHTML;
+    }
+
+    function showError(message) {
+        const container = document.getElementById('resultContainer');
+        container.innerHTML = `
+        <div class="alert alert-danger">
+            <h4 class="alert-title">执行失败</h4>
+            <div class="text-muted">${message}</div>
+        </div>
+    `;
+    }
+
+    function fillMessage(message) {
+        document.getElementById('messageInput').value = message;
+    }
+
+    function clearForm() {
+        document.getElementById('messageInput').value = '';
+        document.getElementById('resultContainer').innerHTML = `
+        <div class="empty">
+            <div class="empty-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                    <path d="M7 7h10a2 2 0 0 1 2 2v1l1 1v3l-1 1v3a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-3l-1 -1v-3l1 -1v-1a2 2 0 0 1 2 -2z"/>
+                </svg>
+            </div>
+            <p class="empty-title">等待Hook测试</p>
+            <p class="empty-subtitle text-muted">
+                输入消息并点击执行测试按钮
+            </p>
+        </div>
+    `;
+        updateStatus('secondary', '等待测试');
+    }
+
+    function showAlert(type, message) {
+        // 使用Tabler的alert组件，与flash消息保持一致
+        const alertContainer = document.getElementById('alertContainer') || document.body;
+        const alert = document.createElement('div');
+        alert.className = `alert alert-important alert-${type === 'error' ? 'danger' : type} alert-dismissible`;
+        alert.style.position = 'fixed';
+        alert.style.top = '1rem';
+        alert.style.right = '1rem';
+        alert.style.zIndex = '1050';
+        alert.style.maxWidth = '400px';
+        alert.innerHTML = `
+            <div class="d-flex">
+                <div>
+                    ${type === 'success' ?
+                        '<svg class="icon alert-icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"><path d="M5 12l5 5l10 -10"/></svg>' :
+                        '<svg class="icon alert-icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"><circle cx="12" cy="12" r="9"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>'
+                    }
+                </div>
+                <div>${message}</div>
+            </div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+        `;
+
+        alertContainer.appendChild(alert);
+
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+</script>
+{% endblock %}

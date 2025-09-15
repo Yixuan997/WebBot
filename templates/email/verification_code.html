@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>{{ title }} - QQ机器人管理系统</title>
+    <style>
+        /* Tabler inspired email styles */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.5;
+            color: #1e293b;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .email-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 40px;
+            text-align: center;
+            color: white;
+        }
+
+        .email-header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .email-header .subtitle {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .email-body {
+            padding: 40px;
+        }
+
+        .verification-card {
+            background: {
+        {
+            bg_color
+        }
+        };
+            border: 1px solid {
+        {
+            border_color
+        }
+        };
+            border-radius: 8px;
+            padding: 24px;
+            margin: 24px 0;
+            text-align: center;
+        }
+
+        .verification-title {
+            color: {
+        {
+            title_color
+        }
+        };
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0 0 16px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .verification-icon {
+            width: 24px;
+            height: 24px;
+            fill: {
+        {
+            title_color
+        }
+        };
+        }
+
+        .verification-desc {
+            color: #64748b;
+            margin: 0 0 24px 0;
+            font-size: 16px;
+        }
+
+        .verification-code {
+            background: #ffffff;
+            border: 2px dashed {
+        {
+            title_color
+        }
+        };
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 32px;
+            font-weight: bold;
+            color: {
+        {
+            title_color
+        }
+        };
+            letter-spacing: 8px;
+            text-align: center;
+        }
+
+        .verification-tips {
+            background: #f1f5f9;
+            border-left: 4px solid {
+        {
+            title_color
+        }
+        };
+            padding: 16px 20px;
+            margin: 24px 0;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .verification-tips h4 {
+            color: {
+        {
+            title_color
+        }
+        };
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .verification-tips ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #64748b;
+        }
+
+        .verification-tips li {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .email-footer {
+            background: #f8fafc;
+            padding: 30px 40px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .footer-text {
+            color: #94a3b8;
+            font-size: 12px;
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        .footer-divider {
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            margin: 20px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: {
+        {
+            title_color
+        }
+        };
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            margin: 16px 0;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: {
+        {
+            title_color
+        }
+        } dd;
+            transform: translateY(-1px);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: {
+        {
+            bg_color
+        }
+        };
+            color: {
+        {
+            title_color
+        }
+        };
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin: 16px 0;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: {
+        {
+            title_color
+        }
+        };
+            border-radius: 50%;
+        }
+
+        @media (max-width: 600px) {
+            .email-container {
+                margin: 0;
+                border-radius: 0;
+            }
+
+            .email-header,
+            .email-body,
+            .email-footer {
+                padding: 20px;
+            }
+
+            .verification-code {
+                font-size: 24px;
+                letter-spacing: 4px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <!-- 邮件头部 -->
+    <div class="email-header">
+        <h1>QQ机器人管理系统</h1>
+        <p class="subtitle">智能机器人管理平台</p>
+    </div>
+
+    <!-- 邮件正文 -->
+    <div class="email-body">
+        <!-- 验证码卡片 -->
+        <div class="verification-card">
+            <h2 class="verification-title">
+                <!-- 根据类型显示不同图标 -->
+                {% if purpose == 'register' %}
+                <svg class="verification-icon" viewBox="0 0 24 24">
+                    <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 4L13.5 7H7V9H13.5L15 12L21 9ZM16 12V22H14V12H16ZM12 13.5V22H10V13.5H12ZM8 14V22H6V14H8ZM4 15V22H2V15H4Z"/>
+                </svg>
+                {% elif purpose == 'reset_password' %}
+                <svg class="verification-icon" viewBox="0 0 24 24">
+                    <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+                </svg>
+                {% else %}
+                <svg class="verification-icon" viewBox="0 0 24 24">
+                    <path d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
+                </svg>
+                {% endif %}
+                {{ title }}
+            </h2>
+
+            <p class="verification-desc">{{ description }}</p>
+
+            <!-- 验证码显示 -->
+            <div class="verification-code">{{ code }}</div>
+
+            <!-- 状态徽章 -->
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                5分钟内有效
+            </div>
+        </div>
+
+        <!-- 使用提示 -->
+        <div class="verification-tips">
+            <h4>📋 使用说明</h4>
+            <ul>
+                <li>验证码有效期为 <strong>5分钟</strong>，请及时使用</li>
+                <li>请勿将验证码告诉他人，以保护账户安全</li>
+                <li>如非本人操作，请忽略此邮件</li>
+                {% if purpose == 'reset_password' %}
+                <li>如果您没有申请密码重置，请立即检查账户安全</li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <!-- 操作按钮（可选） -->
+        {% if show_button %}
+        <div style="text-align: center; margin: 32px 0;">
+            <a class="btn" href="{{ button_url }}">{{ button_text }}</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 邮件底部 -->
+    <div class="email-footer">
+        <hr class="footer-divider">
+        <p class="footer-text">
+            此邮件由 QQ机器人管理系统 自动发送，请勿回复<br>
+            发送时间：{{ send_time }}<br>
+            如有疑问，请联系系统管理员
+        </p>
+    </div>
+</div>
+</body>
+</html>

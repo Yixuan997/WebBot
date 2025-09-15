@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+    <meta content="ie=edge" http-equiv="X-UA-Compatible"/>
+    <title>用户登录 - {{ system.title }}</title>
+    <meta content="{{ system.des }}"
+          name="description">
+    <meta content="{{ system.key }}"
+          name="keywords">
+    <meta content="Yixuan" name="author">
+    <meta content="Yixuan" name="founder">
+    <link href="{{ url_for('static', filename='favicon.ico') }}" rel="icon" type="image/x-icon">
+    <!-- CSS files -->
+    <link href="{{ url_for('static', filename='css/tabler.min.css') }}" rel="stylesheet">
+
+    <style>
+        @import url('https://rsms.me/inter/inter.css');
+
+        :root {
+            --tblr-font-sans-serif: Inter, -apple-system, BlinkMacSystemFont, San Francisco, Segoe UI, Roboto, Helvetica Neue, sans-serif;
+        }
+    </style>
+</head>
+<body class=" d-flex flex-column bg-white">
+
+{% include 'flash.html' %}
+
+<div class="row g-0 flex-fill">
+    <div class="col-12 col-lg-6 col-xl-4 border-top-wide border-primary d-flex flex-column justify-content-center">
+        <div class="container container-tight my-5 px-lg-5">
+            <div class="text-center mb-4">
+                <a class="navbar-brand navbar-brand-autodark" href="."><img
+                        alt="" height="36" src="{{ url_for('static', filename='logo.svg') }}"></a>
+            </div>
+            <h2 class="h3 text-center mb-3">
+                登录到您的账户
+            </h2>
+            <form action="{{ url_for('auth.login') }}" autocomplete="off" id="loginForm" method="post" novalidate>
+                <div class="mb-3">
+                    <label class="form-label">账号</label>
+                    <input autocomplete="off" class="form-control" id="username" name="username" placeholder="请输入账号！"
+                           required type="text">
+                    <div class="invalid-feedback" id="usernameError"></div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">密码</label>
+                    <div class="input-group input-group-flat">
+                        <input autocomplete="off" class="form-control" id="password" name="password"
+                               placeholder="请输入密码！" required type="password">
+
+                        <span class="input-group-text">
+                            <a class="link-secondary" data-bs-toggle="tooltip" href="#" id="togglePassword"
+                               title="显示密码">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round"
+                                     stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                                     xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><circle
+                                        cx="12"
+                                        cy="12"
+                                        r="2"/><path
+                                        d="M22 12c-2.667 4.667 -6 7 -10 7s-7.333 -2.333 -10 -7"/></svg>
+                            </a>
+                        </span>
+                        <div class="invalid-feedback" id="passwordError"></div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">验证码</label>
+                    <div class="input-group input-group-flat">
+                        <input autocomplete="off" class="form-control" id="code" name="code" placeholder="请输入验证码"
+                               required type="text">
+                        <span class="input-group-text p-0">
+                            <img alt="验证码" id="captchaImage"
+                                 onclick="refreshCaptcha()" style="height: 38px; cursor: pointer;">
+                        </span>
+                        <div class="invalid-feedback" id="codeError"></div>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-check">
+                        <input class="form-check-input" name="remember_me" type="checkbox"/>
+                        <span class="form-check-label">记住我</span>
+                    </label>
+                </div>
+                <div class="form-footer">
+                    <button class="btn btn-primary w-100" type="submit">登录</button>
+                </div>
+                <input id="captcha_id" name="captcha_id" type="hidden" value="">
+            </form>
+            <div class="text-center text-muted mt-3">
+                还没有账户？ <a href="/auth/register" tabindex="-1">去注册</a>
+            </div>
+            <div class="text-center text-muted mt-2">
+                忘记密码？ <a href="{{ url_for('auth.forgot') }}" tabindex="-1">找回密码</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-6 col-xl-8 d-none d-lg-block">
+        <div class="bg-cover h-100 min-vh-100" id="backgroundDiv" style="background-image: url();"></div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/tabler.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+
+</body>
+</html>
