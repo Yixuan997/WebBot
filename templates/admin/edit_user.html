@@ -1,0 +1,67 @@
+{% extends "admin/base.html" %}
+
+{% block title %}编辑用户 - {{ system.title }}{% endblock %}
+
+{% block page_title %}编辑用户{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">编辑用户</h3>
+    </div>
+    <div class="card-body">
+        <form action="/admin/users/{{ edit_user.id }}/edit" method="post">
+            <div class="mb-3">
+                <label class="form-label">用户名</label>
+                <input class="form-control" name="username" required type="text" value="{{ edit_user.username }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">邮箱</label>
+                <input class="form-control" name="email" type="email" value="{{ edit_user.email or '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">QQ</label>
+                <input class="form-control" name="qq" placeholder="请输入QQ号" type="text"
+                       value="{{ edit_user.qq or '' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">角色</label>
+                <select class="form-select" name="role">
+                    <option value="user" {% if edit_user.role == 'user' %}selected{% endif %}>普通用户</option>
+                    <option value="admin" {% if edit_user.role == 'admin' %}selected{% endif %}>管理员</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">VIP状态</label>
+                <div class="form-check">
+                    <input class="form-check-input" id="vip" name="vip" type="checkbox" {% if edit_user.vip %}checked{% endif %}>
+                    <label class="form-check-label" for="vip">
+                        VIP用户
+                    </label>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">注册时间</label>
+                <input class="form-control" readonly
+                       type="text"
+                       value="{{ edit_user.registered_on.strftime('%Y-%m-%d %H:%M:%S') if edit_user.registered_on else '未知' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">最后登录时间</label>
+                <input class="form-control" readonly
+                       type="text"
+                       value="{{ edit_user.last_login.strftime('%Y-%m-%d %H:%M:%S') if edit_user.last_login else '从未登录' }}">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">新密码</label>
+                <input class="form-control" name="password" placeholder="留空则不修改密码" type="password">
+                <small class="form-hint">如果要修改密码，请输入新密码</small>
+            </div>
+            <div class="form-footer">
+                <a class="btn btn-link" href="/admin/users">返回用户列表</a>
+                <button class="btn btn-primary" type="submit">保存更改</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

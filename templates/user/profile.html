@@ -1,0 +1,141 @@
+{% extends "user/base.html" %}
+
+{% block title %}个人资料{% endblock %}
+{% block page_title %}个人资料{% endblock %}
+
+{% block content %}
+<div class="row row-cards">
+    <!-- 个人信息 -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex flex-column flex-sm-row align-items-center align-items-sm-start gap-3">
+                    <span class="avatar avatar-lg flex-shrink-0"
+                          style="background-image: url(https://q2.qlogo.cn/headimg_dl?spec=640&dst_uin={{ user.qq if user.qq else '10000' }})"></span>
+                    <div class="flex-fill text-center text-sm-start w-100">
+                        <div class="d-flex flex-column flex-sm-row align-items-center align-items-sm-start justify-content-between gap-2">
+                            <div>
+                                <h3 class="card-title mb-1">{{ user.username }}</h3>
+                                <div class="text-muted">{{ user.email }}</div>
+                            </div>
+                            <div class="text-center text-sm-end d-flex flex-wrap gap-1 justify-content-center justify-content-sm-end">
+                                {% if user.vip %}
+                                <span class="badge bg-warning text-white">
+                                    <svg class="icon me-1" fill="none" height="16"
+                                         stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                         viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+                                    </svg>
+                                    VIP用户
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">普通用户</span>
+                                {% endif %}
+                                {% if user.is_admin %}
+                                <span class="badge bg-purple-lt">管理员</span>
+                                {% else %}
+                                <span class="badge bg-blue-lt">普通用户</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('user.update_profile') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label required">用户名</label>
+                        <input class="form-control" name="username" placeholder="请输入用户名" required type="text"
+                               value="{{ user.username }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label required">邮箱地址</label>
+                        <input class="form-control" name="email" placeholder="请输入邮箱地址" required type="email"
+                               value="{{ user.email }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">QQ号码</label>
+                        <input class="form-control" name="qq" placeholder="输入QQ号码显示头像" type="text"
+                               value="{{ user.qq or '' }}">
+                        <small class="form-hint">QQ头像将自动更新</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">注册时间</label>
+                        <input class="form-control" readonly type="text" value="{{ user.registered_on }}">
+                    </div>
+
+                    <div class="form-footer">
+                        <button class="btn btn-primary" type="submit">
+                            <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M5 12l5 5l10 -10"/>
+                            </svg>
+                            保存更改
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改密码 -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <svg class="icon me-2" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <rect height="11" rx="2" ry="2" width="18" x="3" y="11"/>
+                        <circle cx="12" cy="16" r="1"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    修改密码
+                </h3>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('user.change_password') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label required">当前密码</label>
+                        <input class="form-control" name="current_password" placeholder="请输入当前密码" required
+                               type="password">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label required">新密码</label>
+                        <input class="form-control" minlength="6" name="new_password" placeholder="请输入新密码" required
+                               type="password">
+                        <small class="form-hint">密码长度至少6位</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label required">确认新密码</label>
+                        <input class="form-control" minlength="6" name="confirm_password" placeholder="请再次输入新密码" required
+                               type="password">
+                    </div>
+
+                    <div class="form-footer">
+                        <button class="btn btn-warning" type="submit">
+                            <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            修改密码
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

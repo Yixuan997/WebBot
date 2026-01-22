@@ -1,0 +1,191 @@
+{% extends "admin/base.html" %}
+
+{% block title %}机器人管理 - {{ system.title }}{% endblock %}
+
+{% block page_title %}机器人管理{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">机器人列表</h3>
+        <div class="card-actions">
+            <form class="input-icon" method="get" style="width: 200px;">
+                <input class="form-control" name="search" placeholder="搜索机器人..." type="text"
+                       value="{{ search or '' }}">
+                <span class="input-icon-addon">
+                    <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><circle
+                            cx="10"
+                            cy="10"
+                            r="7"/><line
+                            x1="21" x2="15" y1="21" y2="15"/></svg>
+                </span>
+            </form>
+        </div>
+    </div>
+<div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-vcenter card-table table-striped">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>机器人名称</th>
+                <th>协议</th>
+                <th>配置信息</th>
+                <th>所有者</th>
+                <th>状态</th>
+                <th>运行状态</th>
+                <th>创建时间</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for bot in bots %}
+            {% set bot_config = bot.get_config() %}
+            <tr>
+                <td>{{ bot.id }}</td>
+                <td>{{ bot.name }}</td>
+                <td>
+                    {% if bot.protocol == 'qq' %}
+                    <span class="badge bg-blue-lt">QQ官方</span>
+                    {% elif bot.protocol == 'onebot' %}
+                    <span class="badge bg-purple-lt">OneBot V11</span>
+                    {% else %}
+                    <span class="badge bg-secondary-lt">{{ bot.protocol }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if bot.protocol == 'qq' %}
+                    <code>{{ bot_config.get('app_id', 'N/A') }}</code>
+                    {% elif bot.protocol == 'onebot' %}
+                    <small>{{ bot_config.get('ws_host', '0.0.0.0') }}:{{ bot_config.get('ws_port', '8080') }}</small>
+                    {% else %}
+                    <small>-</small>
+                    {% endif %}
+                </td>
+                <td>{{ bot.owner.username if bot.owner else '未知' }}</td>
+                <td>
+                    {% if bot.is_active %}
+                    <span class="badge bg-success-lt">启用</span>
+                    {% else %}
+                    <span class="badge bg-danger-lt">禁用</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if bot.real_is_running %}
+                    <span class="badge bg-green-lt">运行中</span>
+                    {% else %}
+                    <span class="badge bg-secondary-lt">已停止</span>
+                    {% endif %}
+                </td>
+                <td style="white-space: nowrap;">{{ bot.created_at.strftime('%Y-%m-%d %H:%M') if bot.created_at else '未知' }}</td>
+                <td>
+                    <div class="btn-actions">
+                        <a class="btn btn-action" href="{{ url_for('Admin.admin_bot_detail', bot_id=bot.id) }}" title="详情">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"/>
+                                <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"/>
+                            </svg>
+                        </a>
+                        <a class="btn btn-action" href="{{ url_for('Admin.admin_edit_bot', bot_id=bot.id) }}" title="编辑">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/>
+                                <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/>
+                                <path d="M16 5l3 3"/>
+                            </svg>
+                        </a>
+                        <button class="btn btn-action" onclick="deleteBot({{ bot.id }})" title="删除">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M4 7l16 0"/>
+                                <path d="M10 11l0 6"/>
+                                <path d="M14 11l0 6"/>
+                                <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/>
+                                <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="text-center text-muted py-4" colspan="6">
+                    <div class="empty">
+                        <div class="empty-img"><img alt="" height="128"
+                                                    src="/static/illustrations/undraw_printing_invoices_5r4r.svg"></div>
+                        <p class="empty-title">暂无机器人</p>
+                        <p class="empty-subtitle text-muted">还没有创建任何机器人</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    <div class="card-footer d-flex align-items-center">
+        <p class="m-0 text-muted">显示 <span>{{ bots|length }}</span> 条，共 <span>{{ pagination.total }}</span> 条</p>
+        <ul class="pagination m-0 ms-auto">
+            <!-- 上一页 -->
+            {% if current_page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('Admin.admin_bots', page=current_page-1, search=search) }}">
+                    &laquo;
+                </a>
+            </li>
+            {% endif %}
+
+            <!-- 页码列表 -->
+            {% for page_num in range(1, pagination.pages + 1) %}
+            {% if page_num == current_page %}
+            <li class="page-item active">
+                <span class="page-link">{{ page_num }}</span>
+            </li>
+            {% else %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('Admin.admin_bots', page=page_num, search=search) }}">{{ page_num
+                    }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+
+            <!-- 下一页 -->
+            {% if current_page < pagination.pages %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('Admin.admin_bots', page=current_page+1, search=search) }}">
+                    &raquo;
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function deleteBot(botId) {
+        if (confirm('确定要删除这个机器人吗？')) {
+            fetch(`/admin/bots/${botId}/delete`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                redirect: 'follow'
+            })
+            .then(response => {
+                location.reload();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('删除机器人时发生错误');
+            });
+        }
+    }
+</script>
+{% endblock %}
+
+

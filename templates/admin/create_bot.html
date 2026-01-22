@@ -1,0 +1,194 @@
+{% extends "admin/base.html" %}
+
+{% block title %}创建机器人 - {{ system.title }}{% endblock %}
+{% block page_title %}创建机器人{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">创建机器人</h3>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('Admin.admin_create_bot') }}" method="post">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">机器人名称</label>
+                        <input class="form-control" name="name" placeholder="请输入机器人名称"
+                               required type="text"
+                               value="{{ form_data.name if form_data else '' }}">
+                        <small class="form-hint">给机器人起一个好听的名字</small>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">协议类型</label>
+                        <select class="form-select" id="protocol-select" name="protocol" onchange="onProtocolChange()" required>
+                            <option value="qq" {% if not form_data or form_data.protocol == 'qq' %}selected{% endif %}>QQ官方</option>
+                            <option value="onebot" {% if form_data and form_data.protocol == 'onebot' %}selected{% endif %}>OneBot V11</option>
+                        </select>
+                        <small class="form-hint">选择机器人使用的协议</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">机器人描述</label>
+                <textarea class="form-control" name="description" placeholder="请输入机器人描述（可选）"
+                          rows="3">{{ form_data.description if form_data else '' }}</textarea>
+            </div>
+
+            <!-- QQ协议字段 -->
+            <div class="protocol-fields" id="qq-fields">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="mb-3">
+                            <label class="form-label required">AppID</label>
+                            <input class="form-control" name="app_id" placeholder="请输入QQ机器人的AppID"
+                                   type="text"
+                                   value="{{ form_data.app_id if form_data else '' }}">
+                            <small class="form-hint">从QQ开放平台获取</small>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="mb-3">
+                            <label class="form-label required">AppSecret</label>
+                            <input class="form-control" name="app_secret" placeholder="请输入AppSecret"
+                                   type="password"
+                                   value="{{ form_data.app_secret if form_data else '' }}">
+                            <small class="form-hint">从QQ开放平台获取</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OneBot协议字段 -->
+            <div class="protocol-fields" id="onebot-fields" style="display: none;">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="mb-3">
+                            <label class="form-label required">OneBot地址</label>
+                            <input class="form-control" name="ws_host" placeholder="127.0.0.1"
+                                   type="text"
+                                   value="{{ form_data.ws_host if form_data else '127.0.0.1' }}">
+                            <small class="form-hint">OneBot客户端的IP地址</small>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="mb-3">
+                            <label class="form-label required">OneBot端口</label>
+                            <input class="form-control" name="ws_port" placeholder="5700"
+                                   type="number" min="1" max="65535"
+                                   value="{{ form_data.ws_port if form_data else '5700' }}">
+                            <small class="form-hint">OneBot客户端的WS端口（默认5700）</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Access Token (可选)</label>
+                    <input class="form-control" name="access_token" placeholder="请输入Access Token"
+                           type="password">
+                    <small class="form-hint">如果OneBot客户端设置了Token，在此填写</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">自触发</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="self_trigger" id="self_trigger">
+                        <label class="form-check-label" for="self_trigger">
+                            开启自触发
+                        </label>
+                    </div>
+                    <small class="form-hint">开启后，机器人会处理自己发送的消息。关闭后防止死循环（默认关闭）</small>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label required">机器人所有者</label>
+                <select class="form-select" name="owner_id" required>
+                    <option value="">请选择用户</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if form_data and form_data.owner_id and form_data.owner_id == user.id|string %}selected{% endif %}>
+                        {{ user.username }} ({{ user.email }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <small class="form-hint">选择机器人的所有者</small>
+            </div>
+
+            <div class="alert alert-info" id="config-help">
+                <h4 class="alert-title">配置说明</h4>
+                <div class="text-muted" id="qq-help">
+                    <ol class="mb-0">
+                        <li>请先在 <a href="https://bot.q.qq.com/" target="_blank">QQ开放平台</a> 创建机器人应用</li>
+                        <li>获取 <strong>AppID</strong> 和 <strong>AppSecret</strong></li>
+                        <li>选择机器人的所有者用户</li>
+                        <li>系统会自动生成Token并配置机器人</li>
+                    </ol>
+                </div>
+                <div class="text-muted" id="onebot-help" style="display: none;">
+                    <ol class="mb-0">
+                        <li>先启动你的 <strong>go-cqhttp</strong> 或 <strong>OpenShamrock</strong></li>
+                        <li>查看 OneBot 客户端的 WebSocket 地址（通常为 <code>127.0.0.1:5700</code>）</li>
+                        <li>在上方表单中填写 OneBot 的地址和端口</li>
+                        <li>如果 OneBot 配置了 Access Token，也需同步填写</li>
+                        <li>点击启动，系统将连接到你的 OneBot 客户端</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="form-footer">
+                <a class="btn btn-link" href="{{ url_for('Admin.admin_bots') }}">返回机器人列表</a>
+                <button class="btn btn-primary" type="submit">创建机器人</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 协议切换函数
+    function onProtocolChange() {
+        const protocol = document.getElementById('protocol-select').value;
+        const qqFields = document.getElementById('qq-fields');
+        const onebotFields = document.getElementById('onebot-fields');
+        const qqHelp = document.getElementById('qq-help');
+        const onebotHelp = document.getElementById('onebot-help');
+        
+        if (protocol === 'qq') {
+            // 显示QQ字段
+            qqFields.style.display = 'block';
+            onebotFields.style.display = 'none';
+            qqHelp.style.display = 'block';
+            onebotHelp.style.display = 'none';
+            
+            // 设置QQ字段为必填
+            document.querySelector('[name="app_id"]').required = true;
+            document.querySelector('[name="app_secret"]').required = true;
+            
+            // OneBot字段不必填
+            document.querySelector('[name="ws_host"]').required = false;
+            document.querySelector('[name="ws_port"]').required = false;
+        } else if (protocol === 'onebot') {
+            // 显示OneBot字段
+            qqFields.style.display = 'none';
+            onebotFields.style.display = 'block';
+            qqHelp.style.display = 'none';
+            onebotHelp.style.display = 'block';
+            
+            // QQ字段不必填
+            document.querySelector('[name="app_id"]').required = false;
+            document.querySelector('[name="app_secret"]').required = false;
+            
+            // 设置OneBot字段为必填
+            document.querySelector('[name="ws_host"]').required = true;
+            document.querySelector('[name="ws_port"]').required = true;
+        }
+    }
+    
+    // 页面加载时初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        onProtocolChange();
+    });
+</script>
+{% endblock %}

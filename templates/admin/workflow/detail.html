@@ -1,0 +1,160 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ workflow.name }} - 工作流详情 - {{ system.title }}{% endblock %}
+{% block page_title %}工作流详情{% endblock %}
+
+{% block content %}
+{% set trigger_type = config.get('trigger_type', 'message') %}
+<form id="basicInfoForm" onsubmit="saveBasicInfo(event)">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">基本信息</h3>
+            <div class="card-actions">
+                {% if workflow.enabled %}
+                <span class="badge bg-success-lt">已启用</span>
+                {% else %}
+                <span class="badge bg-secondary-lt">已禁用</span>
+                {% endif %}
+                {% if trigger_type == 'schedule' %}
+                <span class="badge bg-orange-lt">⏰ 定时触发</span>
+                {% else %}
+                <span class="badge bg-blue-lt">💬 消息触发</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label">名称</label>
+                    <input type="text" class="form-control" name="name" value="{{ workflow.name }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">优先级</label>
+                    <input type="number" class="form-control" name="priority" value="{{ workflow.priority }}" min="0" max="999">
+                    <small class="form-hint">数字越小越先执行</small>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">描述</label>
+                    <textarea class="form-control" name="description" rows="2" placeholder="可选">{{ workflow.description or '' }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">协议限制</label>
+                    <div>
+                        {% set protocols = config.get('protocols', []) %}
+                        <label class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="protocol_qq" value="qq" {% if 'qq' in protocols %}checked{% endif %}>
+                            <span class="form-check-label">QQ官方</span>
+                        </label>
+                        <label class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" name="protocol_onebot" value="onebot" {% if 'onebot' in protocols %}checked{% endif %}>
+                            <span class="form-check-label">OneBot</span>
+                        </label>
+                        <small class="text-muted ms-2">不选则支持所有协议</small>
+                    </div>
+                </div>
+                
+                <!-- 定时配置（仅定时触发类型显示） -->
+                {% if trigger_type == 'schedule' %}
+                <div class="col-md-6">
+                    <label class="form-label">调度类型</label>
+                    <select class="form-select" name="schedule_type" id="scheduleType" onchange="toggleScheduleFields()">
+                        <option value="cron" {% if config.get('schedule', {}).get('type', 'cron') == 'cron' %}selected{% endif %}>Cron 表达式</option>
+                        <option value="interval" {% if config.get('schedule', {}).get('type') == 'interval' %}selected{% endif %}>固定间隔</option>
+                    </select>
+                </div>
+                <div class="col-md-6" id="cronField">
+                    <label class="form-label">Cron 表达式</label>
+                    <input type="text" class="form-control" name="schedule_cron" value="{{ config.get('schedule', {}).get('cron', '0 8 * * *') }}" placeholder="分 时 日 月 周">
+                    <small class="form-hint">例如 "0 8 * * *" 表示每天 08:00</small>
+                </div>
+                <div class="col-md-6" id="intervalField" style="display: none;">
+                    <label class="form-label">间隔时间（分钟）</label>
+                    <input type="number" class="form-control" name="schedule_interval" value="{{ config.get('schedule', {}).get('interval_minutes', 60) }}" min="1" max="1440">
+                    <small class="form-hint">1-1440 分钟</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <div class="text-muted small d-none d-md-block">
+                创建于 {{ workflow.created_at.strftime('%Y-%m-%d %H:%M') if workflow.created_at else '未知' }}
+                {% if workflow.updated_at %}· 更新于 {{ workflow.updated_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}
+            </div>
+            <div class="btn-list ms-auto">
+                <a href="{{ url_for('Admin.workflow_list') }}" class="btn btn-outline-secondary">返回</a>
+                <a href="{{ url_for('Admin.workflow_edit', workflow_id=workflow.id) }}" class="btn btn-primary">编辑</a>
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const triggerType = '{{ config.get("trigger_type", "message") }}';
+    
+    // 初始化
+    window.addEventListener('DOMContentLoaded', () => {
+        if (triggerType === 'schedule') {
+            toggleScheduleFields();
+        }
+    });
+    
+    // 定时字段切换
+    function toggleScheduleFields() {
+        const scheduleType = document.getElementById('scheduleType');
+        if (!scheduleType) return;
+        
+        const cronField = document.getElementById('cronField');
+        const intervalField = document.getElementById('intervalField');
+        
+        if (scheduleType.value === 'cron') {
+            cronField.style.display = 'block';
+            intervalField.style.display = 'none';
+        } else {
+            cronField.style.display = 'none';
+            intervalField.style.display = 'block';
+        }
+    }
+    
+    // 保存基本信息
+    function saveBasicInfo(event) {
+        event.preventDefault();
+        const formEl = document.getElementById('basicInfoForm');
+        const formData = new FormData(formEl);
+        // 收集协议
+        const protocols = [];
+        if (formData.get('protocol_qq')) protocols.push('qq');
+        if (formData.get('protocol_onebot')) protocols.push('onebot');
+        
+        const data = {
+            name: formData.get('name'),
+            description: formData.get('description') || '',
+            priority: parseInt(formData.get('priority')) || 0,
+            protocols: protocols
+        };
+        
+        // 定时配置
+        if (triggerType === 'schedule') {
+            data.schedule_type = formData.get('schedule_type');
+            data.schedule_cron = formData.get('schedule_cron');
+            data.schedule_interval = parseInt(formData.get('schedule_interval')) || 60;
+        }
+        
+        // 通过表单提交
+        const submitForm = document.createElement('form');
+        submitForm.method = 'POST';
+        submitForm.action = `/admin/workflows/{{ workflow.id }}/update-basic`;
+        
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'data';
+        input.value = JSON.stringify(data);
+        submitForm.appendChild(input);
+        
+        document.body.appendChild(submitForm);
+        submitForm.submit();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,223 @@
+{% extends "admin/base.html" %}
+
+{% block title %}系统设置 - {{ system.title }}{% endblock %}
+{% block page_title %}系统设置{% endblock %}
+
+{% block content %}
+<div class="row row-cards">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">基本设置</h3>
+            </div>
+            <div class="card-body">
+                <form action="/admin/settings" method="post">
+                    <div class="mb-3">
+                        <label class="form-label">系统名称</label>
+                        <input class="form-control" name="system_name" required type="text"
+                               value="{{ system.title }}">
+                        <small class="form-hint">显示在页面标题和导航栏中的系统名称</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">系统描述</label>
+                        <textarea class="form-control" name="system_description" required
+                                  rows="3">{{ system.des }}</textarea>
+                        <small class="form-hint">系统的简短描述，用于SEO和页面说明</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">关键词</label>
+                        <input class="form-control" name="system_keywords" required type="text"
+                               value="{{ system.key }}">
+                        <small class="form-hint">用逗号分隔的关键词，用于SEO优化</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">系统版本</label>
+                        <input class="form-control" name="system_version" readonly type="text"
+                               value="{{ system.version }}">
+                        <small class="form-hint">当前系统版本号（只读）</small>
+                    </div>
+                    <div class="card-footer text-end">
+                        <button class="btn btn-primary" type="submit">保存设置</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row row-cards mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">QQ机器人配置</h3>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">默认协议</label>
+                    <select class="form-select" name="default_platform">
+                        <option value="qq">QQ官方</option>
+                        <option value="onebot">OneBot V11</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">最大机器人数量</label>
+                    <input class="form-control" max="100" min="1" name="max_bots" type="number" value="10">
+                    <small class="form-hint">每个用户最多可以创建的机器人数量</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-check">
+                        <input checked class="form-check-input" name="auto_start_bots" type="checkbox">
+                        <span class="form-check-label">自动启动机器人</span>
+                    </label>
+                    <small class="form-hint">系统启动时自动启动所有活跃的机器人</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">日志配置</h3>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">日志级别</label>
+                    <select class="form-select" name="log_level">
+                        <option value="DEBUG">DEBUG</option>
+                        <option selected value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">日志保留天数</label>
+                    <input class="form-control" max="365" min="1" name="log_retention_days" type="number"
+                           value="30">
+                    <small class="form-hint">超过指定天数的日志将被自动清理</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-check">
+                        <input checked class="form-check-input" name="enable_file_logging" type="checkbox">
+                        <span class="form-check-label">启用文件日志</span>
+                    </label>
+                    <small class="form-hint">将日志保存到文件中</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row row-cards mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">系统维护</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-auto">
+                                                    <span class="bg-primary text-white avatar">
+                                                        <svg class="icon" fill="none" height="24"
+                                                             stroke="currentColor" stroke-linecap="round"
+                                                             stroke-linejoin="round"
+                                                             stroke-width="2" viewBox="0 0 24 24" width="24"
+                                                             xmlns="http://www.w3.org/2000/svg">
+                                                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                                            <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>
+                                                            <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>
+                                                        </svg>
+                                                    </span>
+                                    </div>
+                                    <div class="col">
+                                        <div class="font-weight-medium">
+                                            清理缓存
+                                        </div>
+                                        <div class="text-muted">
+                                            清理系统缓存数据
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button class="btn btn-primary w-100">执行清理</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-auto">
+                                                    <span class="bg-warning text-white avatar">
+                                                        <svg class="icon" fill="none" height="24"
+                                                             stroke="currentColor" stroke-linecap="round"
+                                                             stroke-linejoin="round"
+                                                             stroke-width="2" viewBox="0 0 24 24" width="24"
+                                                             xmlns="http://www.w3.org/2000/svg">
+                                                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                                            <path d="M4 7l16 0"/>
+                                                            <path d="M10 11l0 6"/>
+                                                            <path d="M14 11l0 6"/>
+                                                            <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/>
+                                                            <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>
+                                                        </svg>
+                                                    </span>
+                                    </div>
+                                    <div class="col">
+                                        <div class="font-weight-medium">
+                                            清理日志
+                                        </div>
+                                        <div class="text-muted">
+                                            清理过期的日志文件
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button class="btn btn-warning w-100">执行清理</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card card-sm">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-auto">
+                                                    <span class="bg-success text-white avatar">
+                                                        <svg class="icon" fill="none" height="24"
+                                                             stroke="currentColor" stroke-linecap="round"
+                                                             stroke-linejoin="round"
+                                                             stroke-width="2" viewBox="0 0 24 24" width="24"
+                                                             xmlns="http://www.w3.org/2000/svg">
+                                                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                                            <path d="M7 4v16l13 -8z"/>
+                                                        </svg>
+                                                    </span>
+                                    </div>
+                                    <div class="col">
+                                        <div class="font-weight-medium">
+                                            重启系统
+                                        </div>
+                                        <div class="text-muted">
+                                            重启应用程序
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <button class="btn btn-success w-100">重启系统</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

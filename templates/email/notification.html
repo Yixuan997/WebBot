@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>{{ subject }} - QQ机器人管理系统</title>
+    <style>
+        /* Tabler inspired email styles */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.5;
+            color: #1e293b;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .email-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 40px;
+            text-align: center;
+            color: white;
+        }
+
+        .email-header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .email-header .subtitle {
+            margin: 8px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .email-body {
+            padding: 40px;
+        }
+
+        .notification-card {
+            border-left: 4px solid {
+        {
+            type_color
+        }
+        };
+            background: {
+        {
+            bg_color
+        }
+        };
+            border-radius: 0 8px 8px 0;
+            padding: 24px;
+            margin: 24px 0;
+        }
+
+        .notification-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .notification-icon {
+            width: 24px;
+            height: 24px;
+            fill: {
+        {
+            type_color
+        }
+        };
+            flex-shrink: 0;
+        }
+
+        .notification-title {
+            color: {
+        {
+            type_color
+        }
+        };
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .notification-content {
+            background: #ffffff;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 16px 0;
+            border: 1px solid #e2e8f0;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .notification-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .meta-icon {
+            width: 16px;
+            height: 16px;
+            fill: #94a3b8;
+        }
+
+        .priority-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            background: {
+        {
+            type_color
+        }
+        } 20;
+            color: {
+        {
+            type_color
+        }
+        };
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: auto;
+        }
+
+        .priority-dot {
+            width: 6px;
+            height: 6px;
+            background: {
+        {
+            type_color
+        }
+        };
+            border-radius: 50%;
+        }
+
+        .email-footer {
+            background: #f8fafc;
+            padding: 30px 40px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .footer-text {
+            color: #94a3b8;
+            font-size: 12px;
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        .footer-divider {
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            margin: 20px 0;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: {
+        {
+            type_color
+        }
+        };
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            margin: 16px 0;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: {
+        {
+            type_color
+        }
+        } dd;
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: {
+        {
+            type_color
+        }
+        };
+            border: 1px solid {
+        {
+            type_color
+        }
+        };
+        }
+
+        .btn-outline:hover {
+            background: {
+        {
+            type_color
+        }
+        };
+            color: white;
+        }
+
+        @media (max-width: 600px) {
+            .email-container {
+                margin: 0;
+                border-radius: 0;
+            }
+
+            .email-header,
+            .email-body,
+            .email-footer {
+                padding: 20px;
+            }
+
+            .notification-meta {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .priority-badge {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <!-- 邮件头部 -->
+    <div class="email-header">
+        <h1>QQ机器人管理系统</h1>
+        <p class="subtitle">智能机器人管理平台</p>
+    </div>
+
+    <!-- 邮件正文 -->
+    <div class="email-body">
+        <!-- 通知卡片 -->
+        <div class="notification-card">
+            <div class="notification-header">
+                <!-- 根据通知类型显示不同图标 -->
+                {% if notification_type == 'success' %}
+                <svg class="notification-icon" viewBox="0 0 24 24">
+                    <path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M11,16.5L18,9.5L16.5,8L11,13.5L7.5,10L6,11.5L11,16.5Z"/>
+                </svg>
+                {% elif notification_type == 'warning' %}
+                <svg class="notification-icon" viewBox="0 0 24 24">
+                    <path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                </svg>
+                {% elif notification_type == 'error' %}
+                <svg class="notification-icon" viewBox="0 0 24 24">
+                    <path d="M13,13H11V7H13M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,15A1.5,1.5 0 0,0 10.5,16.5A1.5,1.5 0 0,0 12,18A1.5,1.5 0 0,0 13.5,16.5A1.5,1.5 0 0,0 12,15Z"/>
+                </svg>
+                {% else %}
+                <svg class="notification-icon" viewBox="0 0 24 24">
+                    <path d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                </svg>
+                {% endif %}
+
+                <h2 class="notification-title">{{ type_name }}</h2>
+
+                <div class="priority-badge">
+                    <span class="priority-dot"></span>
+                    {{ priority | default('普通') }}
+                </div>
+            </div>
+
+            <!-- 通知内容 -->
+            <div class="notification-content">
+                {{ content | safe }}
+            </div>
+
+            <!-- 元信息 -->
+            <div class="notification-meta">
+                <div class="meta-item">
+                    <svg class="meta-icon" viewBox="0 0 24 24">
+                        <path d="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z"/>
+                    </svg>
+                    {{ send_time }}
+                </div>
+
+                {% if sender %}
+                <div class="meta-item">
+                    <svg class="meta-icon" viewBox="0 0 24 24">
+                        <path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"/>
+                    </svg>
+                    {{ sender }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 操作按钮（可选） -->
+        {% if actions %}
+        <div style="text-align: center; margin: 32px 0;">
+            {% for action in actions %}
+            <a class="btn {% if action.style == 'outline' %}btn-outline{% endif %}" href="{{ action.url }}"
+               style="margin: 0 8px;">
+                {{ action.text }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 邮件底部 -->
+    <div class="email-footer">
+        <hr class="footer-divider">
+        <p class="footer-text">
+            此邮件由 QQ机器人管理系统 自动发送，请勿回复<br>
+            发送时间：{{ send_time }}<br>
+            如有疑问，请联系系统管理员
+        </p>
+    </div>
+</div>
+</body>
+</html>

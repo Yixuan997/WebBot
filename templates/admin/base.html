@@ -1,0 +1,182 @@
+{% extends "user/base.html" %}
+
+{% block title %}管理员面板 - {% block admin_title %}{% endblock %}{% endblock %}
+
+{% block navbar_menu %}
+<div class="navbar-expand-md">
+    <div class="collapse navbar-collapse" id="navbar-menu">
+        <div class="navbar navbar-light">
+            <div class="container-xl">
+                <ul class="navbar-nav">
+                    <li class="nav-item {% if request.endpoint == 'Admin.dashboard' %}active{% endif %}">
+                        <a class="nav-link" href="{{ url_for('Admin.dashboard') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                     width="24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z"
+                                                                                         fill="none"
+                                                                                         stroke="none"/><polyline
+                                        points="5 12 3 12 12 3 21 12 19 12"/><path
+                                        d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7"/><path
+                                        d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6"/></svg>
+                            </span>
+                            <span class="nav-link-title">仪表盘</span>
+                        </a>
+                    </li>
+                    <li class="nav-item {% if request.endpoint == 'Admin.users' %}active{% endif %}">
+                        <a class="nav-link" href="{{ url_for('Admin.users') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                     width="24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z"
+                                                                                         fill="none"
+                                                                                         stroke="none"/><circle cx="9"
+                                                                                                                cy="7"
+                                                                                                                r="4"/><path
+                                        d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/><path
+                                        d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0 -3 -3.85"/></svg>
+                            </span>
+                            <span class="nav-link-title">用户管理</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item dropdown {% if request.endpoint and request.endpoint.startswith('Admin.admin_bot') %}active{% endif %}">
+                        <a aria-expanded="false" class="nav-link dropdown-toggle" data-bs-auto-close="outside"
+                           data-bs-toggle="dropdown" href="#navbar-help" role="button">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                     width="24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z"
+                                                                                         fill="none"
+                                                                                         stroke="none"/>
+                                    <path d="M7 7h10a2 2 0 0 1 2 2v1l1 1v3l-1 1v3a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-3l-1 -1v-3l1 -1v-1a2 2 0 0 1 2 -2z"/>
+                                    <path d="M10 16h4"/>
+                                    <circle cx="8.5" cy="11.5" fill="currentColor" r=".5"/>
+                                    <circle cx="15.5" cy="11.5" fill="currentColor" r=".5"/>
+                                </svg>
+                            </span>
+                            <span class="nav-link-title">机器人管理</span>
+                        </a>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item {% if request.endpoint == 'Admin.admin_bots' %}active{% endif %}"
+                               href="{{ url_for('Admin.admin_bots') }}">
+                                机器人列表
+                            </a>
+                            <a class="dropdown-item {% if request.endpoint == 'Admin.admin_create_bot' %}active{% endif %}"
+                               href="{{ url_for('Admin.admin_create_bot') }}">
+                                创建机器人
+                            </a>
+                        </div>
+                    </li>
+
+                    <li class="nav-item dropdown {% if request.endpoint and (request.endpoint.startswith('Admin.workflow') or request.endpoint.startswith('Admin.globals')) %}active{% endif %}">
+                        <a aria-expanded="false" class="nav-link dropdown-toggle" data-bs-auto-close="outside"
+                           data-bs-toggle="dropdown" href="#navbar-workflow" role="button">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                     width="24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z"
+                                                                                         fill="none"
+                                                                                         stroke="none"/>
+                                    <rect x="3" y="15" width="6" height="6" rx="2"/>
+                                    <rect x="15" y="15" width="6" height="6" rx="2"/>
+                                    <rect x="9" y="3" width="6" height="6" rx="2"/>
+                                    <path d="M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1"/>
+                                    <path d="M12 9l0 3"/>
+                                </svg>
+                            </span>
+                            <span class="nav-link-title">工作流管理</span>
+                        </a>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item {% if request.endpoint == 'Admin.workflow_list' %}active{% endif %}"
+                               href="{{ url_for('Admin.workflow_list') }}">
+                                工作流列表
+                            </a>
+                            <a class="dropdown-item {% if request.endpoint == 'Admin.workflow_create' %}active{% endif %}"
+                               href="{{ url_for('Admin.workflow_create') }}">
+                                创建工作流
+                            </a>
+                            <a class="dropdown-item {% if request.endpoint == 'Admin.globals_list' %}active{% endif %}"
+                               href="{{ url_for('Admin.globals_list') }}">
+                                全局变量
+                            </a>
+                        </div>
+                    </li>
+
+                    <li class="nav-item {% if request.endpoint == 'Admin.admin_log_stats' %}active{% endif %}">
+                        <a class="nav-link" href="{{ url_for('Admin.admin_log_stats') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                     width="24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z"
+                                                                                         fill="none"
+                                                                                         stroke="none"/>
+                                    <path d="M3 3v5h5"/>
+                                    <path d="M3 8a9 9 0 0 1 9 -5a9 9 0 0 1 9 5"/>
+                                    <path d="M21 21v-5h-5"/>
+                                    <path d="M21 16a9 9 0 0 1 -9 5a9 9 0 0 1 -9 -5"/>
+                                </svg>
+                            </span>
+                            <span class="nav-link-title">系统日志</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item {% if request.endpoint == 'Admin.email' %}active{% endif %}">
+                        <a class="nav-link" href="{{ url_for('Admin.email') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                     width="24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                    <rect height="14" rx="2" width="18" x="3" y="5"/>
+                                    <polyline points="3,7 12,13 21,7"/>
+                                </svg>
+                            </span>
+                            <span class="nav-link-title">邮件管理</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item {% if request.endpoint == 'Admin.update' %}active{% endif %}">
+                        <a class="nav-link" href="{{ url_for('Admin.update') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                     width="24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z"
+                                                                                         fill="none"
+                                                                                         stroke="none"/><path
+                                        d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4m0 6a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg>
+                            </span>
+                            <span class="nav-link-title">系统更新</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-item {% if request.endpoint == 'Admin.system' %}active{% endif %}">
+                        <a class="nav-link" href="{{ url_for('Admin.system') }}">
+                            <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                     width="24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z"
+                                                                                         fill="none"
+                                                                                         stroke="none"/><path
+                                        d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/><circle
+                                        cx="12" cy="12" r="3"/></svg>
+                            </span>
+                            <span class="nav-link-title">系统设置</span>
+                        </a>
+                    </li>
+
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% block admin_content %}{% endblock %}
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+{% block admin_extra_js %}{% endblock %}
+{% endblock %}

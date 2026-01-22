@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 200px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 400px;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 12px;
+        }
+        .info {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .info span {
+            color: #667eea;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="title">{{ title | default('欢迎') }}</div>
+        <div class="info">
+            <p>用户ID: <span>{{ user_id | default('未知') }}</span></p>
+            <p>昵称: <span>{{ sender_nickname | default('未知') }}</span></p>
+            <p>消息: <span>{{ message | default('无') }}</span></p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,116 @@
+{% extends "user/base.html" %}
+
+{% block title %}工作流管理{% endblock %}
+{% block page_title %}工作流管理{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-3 gap-2">
+    <div class="subheader">
+        {% if workflows %}
+        {% set subscribed_count = workflows|selectattr('user_subscribed')|list|length %}
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <span class="subheader-title me-2">总数 {{ workflows|length }}</span>
+            <span class="badge bg-success-lt me-2">已订阅 {{ subscribed_count }}</span>
+            <span class="badge bg-secondary-lt">未订阅 {{ workflows|length - subscribed_count }}</span>
+        </div>
+        {% else %}
+        <span class="subheader-title">工作流管理</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-vcenter card-table table-striped">
+            <thead>
+            <tr>
+                <th>工作流</th>
+                <th>优先级</th>
+                <th>协议限制</th>
+                <th>状态</th>
+                <th width="120">我的订阅</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for workflow in workflows %}
+            {% set config = workflow.get_config() %}
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <span class="avatar avatar-sm me-2 {% if workflow.user_subscribed %}bg-teal text-white{% else %}bg-secondary text-white{% endif %}">
+                            <!-- icon: sitemap -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sitemap" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><rect x="3" y="15" width="6" height="6" rx="2"/><rect x="15" y="15" width="6" height="6" rx="2"/><rect x="9" y="3" width="6" height="6" rx="2"/><path d="M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1"/><path d="M12 9l0 3"/></svg>
+                        </span>
+                        <div>
+                            <strong>{{ workflow.name }}</strong>
+                            {% if workflow.description %}
+                            <div class="text-muted small">{{ workflow.description|truncate(50) }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge bg-primary-lt">{{ workflow.priority }}</span>
+                </td>
+                <td>
+                    {% if config.get('protocols') %}
+                    {% for protocol in config.get('protocols', []) %}
+                    {% if protocol == 'qq' %}
+                    <span class="badge bg-blue-lt me-1">QQ</span>
+                    {% elif protocol == 'onebot' %}
+                    <span class="badge bg-purple-lt me-1">OneBot</span>
+                    {% endif %}
+                    {% endfor %}
+                    {% else %}
+                    <span class="badge bg-secondary-lt">全部</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge bg-success-lt">已启用</span>
+                </td>
+                <td>
+                    <div class="form-check form-switch" style="white-space: nowrap;">
+                        <input class="form-check-input" type="checkbox" 
+                               id="workflow-{{ workflow.id }}"
+                               {% if workflow.user_subscribed %}checked{% endif %}
+                               onchange="toggleWorkflow({{ workflow.id }}, this.checked)">
+                        <label class="form-check-label" for="workflow-{{ workflow.id }}">
+                            {{ '已订阅' if workflow.user_subscribed else '未订阅' }}
+                        </label>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="text-center text-muted py-4" colspan="5">
+                    <div class="empty">
+                        <div class="empty-icon">
+                            <!-- icon: sitemap -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sitemap" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><rect x="3" y="15" width="6" height="6" rx="2"/><rect x="15" y="15" width="6" height="6" rx="2"/><rect x="9" y="3" width="6" height="6" rx="2"/><path d="M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1"/><path d="M12 9l0 3"/></svg>
+                        </div>
+                        <p class="empty-title">暂无可用工作流</p>
+                        <p class="empty-subtitle text-muted">管理员还没有创建任何工作流</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleWorkflow(workflowId, checked) {
+        // 直接提交表单，刷新页面
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/user/workflows/${workflowId}/toggle`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+</script>
+{% endblock %}

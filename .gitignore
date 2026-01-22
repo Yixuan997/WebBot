@@ -1,0 +1,85 @@
+# Python 相关
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+ENV/
+env/
+Bot/
+
+# 开发工具
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 本地配置
+.env
+config_local.py
+local_settings.py
+*.local
+
+# 数据和日志
+Data/
+logs/
+docs/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+*.Y
+Plugins/
+
+# 临时文件
+*.tmp
+*.temp
+*.cache
+update.zip
+backup-*.zip
+
+# API密钥和证书
+api_keys.txt
+secrets.json
+*.key
+*.pem
+
+# 用户上传文件
+uploads/
+static/uploads/
+
+# Render 目录（只保留 example.html）
+Render/*
+!Render/example.html
+# Snippets 目录（只保留 文档和模板）
+Snippets/*
+!Snippets\_template.py
+!Snippets\README.md
+
+# Gunicorn 进程文件
+gunicorn.pid
+*.pid
+
+# 系统文件
+Thumbs.db
+desktop.ini

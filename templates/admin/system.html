@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+
+{% block title %}系统设置 - {{ system.title }}{% endblock %}
+{% block page_title %}系统设置{% endblock %}
+
+{% block content %}
+
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">系统设置</h3>
+    </div>
+    <div class="card-body">
+        <form action="/admin/system" method="post">
+            <div class="mb-3">
+                <label class="form-label">网站标题</label>
+                <input class="form-control" name="title" required
+                       type="text" value="{{ settings.title or 'QQ机器人管理平台' }}">
+                <small class="form-hint">显示在浏览器标题栏和搜索结果中</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">网站描述</label>
+                <textarea class="form-control" name="des" required rows="3">{{ settings.des or '专业的QQ机器人管理平台，提供机器人创建、管理、插件扩展等功能' }}</textarea>
+                <small class="form-hint">网站的简要描述，用于SEO优化</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">网站关键词</label>
+                <input class="form-control" name="key" required
+                       type="text" value="{{ settings.key or 'QQ机器人,机器人管理,聊天机器人,自动化' }}">
+                <small class="form-hint">用逗号分隔的关键词，用于SEO优化</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">管理员邮箱</label>
+                <input class="form-control" name="email" required
+                       type="email" value="{{ settings.email or 'admin@example.com' }}">
+                <small class="form-hint">系统管理员联系邮箱</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">网站备案号</label>
+                <input class="form-control" name="icp" required
+                       type="text" value="{{ settings.icp or '京ICP备xxxxxxxx号' }}">
+                <small class="form-hint">网站ICP备案号，显示在页面底部</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">网站底部版权</label>
+                <input class="form-control" name="cop" required
+                       type="text"
+                       value="{{ settings.cop or 'Copyright © 2024 QQ机器人管理平台 All rights reserved.' }}">
+                <small class="form-hint">显示在网站底部的版权信息</small>
+            </div>
+            <div class="form-footer">
+                <button class="btn btn-primary" type="submit">保存设置</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

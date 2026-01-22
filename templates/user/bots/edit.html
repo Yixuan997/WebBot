@@ -1,0 +1,177 @@
+{% extends "user/base.html" %}
+
+{% block title %}编辑机器人{% endblock %}
+{% block page_title %}编辑机器人{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex flex-column flex-sm-row align-items-center align-items-sm-start gap-3">
+            <span class="avatar flex-shrink-0 {% if bot.is_running %}bg-success{% else %}bg-secondary{% endif %} text-white">
+                <svg class="icon icon-tabler icon-tabler-robot" fill="none" height="24"
+                     stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                     width="24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                    <path d="M7 7h10a2 2 0 0 1 2 2v1l1 1v3l-1 1v3a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-3l-1 -1v-3l1 -1v-1a2 2 0 0 1 2 -2z"/>
+                    <path d="M10 16h4"/>
+                    <circle cx="8.5" cy="11.5" fill="currentColor" r=".5"/>
+                    <circle cx="15.5" cy="11.5" fill="currentColor" r=".5"/>
+                    <path d="M9 7l-1 -4"/>
+                    <path d="M15 7l1 -4"/>
+                </svg>
+            </span>
+            <div class="text-center text-sm-start">
+                <h3 class="card-title">编辑机器人 - {{ bot.name }}</h3>
+                {% set bot_config = bot.get_config() %}
+                {% if bot.protocol == 'qq' %}
+                <div class="text-muted">协议: QQ | App ID: {{ bot_config.get('app_id', 'N/A') }}</div>
+                {% elif bot.protocol == 'onebot' %}
+                <div class="text-muted">协议: OneBot | {{ bot_config.get('ws_host', 'N/A') }}:{{ bot_config.get('ws_port', 'N/A') }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <form action="{{ url_for('user.edit_bot', bot_id=bot.id) }}" method="POST">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">机器人名称</label>
+                        <input class="form-control" name="name" placeholder="请输入机器人名称" required type="text"
+                               value="{{ bot.name }}" {% if is_running %}disabled{% endif %}>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label">协议类型</label>
+                        <input class="form-control" readonly type="text" value="{% if bot.protocol == 'qq' %}QQ官方{% elif bot.protocol == 'onebot' %}OneBot V11{% else %}未知{% endif %}">
+                        <small class="form-hint">协议类型创建后不可修改</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">机器人描述</label>
+                <textarea class="form-control" name="description" placeholder="请输入机器人描述（可选）" rows="3" {% if is_running %}disabled{% endif %}>{{ bot.description or '' }}</textarea>
+            </div>
+
+            <!-- 协议配置信息 -->
+            {% if bot.protocol == 'qq' %}
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">App ID</label>
+                        <input class="form-control" name="app_id" type="text" value="{{ bot_config.get('app_id', '') }}" {% if is_running %}readonly{% endif %} required>
+                        <small class="form-hint">QQ开放平台的AppID</small>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label required">App Secret</label>
+                        <div class="input-group">
+                            <input class="form-control" name="app_secret" type="password" value="{{ bot_config.get('app_secret', '') }}" {% if is_running %}readonly{% endif %} required>
+                            <button class="btn btn-outline-secondary btn-icon" onclick="this.previousElementSibling.type = this.previousElementSibling.type === 'password' ? 'text' : 'password'" title="显示/隐藏App Secret" type="button">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                    <circle cx="12" cy="12" r="2"/>
+                                    <path d="M22 12c-2.667 4.667 -6 7 -10 7s-7.333 -2.333 -10 -7c2.667 -4.667 6 -7 10 -7s7.333 2.333 10 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <small class="form-hint">QQ开放平台的AppSecret</small>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label">Token</label>
+                        <div class="input-group">
+                            <input class="form-control" readonly type="password" value="{{ bot_config.get('token', 'N/A') }}">
+                            <button class="btn btn-outline-secondary btn-icon" onclick="this.previousElementSibling.type = this.previousElementSibling.type === 'password' ? 'text' : 'password'" title="显示/隐藏Token" type="button">
+                                <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                    <circle cx="12" cy="12" r="2"/>
+                                    <path d="M22 12c-2.667 4.667 -6 7 -10 7s-7.333 -2.333 -10 -7c2.667 -4.667 6 -7 10 -7s7.333 2.333 10 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <small class="form-hint">系统自动生成的Token</small>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mb-3">
+                        <label class="form-label">创建时间</label>
+                        <input class="form-control" readonly type="text" value="{{ bot.created_at.strftime('%Y-%m-%d %H:%M:%S') if bot.created_at else '未知' }}">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Webhook地址 -->
+            <div class="mb-3">
+                <label class="form-label">Webhook地址</label>
+                <div class="input-group">
+                    <input class="form-control" id="webhookInput" readonly type="text"
+                           value="{{ request.url_root }}webhook/qq">
+                    <button class="btn btn-outline-secondary btn-icon" onclick="navigator.clipboard.writeText('{{ request.url_root }}webhook/qq').then(() => showToast('Webhook地址已复制到剪贴板', 'success'))"
+                            title="复制Webhook地址"
+                            type="button">
+                        <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                             stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                             xmlns="http://www.w3.org/2000/svg">
+                            <rect height="13" rx="2" ry="2" width="13" x="9" y="9"/>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                    </button>
+                </div>
+                <small class="form-hint">在QQ开放平台配置此Webhook地址</small>
+            </div>
+            {% elif bot.protocol == 'onebot' %}
+            <div class="row">
+                <div class="col-lg-4">
+                    <div class="mb-3">
+                        <label class="form-label required">WebSocket主机</label>
+                        <input class="form-control" name="ws_host" type="text" value="{{ bot_config.get('ws_host', '127.0.0.1') }}" {% if is_running %}readonly{% endif %} required>
+                        <small class="form-hint">OneBot客户端的IP地址</small>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="mb-3">
+                        <label class="form-label required">WebSocket端口</label>
+                        <input class="form-control" name="ws_port" type="number" min="1" max="65535" value="{{ bot_config.get('ws_port', '5700') }}" {% if is_running %}readonly{% endif %} required>
+                        <small class="form-hint">OneBot客户端的WS端口</small>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="mb-3">
+                        <label class="form-label">创建时间</label>
+                        <input class="form-control" readonly type="text" value="{{ bot.created_at.strftime('%Y-%m-%d %H:%M:%S') if bot.created_at else '未知' }}">
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Access Token（可选）</label>
+                <div class="input-group">
+                    <input class="form-control" name="access_token" type="password" value="{{ bot_config.get('access_token', '') }}" {% if is_running %}readonly{% endif %}>
+                    <button class="btn btn-outline-secondary btn-icon" onclick="this.previousElementSibling.type = this.previousElementSibling.type === 'password' ? 'text' : 'password'" title="显示/隐藏Access Token" type="button">
+                        <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <circle cx="12" cy="12" r="2"/>
+                            <path d="M22 12c-2.667 4.667 -6 7 -10 7s-7.333 -2.333 -10 -7c2.667 -4.667 6 -7 10 -7s7.333 2.333 10 7"/>
+                        </svg>
+                    </button>
+                </div>
+                <small class="form-hint">如果OneBot客户端设置了Token，在此填写</small>
+            </div>
+            {% endif %}
+
+            <div class="form-footer">
+                <a class="btn btn-link" href="{{ url_for('user.bots') }}">返回机器人列表</a>
+                <button class="btn btn-primary" type="submit" {% if is_running %}disabled{% endif %}>保存更改</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+

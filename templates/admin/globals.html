@@ -1,0 +1,196 @@
+{% extends "admin/base.html" %}
+
+{% block title %}全局变量 - {{ system.title }}{% endblock %}
+
+{% block page_title %}全局变量{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">变量列表</h3>
+        <div class="card-actions">
+            <button class="btn btn-primary btn-sm" onclick="showCreateModal()" data-bs-toggle="modal" data-bs-target="#varModal">
+                <svg class="icon" fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><path d="M12 5l0 14"/><path d="M5 12l14 0"/></svg>
+                添加变量
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-vcenter card-table table-striped">
+                <thead>
+                <tr>
+                    <th>变量名</th>
+                    <th>变量值</th>
+                    <th>描述</th>
+                    <th>更新时间</th>
+                    <th style="width: 100px;">操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for var in variables %}
+                <tr>
+                    <td>
+                        <code class="bg-secondary-lt px-2 py-1">{{ var.key }}</code>
+                    </td>
+                    <td style="max-width: 200px;">
+                        <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ var.value }}">{{ var.value[:50] }}{% if var.value|length > 50 %}...{% endif %}</span>
+                    </td>
+                    <td>{{ var.description or '-' }}</td>
+                    <td style="white-space: nowrap;">{{ var.updated_at.strftime('%Y-%m-%d %H:%M') if var.updated_at else '-' }}</td>
+                    <td>
+                        <div class="btn-actions">
+                            <button class="btn btn-action" onclick="showEditModal({{ var.id }})" title="编辑">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/><path d="M16 5l3 3"/></svg>
+                            </button>
+                            <button class="btn btn-action" onclick="deleteVar({{ var.id }}, '{{ var.key }}')" title="删除">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7l16 0"/><path d="M10 11l0 6"/><path d="M14 11l0 6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/></svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="text-center text-muted py-4" colspan="5">
+                        <div class="empty">
+                            <p class="empty-title">暂无全局变量</p>
+                            <p class="empty-subtitle text-muted">点击"添加变量"创建第一个全局变量</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer">
+        <div class="text-muted">
+            使用方式：在工作流节点配置中使用 <code>{{ '{{global.变量名}}' }}</code> 引用全局变量
+        </div>
+    </div>
+</div>
+
+<!-- 创建/编辑弹窗 -->
+<div class="modal modal-blur fade" id="varModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">添加变量</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="varId">
+                <div class="mb-3">
+                    <label class="form-label required">变量名</label>
+                    <input type="text" class="form-control" id="varKey" placeholder="如: api_key">
+                    <small class="form-hint">只能包含字母、数字和下划线</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">变量值</label>
+                    <textarea class="form-control" id="varValue" rows="3" placeholder="变量的值"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">描述</label>
+                    <input type="text" class="form-control" id="varDescription" placeholder="变量用途说明">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary ms-auto" onclick="saveVar()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let editingId = null;
+
+function showCreateModal() {
+    editingId = null;
+    document.getElementById('modalTitle').textContent = '添加变量';
+    document.getElementById('varId').value = '';
+    document.getElementById('varKey').value = '';
+    document.getElementById('varValue').value = '';
+    document.getElementById('varDescription').value = '';
+}
+
+function showEditModal(id) {
+    editingId = id;
+    document.getElementById('modalTitle').textContent = '编辑变量';
+    
+    // 获取变量详情
+    fetch(`/admin/globals/${id}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const v = data.variable;
+                document.getElementById('varId').value = v.id;
+                document.getElementById('varKey').value = v.key;
+                document.getElementById('varValue').value = v.value;
+                document.getElementById('varDescription').value = v.description || '';
+                // 手动打开 modal
+                const modal = document.getElementById('varModal');
+                const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+                bsModal.show();
+            } else {
+                showToast(data.message || '获取变量失败', 'danger');
+            }
+        })
+        .catch(err => showToast('获取变量失败', 'danger'));
+}
+
+function saveVar() {
+    const key = document.getElementById('varKey').value.trim();
+    const value = document.getElementById('varValue').value;
+    const description = document.getElementById('varDescription').value.trim();
+
+    if (!key) {
+        showToast('请输入变量名', 'warning');
+        return;
+    }
+
+    // 验证变量名格式
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
+        showToast('变量名只能包含字母、数字和下划线，且不能以数字开头', 'warning');
+        return;
+    }
+
+    const url = editingId ? `/admin/globals/${editingId}` : '/admin/globals/create';
+    const method = editingId ? 'PUT' : 'POST';
+
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value, description })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            location.reload();
+        } else {
+            showToast(data.message || '保存失败', 'danger');
+        }
+    })
+    .catch(err => showToast('保存失败', 'danger'));
+}
+
+function deleteVar(id, key) {
+    if (!confirm(`确定要删除变量 ${key} 吗？`)) return;
+    
+    fetch(`/admin/globals/${id}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                location.reload();
+            } else {
+                showToast(data.message || '删除失败', 'danger');
+            }
+        })
+        .catch(err => showToast('删除失败', 'danger'));
+}
+</script>
+{% endblock %}

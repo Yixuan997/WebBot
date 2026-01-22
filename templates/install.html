@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+    <title>WebBot 系统安装向导</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link href="{{ url_for('static', filename='css/tabler.min.css') }}" rel="stylesheet">
+</head>
+<body>
+    {% include 'flash.html' %}
+    <div class="page">
+        <div class="page-wrapper">
+            <div class="page-header d-print-none">
+                <div class="container-xl">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h2 class="page-title">WebBot 系统安装向导</h2>
+                            <div class="text-muted mt-1">请按照步骤完成系统安装配置</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="page-body">
+                <div class="container-xl">
+                    <!-- 步骤指示器 -->
+                    <div class="steps steps-counter steps-blue mb-4">
+                        <span class="step-item active" id="step1-indicator">环境检查</span>
+                        <span class="step-item" id="step2-indicator">配置 Redis</span>
+                        <span class="step-item" id="step3-indicator">执行安装</span>
+                    </div>
+
+                    <!-- 步骤1: 环境检查 -->
+                    <div class="card" id="step1-content">
+                        <div class="card-header">
+                            <h3 class="card-title">步骤 1: 环境检查</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="env-check-result">
+                                <div class="text-center py-4">
+                                    <button class="btn btn-primary" onclick="checkEnvironment()">
+                                        <span class="spinner-border spinner-border-sm me-2 d-none" id="check-spinner"></span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 11l3 3l8 -8" /><path d="M20 12v6a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h9" /></svg>
+                                        开始检查环境
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 步骤2: 配置数据库 -->
+                    <div class="card d-none" id="step2-content">
+                        <div class="card-header">
+                            <h3 class="card-title">步骤 2: 配置 Redis</h3>
+                        </div>
+                        <div class="card-body">
+                            <form id="config-form">
+                                <h3 class="mb-3">Redis 配置</h3>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label required">主机地址</label>
+                                        <input type="text" class="form-control" name="redis_host" placeholder="localhost" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label required">端口</label>
+                                        <input type="number" class="form-control" name="redis_port" value="6379" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label required">数据库</label>
+                                        <input type="number" class="form-control" name="redis_db" value="0" required>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">密码（可选）</label>
+                                    <input type="password" class="form-control" name="redis_password" placeholder="留空表示无密码">
+                                </div>
+                                <div class="mb-3">
+                                    <button type="button" class="btn btn-primary" onclick="testRedis()">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /><path d="M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0" /><path d="M12 12v9" /></svg>
+                                        测试 Redis 连接
+                                    </button>
+                                    <span id="redis-test-result" class="ms-2"></span>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="card-footer">
+                            <div class="d-flex">
+                                <button type="button" class="btn btn-link" onclick="goToStep(1)">上一步</button>
+                                <button type="button" class="btn btn-primary ms-auto" id="save-config-btn" onclick="saveConfig()" disabled>
+                                    保存配置并继续
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l14 0" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 步骤3: 执行安装 -->
+                    <div class="card d-none" id="step3-content">
+                        <div class="card-header">
+                            <h3 class="card-title">步骤 3: 执行安装</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info" role="alert">
+                                <div class="d-flex">
+                                    <div>
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>
+                                    </div>
+                                    <div>
+                                        <h4 class="alert-title">准备就绪！</h4>
+                                        <div class="text-muted">点击下方按钮开始初始化数据库和创建默认数据。</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="install-result"></div>
+                            <div class="text-center py-3">
+                                <button type="button" class="btn btn-success" onclick="runInstall()" id="install-btn">
+                                    <span class="spinner-border spinner-border-sm me-2 d-none" id="install-spinner"></span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3" /><path d="M9 12l2 2l4 -4" /></svg>
+                                    开始安装
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button type="button" class="btn btn-link" onclick="goToStep(2)">上一步</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/tabler.min.js') }}"></script>
+    <script>
+        let currentStep = 1;
+        let redisTestPassed = false;
+
+        // 检查是否可以保存配置
+        function checkCanSaveConfig() {
+            const saveBtn = document.getElementById('save-config-btn');
+            saveBtn.disabled = !redisTestPassed;
+        }
+
+        // 切换步骤
+        function goToStep(step) {
+            currentStep = step;
+            
+            // 切换到步骤2时重置测试状态
+            if (step === 2) {
+                redisTestPassed = false;
+                document.getElementById('redis-test-result').innerHTML = '';
+                checkCanSaveConfig();
+            }
+            
+            // 更新步骤指示器
+            for (let i = 1; i <= 3; i++) {
+                const indicator = document.getElementById(`step${i}-indicator`);
+                const content = document.getElementById(`step${i}-content`);
+                
+                if (i < step) {
+                    indicator.classList.add('completed');
+                    indicator.classList.remove('active');
+                } else if (i === step) {
+                    indicator.classList.add('active');
+                    indicator.classList.remove('completed');
+                } else {
+                    indicator.classList.remove('active', 'completed');
+                }
+                
+                content.classList.toggle('d-none', i !== step);
+            }
+        }
+
+        // 环境检查
+        async function checkEnvironment() {
+            const spinner = document.getElementById('check-spinner');
+            const resultDiv = document.getElementById('env-check-result');
+            
+            spinner.classList.remove('d-none');
+            
+            try {
+                const response = await fetch('/install/check-env');
+                const data = await response.json();
+                
+                let html = '';
+                
+                // Python 版本
+                html += `<div class="mb-3">
+                    <h3>Python 版本</h3>
+                    <div class="alert ${data.python_ok ? 'alert-success' : 'alert-danger'} d-flex align-items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon me-2" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/>${data.python_ok ? '<path d="M5 12l5 5l10 -10" />' : '<path d="M12 9v2m0 4v.01" />'}</svg>
+                        ${data.python_version}
+                    </div>
+                </div>`;
+                
+                // 数据库路径
+                html += `<div class="mb-3">
+                    <h3>数据库文件路径</h3>
+                    <div class="form-control-plaintext"><code>${data.db_path}</code></div>
+                </div>`;
+                
+                // 依赖包
+                html += `<div class="mb-3">
+                    <h3>依赖包检查 <span class="badge bg-azure-lt">${data.packages.length} 个</span></h3>
+                    <div class="list-group list-group-flush">`;
+                
+                data.packages.forEach(pkg => {
+                    const statusClass = pkg.installed ? 'text-success' : 'text-danger';
+                    const statusIcon = pkg.installed ? 
+                        '<svg xmlns="http://www.w3.org/2000/svg" class="icon text-success" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>' : 
+                        '<svg xmlns="http://www.w3.org/2000/svg" class="icon text-danger" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>';
+                    html += `<div class="list-group-item">
+                        <div class="row align-items-center">
+                            <div class="col-auto">${statusIcon}</div>
+                            <div class="col ${statusClass}"><strong>${pkg.name}</strong></div>
+                        </div>
+                    </div>`;
+                });
+                
+                html += `</div></div>`;
+                
+                // 缺失包提示
+                if (data.missing_packages.length > 0) {
+                    html += `<div class="alert alert-danger" role="alert">
+                        <div class="d-flex">
+                            <div>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
+                            </div>
+                            <div>
+                                <h4 class="alert-title">缺少以下依赖包</h4>
+                                <div class="text-muted"><code>pip install ${data.missing_packages.join(' ')}</code></div>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+                
+                // 下一步按钮
+                if (data.success) {
+                    html += `<div class="text-end">
+                        <button class="btn btn-primary" onclick="goToStep(2)">
+                            下一步：配置数据库
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l14 0" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" /></svg>
+                        </button>
+                    </div>`;
+                } else {
+                    html += `<div class="alert alert-warning" role="alert">
+                        <div class="d-flex">
+                            <div>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v2m0 4v.01" /><path d="M5 19h14a2 2 0 0 0 1.84 -2.75l-7.1 -12.25a2 2 0 0 0 -3.5 0l-7.1 12.25a2 2 0 0 0 1.75 2.75" /></svg>
+                            </div>
+                            <div>请先安装缺失的依赖包后重新检查。</div>
+                        </div>
+                    </div>`;
+                }
+                
+                resultDiv.innerHTML = html;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger">检查失败: ${error.message}</div>`;
+            } finally {
+                spinner.classList.add('d-none');
+            }
+        }
+
+        // 测试 Redis
+        async function testRedis() {
+            const form = document.getElementById('config-form');
+            const formData = new FormData(form);
+            const resultSpan = document.getElementById('redis-test-result');
+            
+            // 重置测试状态
+            redisTestPassed = false;
+            checkCanSaveConfig();
+            
+            resultSpan.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            
+            try {
+                const response = await fetch('/install/test-redis', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        host: formData.get('redis_host'),
+                        port: formData.get('redis_port'),
+                        password: formData.get('redis_password'),
+                        db: formData.get('redis_db')
+                    })
+                });
+                
+                const data = await response.json();
+                const isSuccess = data.code === 200;
+                const badgeClass = isSuccess ? 'bg-success-lt text-success' : 'bg-danger-lt text-danger';
+                const icon = isSuccess ? 
+                    '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-sm me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>' :
+                    '<svg xmlns="http://www.w3.org/2000/svg" class="icon icon-sm me-1" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg>';
+                resultSpan.innerHTML = `<span class="badge ${badgeClass}">${icon} ${data.msg}</span>`;
+                
+                // 更新测试状态
+                if (data.code === 200) {
+                    redisTestPassed = true;
+                    checkCanSaveConfig();
+                }
+            } catch (error) {
+                resultSpan.innerHTML = `<span class="badge bg-danger-lt text-danger">测试失败: ${error.message}</span>`;
+                redisTestPassed = false;
+                checkCanSaveConfig();
+            }
+        }
+
+        // 保存配置
+        async function saveConfig() {
+            // 检查 Redis 连接
+            if (!redisTestPassed) {
+                showToast('warning', '请先测试 Redis 连接，确保连接成功！');
+                return;
+            }
+            
+            const form = document.getElementById('config-form');
+            const formData = new FormData(form);
+            
+            try {
+                const response = await fetch('/install/save-config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        redis_host: formData.get('redis_host'),
+                        redis_port: formData.get('redis_port'),
+                        redis_password: formData.get('redis_password'),
+                        redis_db: formData.get('redis_db')
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    showToast('success', data.msg);
+                    goToStep(3);
+                } else {
+                    showToast('danger', '保存失败: ' + data.msg);
+                }
+            } catch (error) {
+                showToast('danger', '保存失败: ' + error.message);
+            }
+        }
+
+        // 执行安装
+        async function runInstall() {
+            const btn = document.getElementById('install-btn');
+            const spinner = document.getElementById('install-spinner');
+            const resultDiv = document.getElementById('install-result');
+            
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            try {
+                const response = await fetch('/install/run', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.code === 200) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success" role="alert">
+                            <div class="d-flex">
+                                <div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>
+                                </div>
+                                <div>
+                                    <h4 class="alert-title">安装成功！</h4>
+                                    <div class="text-muted mb-2">${data.msg}</div>
+                                    <div class="mb-1">默认管理员账号: <strong>admin</strong></div>
+                                    <div class="mb-3">默认密码: <strong>123456</strong></div>
+                                    <a href="/" class="btn btn-primary">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l14 0" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" /></svg>
+                                        进入系统
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    btn.classList.add('d-none');
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-danger" role="alert">
+                        <div class="d-flex">
+                            <div>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
+                            </div>
+                            <div>${data.msg}</div>
+                        </div>
+                    </div>`;
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-danger" role="alert">
+                    <div class="d-flex">
+                        <div>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>
+                        </div>
+                        <div>安装失败: ${error.message}</div>
+                    </div>
+                </div>`;
+                btn.disabled = false;
+            } finally {
+                spinner.classList.add('d-none');
+            }
+        }
+
+        // 显示 Toast 通知
+        function showToast(category, message) {
+            const container = document.getElementById('alertContainer');
+            if (!container) {
+                const newContainer = document.createElement('div');
+                newContainer.id = 'alertContainer';
+                newContainer.className = 'toast-container';
+                newContainer.style.cssText = 'position: fixed; top: 1rem; right: 1rem; z-index: 1050; width: 100%; max-width: 400px;';
+                document.body.appendChild(newContainer);
+            }
+            
+            const iconMap = {
+                'success': '<svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 12l5 5l10 -10" /></svg>',
+                'danger': '<svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>',
+                'warning': '<svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v2m0 4v.01" /><path d="M5 19h14a2 2 0 0 0 1.84 -2.75l-7.1 -12.25a2 2 0 0 0 -3.5 0l-7.1 12.25a2 2 0 0 0 1.75 2.75" /></svg>',
+                'info': '<svg xmlns="http://www.w3.org/2000/svg" class="icon alert-icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 9h.01" /><path d="M11 12h1v4h1" /></svg>'
+            };
+            
+            const alert = document.createElement('div');
+            alert.className = `alert alert-important alert-${category} alert-dismissible`;
+            alert.setAttribute('role', 'alert');
+            alert.innerHTML = `
+                <div class="d-flex">
+                    <div>${iconMap[category] || iconMap['info']}</div>
+                    <div>${message}</div>
+                </div>
+                <a class="btn-close" data-bs-dismiss="alert" aria-label="close"></a>
+            `;
+            
+            document.getElementById('alertContainer').appendChild(alert);
+            
+            // 自动关闭
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

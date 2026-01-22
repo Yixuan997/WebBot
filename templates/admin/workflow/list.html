@@ -1,0 +1,323 @@
+{% extends "admin/base.html" %}
+
+{% block title %}工作流 - {{ system.title }}{% endblock %}
+{% block page_title %}工作流管理{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-3 gap-2">
+    <div class="subheader">
+        {% if workflows %}
+        {% set enabled_count = workflows|selectattr('enabled')|list|length %}
+        {% set disabled_count = workflows|rejectattr('enabled')|list|length %}
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <span class="subheader-title me-3">总数 {{ pagination.total if pagination else workflows|length }}</span>
+            <span class="badge bg-success-lt me-2">已启用 {{ enabled_count }}</span>
+            <span class="badge bg-secondary-lt">已禁用 {{ disabled_count }}</span>
+        </div>
+        {% else %}
+        <span class="subheader-title">工作流管理</span>
+        {% endif %}
+    </div>
+    
+    <div class="btn-list flex-wrap">
+        <form class="input-icon me-2" method="get" style="width: 200px;">
+            <input class="form-control form-control-sm" name="search" placeholder="搜索工作流..." type="text" value="{{ search or '' }}">
+            <span class="input-icon-addon">
+                <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><circle cx="10" cy="10" r="7"/><line x1="21" x2="15" y1="21" y2="15"/></svg>
+            </span>
+        </form>
+        <button class="btn btn-outline-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#importModal">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-upload" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 9l5 -5l5 5" /><path d="M12 4l0 12" /></svg>
+            导入
+        </button>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('Admin.workflow_create') }}">
+            <!-- icon: plus -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-plus" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+            创建
+        </a>
+    </div>
+</div>
+
+<!-- 导入 Modal -->
+<div class="modal modal-blur fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">导入工作流</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">选择文件</label>
+                    <input type="file" class="form-control" id="importFile" accept=".workflow">
+                    <small class="form-hint">请选择 .workflow 格式的文件</small>
+                </div>
+                <div id="importPreview" style="display: none;">
+                    <div class="alert alert-info">
+                        <strong>文件信息：</strong>
+                        <div id="importInfo"></div>
+                    </div>
+                </div>
+                <div id="importError" class="alert alert-danger" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="importBtn" onclick="importWorkflow()" disabled>导入</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+        <table class="table table-vcenter card-table table-striped">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>工作流</th>
+                <th>优先级</th>
+                <th>协议限制</th>
+                <th>状态</th>
+                <th>创建时间</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for workflow in workflows %}
+            {% set config = workflow.get_config() %}
+            {% set trigger_type = config.get('trigger_type', 'message') %}
+            {% set schedule = config.get('schedule', {}) %}
+            <tr>
+                <td>{{ workflow.id }}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <span class="avatar avatar-sm me-2 flex-shrink-0 {% if workflow.enabled %}bg-teal text-white{% else %}bg-secondary text-white{% endif %}">
+                            {% if trigger_type == 'schedule' %}
+                            <!-- icon: clock -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 7v5l3 3" /></svg>
+                            {% else %}
+                            <!-- icon: sitemap -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sitemap" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><rect x="3" y="15" width="6" height="6" rx="2"/><rect x="15" y="15" width="6" height="6" rx="2"/><rect x="9" y="3" width="6" height="6" rx="2"/><path d="M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1"/><path d="M12 9l0 3"/></svg>
+                            {% endif %}
+                        </span>
+                        <div style="max-width: 150px;">
+                            <strong class="d-block text-truncate" title="{{ workflow.name }}">{{ workflow.name }}</strong>
+                            <div class="small text-muted text-truncate">
+                                {% if trigger_type == 'schedule' %}
+                                    {% if schedule.get('type') == 'interval' %}
+                                    ⏰ 每 {{ schedule.get('interval_minutes', 60) }} 分钟
+                                    {% else %}
+                                    ⏰ {{ schedule.get('cron', '0 8 * * *') }}
+                                    {% endif %}
+                                {% else %}
+                                🔑 消息触发
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge bg-primary-lt">{{ workflow.priority }}</span>
+                </td>
+                <td>
+                    {% if config.get('protocols') %}
+                    {% for protocol in config.get('protocols', []) %}
+                    {% if protocol == 'qq' %}
+                    <span class="badge bg-blue-lt me-1">QQ</span>
+                    {% elif protocol == 'onebot' %}
+                    <span class="badge bg-purple-lt me-1">OneBot</span>
+                    {% endif %}
+                    {% endfor %}
+                    {% else %}
+                    <span class="badge bg-secondary-lt">全部</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if workflow.enabled %}
+                    <span class="badge bg-success-lt">已启用</span>
+                    {% else %}
+                    <span class="badge bg-secondary-lt">已禁用</span>
+                    {% endif %}
+                </td>
+                <td style="white-space: nowrap;">{{ workflow.created_at.strftime('%Y-%m-%d %H:%M') if workflow.created_at else '-' }}</td>
+                <td>
+                    <div class="btn-actions">
+                        <a class="btn btn-action" href="{{ url_for('Admin.workflow_edit', workflow_id=workflow.id) }}" title="编辑">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-edit" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" /><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" /><path d="M16 5l3 3" /></svg>
+                        </a>
+                        <button class="btn btn-action" onclick="toggleWorkflow({{ workflow.id }}, {{ workflow.enabled|lower }})" title="{% if workflow.enabled %}禁用{% else %}启用{% endif %}">
+                            {% if workflow.enabled %}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-player-pause" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 5m0 1a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1z" /><path d="M14 5m0 1a1 1 0 0 1 1 -1h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1z" /></svg>
+                            {% else %}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-player-play" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 4v16l13 -8z" /></svg>
+                            {% endif %}
+                        </button>
+                        <a class="btn btn-action" href="{{ url_for('Admin.workflow_export', workflow_id=workflow.id) }}" title="导出">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-download" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2" /><path d="M7 11l5 5l5 -5" /><path d="M12 4l0 12" /></svg>
+                        </a>
+                        <button class="btn btn-action" onclick="deleteWorkflow({{ workflow.id }}, '{{ workflow.name }}')" title="删除">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-trash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7l16 0" /><path d="M10 11l0 6" /><path d="M14 11l0 6" /><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" /><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" /></svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="text-center text-muted py-4" colspan="7">
+                    <div class="empty">
+                        <div class="empty-icon">
+                            <!-- icon: sitemap -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-sitemap" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><rect x="3" y="15" width="6" height="6" rx="2"/><rect x="15" y="15" width="6" height="6" rx="2"/><rect x="9" y="3" width="6" height="6" rx="2"/><path d="M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1"/><path d="M12 9l0 3"/></svg>
+                        </div>
+                        <p class="empty-title">暂无工作流</p>
+                        <p class="empty-subtitle text-muted">还没有创建任何工作流</p>
+                        <div class="empty-action">
+                            <a class="btn btn-primary" href="{{ url_for('Admin.workflow_create') }}">
+                                <!-- icon: plus -->
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-plus" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 5l0 14" /><path d="M5 12l14 0" /></svg>
+                                创建第一个工作流
+                            </a>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    
+    {% if pagination and pagination.pages > 1 %}
+    <div class="card-footer d-flex align-items-center">
+        <p class="m-0 text-muted">显示 <span>{{ workflows|length }}</span> 条，共 <span>{{ pagination.total }}</span> 条</p>
+        <ul class="pagination m-0 ms-auto">
+            {% if current_page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('Admin.workflow_list', page=current_page-1, search=search or none) }}">&laquo;</a>
+            </li>
+            {% endif %}
+            
+            {% for page_num in range(1, pagination.pages + 1) %}
+            {% if page_num == current_page %}
+            <li class="page-item active">
+                <span class="page-link">{{ page_num }}</span>
+            </li>
+            {% else %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('Admin.workflow_list', page=page_num, search=search or none) }}">{{ page_num }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+            
+            {% if current_page < pagination.pages %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('Admin.workflow_list', page=current_page+1, search=search or none) }}">&raquo;</a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleWorkflow(workflowId, currentStatus) {
+        const action = currentStatus ? '禁用' : '启用';
+        if (confirm(`确定要${action}这个工作流吗？`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/admin/workflows/${workflowId}/toggle`;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+    
+    function deleteWorkflow(workflowId, workflowName) {
+        if (confirm(`确定要删除工作流"${workflowName}"吗？此操作不可恢复！`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/admin/workflows/${workflowId}/delete`;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+    
+    // 导入功能
+    let selectedFile = null;
+    
+    // Modal 打开时重置状态
+    document.getElementById('importModal').addEventListener('show.bs.modal', function() {
+        document.getElementById('importFile').value = '';
+        document.getElementById('importPreview').style.display = 'none';
+        document.getElementById('importError').style.display = 'none';
+        document.getElementById('importBtn').disabled = true;
+        selectedFile = null;
+    });
+    
+    document.getElementById('importFile').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const preview = document.getElementById('importPreview');
+        const error = document.getElementById('importError');
+        const info = document.getElementById('importInfo');
+        const btn = document.getElementById('importBtn');
+        
+        preview.style.display = 'none';
+        error.style.display = 'none';
+        btn.disabled = true;
+        
+        if (!file.name.endsWith('.workflow')) {
+            error.textContent = '请选择 .workflow 格式的文件';
+            error.style.display = 'block';
+            return;
+        }
+        
+        // .workflow 是 ZIP 格式，直接显示文件名并允许导入
+        info.innerHTML = `
+            <div>文件：<strong>${file.name}</strong></div>
+            <div>大小：${(file.size / 1024).toFixed(1)} KB</div>
+        `;
+        preview.style.display = 'block';
+        btn.disabled = false;
+        selectedFile = file;
+    });
+    
+    function importWorkflow() {
+        if (!selectedFile) return;
+        
+        const btn = document.getElementById('importBtn');
+        btn.disabled = true;
+        btn.textContent = '导入中...';
+        
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        
+        fetch('/admin/workflows/import', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                document.getElementById('importError').textContent = data.message;
+                document.getElementById('importError').style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = '导入';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('importError').textContent = '导入时发生错误';
+            document.getElementById('importError').style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = '导入';
+        });
+    }
+</script>
+{% endblock %}

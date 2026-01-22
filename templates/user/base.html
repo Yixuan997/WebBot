@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+    <title>{% block title %}{{ system.title }}{% endblock %}</title>
+    <meta content="{{ system.des }}"
+          name="description">
+    <meta content="{{ system.key }}"
+          name="keywords">
+    <meta content="YAPI" name="author">
+    <meta content="YAPI" name="founder">
+    <link href="{{ url_for('static', filename='favicon.ico') }}" rel="icon" type="image/x-icon">
+    <link href="{{ url_for('static', filename='css/tabler.min.css') }}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+<div class="page">
+    <!-- Header -->
+    <header class="navbar navbar-expand-md navbar-light d-print-none">
+        <div class="container-xl">
+            <button class="navbar-toggler" data-bs-target="#navbar-menu" data-bs-toggle="collapse" type="button">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <h1 class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
+                <a href="/">
+                    <img alt="{{ system.title }}" class="navbar-brand-image" height="32"
+                         src="{{ url_for('static', filename='logo.svg') }}" width="110">
+                </a>
+            </h1>
+            <div class="navbar-nav flex-row order-md-last">
+                <div class="nav-item dropdown">
+                    <a aria-label="Open user menu" class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown"
+                       href="#">
+                        <span class="avatar avatar-sm"
+                              style="background-image: url(https://q2.qlogo.cn/headimg_dl?spec=100&dst_uin={{ g.user.qq if g.user.qq else '10000' }})"></span>
+                        <div class="d-none d-xl-block ps-2">
+                            <div>{{ g.user.username }}</div>
+                            <div class="mt-1 small text-muted">{{ g.user.role|title }}</div>
+                        </div>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+                        {% if g.user.role == 'admin' %}
+                            {% if request.endpoint and request.endpoint.startswith('Admin.') %}
+                        <a class="dropdown-item" href="{{ url_for('user.dashboard') }}">用户中心</a>
+                            {% else %}
+                        <a class="dropdown-item" href="{{ url_for('Admin.dashboard') }}">管理后台</a>
+                            {% endif %}
+                        {% else %}
+                        <a class="dropdown-item" href="{{ url_for('user.profile') }}">个人资料</a>
+                        {% endif %}
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="{{ url_for('auth.logout') }}">退出登录</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    <!-- Flash消息显示 -->
+    {% include 'flash.html' %}
+    {% block navbar_menu %}
+    <!-- 添加顶部横向导航栏 -->
+    <div class="navbar-expand-md">
+        <div class="collapse navbar-collapse" id="navbar-menu">
+            <div class="navbar navbar-light">
+                <div class="container-xl">
+                    <ul class="navbar-nav">
+                        <li class="nav-item {% if request.endpoint == 'user.dashboard' %}active{% endif %}">
+                            <a class="nav-link" href="{{ url_for('user.dashboard') }}">
+                                <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                    <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                         stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                         width="24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                        <rect height="8" rx="1" width="6" x="4" y="4"/>
+                                        <rect height="4" rx="1" width="6" x="4" y="16"/>
+                                        <rect height="4" rx="1" width="6" x="14" y="4"/>
+                                        <rect height="8" rx="1" width="6" x="14" y="12"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-link-title">概览</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item {% if request.endpoint == 'user.profile' %}active{% endif %}">
+                            <a class="nav-link" href="{{ url_for('user.profile') }}">
+                                <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                    <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                         stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                         width="24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                        <circle cx="12" cy="7" r="4"/>
+                                        <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-link-title">个人资料</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item {% if request.endpoint in ['user.bots', 'user.create_bot', 'user.edit_bot'] %}active{% endif %}">
+                            <a class="nav-link" href="{{ url_for('user.bots') }}">
+                                <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                    <svg class="icon icon-tabler icon-tabler-robot" fill="none"
+                                         height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                         stroke-width="2" viewBox="0 0 24 24" width="24"
+                                         xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                        <path d="M7 7h10a2 2 0 0 1 2 2v1l1 1v3l-1 1v3a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-3l-1 -1v-3l1 -1v-1a2 2 0 0 1 2 -2z"/>
+                                        <path d="M10 16h4"/>
+                                        <circle cx="8.5" cy="11.5" fill="currentColor" r=".5"/>
+                                        <circle cx="15.5" cy="11.5" fill="currentColor" r=".5"/>
+                                        <path d="M9 7l-1 -4"/>
+                                        <path d="M15 7l1 -4"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-link-title">机器人管理</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item {% if request.endpoint == 'user.workflows' %}active{% endif %}">
+                            <a class="nav-link" href="{{ url_for('user.workflows') }}">
+                                <span class="nav-link-icon d-md-none d-lg-inline-block">
+                                    <!-- icon: sitemap -->
+                                    <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                         stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                         width="24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                        <rect x="3" y="15" width="6" height="6" rx="2"/>
+                                        <rect x="15" y="15" width="6" height="6" rx="2"/>
+                                        <rect x="9" y="3" width="6" height="6" rx="2"/>
+                                        <path d="M6 15v-1a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1"/>
+                                        <path d="M12 9l0 3"/>
+                                    </svg>
+                                </span>
+                                <span class="nav-link-title">工作流管理</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    <div class="page-wrapper">
+        <div class="container-xl">
+            <!-- Page title -->
+            <div class="page-header d-print-none">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h2 class="page-title">{% block page_title %}{% endblock %}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="page-body">
+            <div class="container-xl">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+        <footer class="footer footer-transparent d-print-none">
+            <div class="container-xl">
+                <div class="row text-center align-items-center flex-row-reverse">
+                    <div class="col-lg-auto ms-lg-auto">
+                        <ul class="list-inline list-inline-dots mb-0">
+                            <li class="list-inline-item"><a class="link-secondary" href="#">帮助</a></li>
+                            <li class="list-inline-item"><a class="link-secondary" href="#">免责声明</a></li>
+                            <li class="list-inline-item"><a class="link-secondary" href="#">关于我们</a></li>
+                        </ul>
+                    </div>
+                    <div class="col-12 col-lg-auto mt-3 mt-lg-0">
+                        <ul class="list-inline list-inline-dots mb-0">
+                            <li class="list-inline-item">
+                                &copy; {{ current_year }}
+                                <a href="http://www.miibeian.gov.cn/"
+                                   target="_blank">{{ system.icp }}</a>
+                                All rights reserved. Yixuan
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/tabler.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,331 @@
+{% extends "admin/base.html" %}
+
+{% block title %}系统更新 - {{ system.title }}{% endblock %}
+{% block page_title %}系统更新{% endblock %}
+
+{% block content %}
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">版本信息</h3>
+                <div class="card-actions">
+                    <a href="{{ url_for('Admin.check_update') }}" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                            <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>
+                            <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>
+                        </svg>
+                        检查更新
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <div class="mb-3">
+                            <label class="form-label">当前版本</label>
+                            <div class="form-control-plaintext">{{ version_info.version }}</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="mb-3">
+                            <label class="form-label">最新版本</label>
+                            <div class="form-control-plaintext">{{ version_info.latest_version }}</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 更新操作按钮 -->
+                <div class="mt-3">
+                    {% if version_info.update_available %}
+                    <div class="alert alert-warning mb-3">
+                        <h4 class="alert-title">发现新版本！</h4>
+                        <div class="text-muted">当前版本 {{ version_info.version }} → 最新版本 {{ version_info.latest_version }}</div>
+                    </div>
+                    <button type="button" class="btn btn-success" onclick="applyUpdate()" id="updateBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                            <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/>
+                            <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>
+                        </svg>
+                        一键更新
+                    </button>
+                    {% else %}
+                    <div class="alert alert-success mb-3">
+                        <h4 class="alert-title">✅ 当前已是最新版本</h4>
+                        <div class="text-muted">版本 {{ version_info.version }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- 最新Release信息 -->
+                <div class="mt-4">
+                    <h4>最新版本信息</h4>
+
+                    <div id="releaseContent">
+                        <div class="card">
+                            <div class="card-body text-center text-muted py-5">
+                                <div class="spinner-border mb-3" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <div>正在加载最新版本信息...</div>
+                                <small>稍等片刻</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">项目信息</h3>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">GitHub仓库</label>
+                    <div class="form-control-plaintext">
+                        <a href="{{ version_info.github_url }}" target="_blank">{{ version_info.github_repo }}</a>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">发布页面</label>
+                    <div class="form-control-plaintext">
+                        <a href="{{ version_info.releases_url }}" target="_blank">查看所有版本</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">
+                <h3 class="card-title">更新历史</h3>
+            </div>
+            <div class="card-body">
+                {% if release_history %}
+                    <div class="list-group list-group-flush">
+                        {% for release in release_history %}
+                        <div class="list-group-item">
+                            <div class="row align-items-center">
+                                <div class="col-auto">
+                                    {% if release.tag_name.lstrip('v') == version_info.version %}
+                                        <span class="badge bg-success-lt">{{ release.tag_name }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary-lt">{{ release.tag_name }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="col">
+                                    <div class="text-truncate">
+                                        <strong>{{ release.name or release.tag_name }}</strong>
+                                        {% if release.prerelease %}
+                                            <span class="badge bg-yellow-lt ms-1">预发布</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-muted">{{ release.published_at[:10] }}</div>
+                                </div>
+                                <div class="col-auto">
+                                    <a href="{{ release.html_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        查看
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-muted text-center py-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-lg mb-2" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                            <circle cx="12" cy="12" r="9"/>
+                            <line x1="9" y1="9" x2="15" y2="15"/>
+                            <line x1="15" y1="9" x2="9" y2="15"/>
+                        </svg>
+                        <div>无法获取更新历史</div>
+                        <small>请检查网络连接</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* 简化的Markdown样式，利用Tabler的内置类 */
+.markdown-content {
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+.markdown-content h1, .markdown-content h2, .markdown-content h3,
+.markdown-content h4, .markdown-content h5, .markdown-content h6 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+.markdown-content table {
+    margin: 1rem 0;
+}
+.markdown-content ul, .markdown-content ol {
+    margin: 0.5rem 0;
+}
+</style>
+{% endblock %}
+
+
+
+{% block admin_extra_js %}
+<!-- 引入marked.js -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+
+
+document.addEventListener('DOMContentLoaded', function() {
+
+    const contentDiv = document.getElementById('releaseContent');
+
+    if (!contentDiv) {
+        return;
+    }
+
+    // 页面加载完成后延迟1秒自动加载Release信息
+    setTimeout(function() {
+        loadReleaseContent();
+    }, 1000);
+
+    function loadReleaseContent() {
+        // 发送AJAX请求
+        fetch('{{ url_for("Admin.get_latest_release") }}', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const release = data.data;
+
+                // 构建Release内容HTML
+                let releaseHtml = `
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="row align-items-center">
+                                <div class="col">
+                                    <h5 class="card-title mb-0">
+                                        ${release.name || release.tag_name}
+                                        ${release.prerelease ? '<span class="badge bg-yellow-lt ms-2">预发布</span>' : ''}
+                                    </h5>
+                                    <div class="text-muted">
+                                        发布时间: ${release.published_at.substring(0, 10)}
+                                        ${release.author ? '· 发布者: ' + release.author.login : ''}
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <a href="${release.html_url}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                            <path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6"/>
+                                            <path d="M11 13l9 -9"/>
+                                            <path d="M15 4h5v5"/>
+                                        </svg>
+                                        查看详情
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                `;
+
+                if (release.body) {
+                    // 使用marked.js渲染Markdown
+                    let htmlContent = marked.parse(release.body);
+
+                    // 为表格添加Tabler的样式类
+                    htmlContent = htmlContent.replace(/<table>/g, '<table class="table table-sm table-striped">');
+
+                    releaseHtml += `
+                        <div class="card-body">
+                            <div class="markdown-content">${htmlContent}</div>
+                        </div>
+                    `;
+                }
+
+                releaseHtml += '</div>';
+
+                // 平滑更新内容
+                contentDiv.style.opacity = '0.5';
+                setTimeout(function() {
+                    contentDiv.innerHTML = releaseHtml;
+                    contentDiv.style.opacity = '1';
+                }, 300);
+
+            } else {
+                // 显示错误
+                contentDiv.innerHTML = `
+                    <div class="card">
+                        <div class="card-body text-center text-danger py-5">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-lg mb-2" width="48" height="48" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <circle cx="12" cy="12" r="9"/>
+                                <line x1="9" y1="9" x2="15" y2="15"/>
+                                <line x1="15" y1="9" x2="9" y2="15"/>
+                            </svg>
+                            <div>加载失败</div>
+                            <small>${data.error || '网络错误，请稍后重试'}</small>
+                        </div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            // 显示错误
+            contentDiv.innerHTML = `
+                <div class="card">
+                    <div class="card-body text-center text-danger py-5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-lg mb-2" width="48" height="48" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                            <circle cx="12" cy="12" r="9"/>
+                            <line x1="9" y1="9" x2="15" y2="15"/>
+                            <line x1="15" y1="9" x2="9" y2="15"/>
+                        </svg>
+                        <div>网络错误</div>
+                        <small>请检查网络连接后重试</small>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+});
+
+// 极简更新功能
+function applyUpdate() {
+    const btn = document.getElementById('updateBtn');
+
+    if (btn.disabled) return;
+
+    if (!confirm('确定要执行一键更新吗？\n\n系统将自动下载、更新并重启。')) return;
+
+    // 禁用按钮，显示更新状态
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>正在更新...';
+
+    // 发送更新请求
+    fetch('{{ url_for("Admin.apply_update") }}', {method: 'POST'})
+    .finally(() => {
+        // 无论成功失败，都显示重启状态（因为可能已经开始重启了）
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>正在重启...';
+
+        // 1分钟后自动刷新页面
+        setTimeout(() => {
+            window.location.reload();
+        }, 60000); // 60秒 = 1分钟
+    });
+}
+</script>
+{% endblock %}

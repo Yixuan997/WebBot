@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+    <meta content="ie=edge" http-equiv="X-UA-Compatible"/>
+    <title>{{ system.title }} - 专业的QQ机器人管理平台</title>
+    <meta content="智能、便捷、高效的QQ机器人管理平台，提供完整的机器人生命周期管理解决方案" name="description">
+    <meta content="QQ机器人,机器人管理,智能客服,自动化,聊天机器人" name="keywords">
+
+    <!-- Favicon -->
+    <link href="{{ url_for('static', filename='favicon.ico') }}" rel="icon" type="image/x-icon">
+
+    <!-- CSS files -->
+    <link href="{{ url_for('static', filename='css/tabler.min.css') }}" rel="stylesheet"/>
+
+    <style>
+        :root {
+            --tblr-primary: #206bc4;
+            --tblr-primary-rgb: 32, 107, 196;
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, #206bc4 0%, #1a5490 100%);
+            color: #ffffff;
+            padding: 6rem 0;
+        }
+
+        .hero-section h1,
+        .hero-section p,
+        .hero-section .lead {
+            color: #ffffff;
+        }
+
+        .hero-section .lead {
+            opacity: 0.85;
+        }
+
+        .feature-icon {
+            width: 4rem;
+            height: 4rem;
+            border-radius: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+        }
+
+        .stats-section {
+            background: var(--tblr-bg-surface);
+            padding: 4rem 0;
+        }
+
+        .cta-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4rem 0;
+        }
+
+        .navbar-brand-image {
+            height: 2rem;
+        }
+
+        .hero-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 1rem;
+            box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+        }
+    </style>
+</head>
+<body>
+<!-- Navigation -->
+<header class="navbar navbar-expand-md navbar-light d-print-none">
+    <div class="container-xl">
+        <h1 class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
+            <a href="{{ url_for('index') }}">
+                <svg class="navbar-brand-image" fill="none" height="24" stroke="currentColor"
+                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                    <path d="M7 7h10a2 2 0 0 1 2 2v1l1 1v3l-1 1v3a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-3l-1 -1v-3l1 -1v-1a2 2 0 0 1 2 -2z"/>
+                    <path d="M10 16h4"/>
+                    <circle cx="8.5" cy="11.5" fill="currentColor" r=".5"/>
+                    <circle cx="15.5" cy="11.5" fill="currentColor" r=".5"/>
+                </svg>
+                {{ system.title }}
+            </a>
+        </h1>
+        <div class="navbar-nav flex-row order-md-last">
+            {% if user %}
+            <div class="nav-item">
+                {% if user.role == 'admin' %}
+                <a class="nav-link" href="{{ url_for('Admin.dashboard') }}">
+                    <svg class="icon me-1" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/>
+                        <path d="M9 12l2 2l4 -4"/>
+                    </svg>
+                    管理后台
+                </a>
+                {% else %}
+                <a class="nav-link" href="{{ url_for('user.dashboard') }}">
+                    <svg class="icon me-1" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0"/>
+                        <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/>
+                    </svg>
+                    会员中心
+                </a>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="nav-item">
+                <a class="nav-link" href="{{ url_for('auth.login') }}">
+                    <svg class="icon me-1" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2"/>
+                        <path d="M20 12h-13l3 -3m0 6l-3 -3"/>
+                    </svg>
+                    登录
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="{{ url_for('auth.register') }}">
+                    <svg class="icon me-1" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0"/>
+                        <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/>
+                    </svg>
+                    注册
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        <div class="collapse navbar-collapse" id="navbar-menu">
+            <div class="d-flex flex-column flex-md-row flex-fill align-items-stretch align-items-md-center">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#features">
+                            <span class="nav-link-title">功能特色</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#pricing">
+                            <span class="nav-link-title">价格方案</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('docs.index') }}">
+                            <span class="nav-link-title">开发文档</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Flash 消息 -->
+{% include 'flash.html' %}
+
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container-xl">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4">
+                    专业的QQ机器人<br>
+                    <span class="text-yellow">管理平台</span>
+                </h1>
+<p class="lead mb-4">
+                    智能、便捷、高效的机器人管理解决方案。从创建到部署，从监控到维护，为您提供完整的机器人生命周期管理服务。
+                </p>
+                <div class="btn-list">
+                    {% if user %}
+                        {% if user.role == 'admin' %}
+                        <a class="btn btn-white btn-lg" href="{{ url_for('Admin.dashboard') }}">
+                            <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/>
+                                <path d="M9 12l2 2l4 -4"/>
+                            </svg>
+                            进入管理后台
+                        </a>
+                        {% else %}
+                        <a class="btn btn-white btn-lg" href="{{ url_for('user.bots') }}">
+                            <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M7 7h10a2 2 0 0 1 2 2v1l1 1v3l-1 1v3a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-3l-1 -1v-3l1 -1v-1a2 2 0 0 1 2 -2z"/>
+                                <path d="M10 16h4"/>
+                                <circle cx="8.5" cy="11.5" fill="currentColor" r=".5"/>
+                                <circle cx="15.5" cy="11.5" fill="currentColor" r=".5"/>
+                            </svg>
+                            进入控制台
+                        </a>
+                        {% endif %}
+                    {% else %}
+                    <a class="btn btn-white btn-lg" href="{{ url_for('auth.register') }}">
+                        <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <path d="M12 5l0 14"/>
+                            <path d="M5 12l14 0"/>
+                        </svg>
+                        免费开始
+                    </a>
+                    {% endif %}
+                    <a class="btn btn-outline-white btn-lg" href="{{ url_for('docs.index') }}">
+                        <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+                            <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/>
+                            <path d="M9 9l1 0"/>
+                            <path d="M9 13l6 0"/>
+                            <path d="M9 17l6 0"/>
+                        </svg>
+                        查看文档
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="text-center">
+                    <img alt="QQ机器人管理平台"
+                         class="hero-image"
+                         src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDUwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjhGOUZBIiByeD0iMTAiLz4KPHN2ZyB4PSIyMDAiIHk9IjEwMCIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjA2YmM0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CjxwYXRoIGQ9Ik03IDdoMTBhMiAyIDAgMCAxIDIgMnYxbDEgMXYzbC0xIDF2M2EyIDIgMCAwIDEgLTIgMmgtMTBhMiAyIDAgMCAxIC0yIC0ydi0zbC0xIC0xdi0zbDEgLTF2LTFhMiAyIDAgMCAxIDIgLTJ6Ii8+CjxwYXRoIGQ9Ik0xMCAxNmg0Ii8+CjxjaXJjbGUgY3g9IjguNSIgY3k9IjExLjUiIHI9Ii41IiBmaWxsPSIjMjA2YmM0Ii8+CjxjaXJjbGUgY3g9IjE1LjUiIGN5PSIxMS41IiByPSIuNSIgZmlsbD0iIzIwNmJjNCIvPgo8L3N2Zz4KPHRleHQgeD0iMjUwIiB5PSIyNDAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiM2Qzc1N0QiIHRleHQtYW5jaG9yPSJtaWRkbGUiPuacuuWZqOS6uueuoeeQhuW5s+WPsDwvdGV4dD4KPC9zdmc+">
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats-section">
+    <div class="container-xl">
+        <div class="row">
+            <div class="col-sm-6 col-lg-3">
+                <div class="card card-sm">
+                    <div class="card-body text-center">
+                        <div class="text-primary h1 mb-2">1000+</div>
+                        <div class="text-muted">活跃用户</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card card-sm">
+                    <div class="card-body text-center">
+                        <div class="text-green h1 mb-2">5000+</div>
+                        <div class="text-muted">机器人实例</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card card-sm">
+                    <div class="card-body text-center">
+                        <div class="text-yellow h1 mb-2">99.9%</div>
+                        <div class="text-muted">服务可用性</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card card-sm">
+                    <div class="card-body text-center">
+                        <div class="text-red h1 mb-2">24/7</div>
+                        <div class="text-muted">技术支持</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="py-5" id="features">
+    <div class="container-xl">
+        <div class="row justify-content-center mb-5">
+            <div class="col-lg-8 text-center">
+                <h2 class="display-6 fw-bold mb-4">为什么选择我们？</h2>
+                <p class="lead text-muted">
+                    专业的技术团队，丰富的行业经验，为您提供最优质的机器人管理服务
+                </p>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon bg-primary-lt text-primary">
+                            <svg class="icon icon-lg" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/>
+                                <path d="M9 12l2 2l4 -4"/>
+                            </svg>
+                        </div>
+                        <h4 class="card-title">智能管理</h4>
+                        <p class="text-muted">
+                            一站式机器人管理平台，支持多个机器人同时运行，提供完整的生命周期管理，让您的机器人管理更加智能化。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon bg-green-lt text-green">
+                            <svg class="icon icon-lg" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/>
+                                <path d="M12 7v5l3 3"/>
+                            </svg>
+                        </div>
+                        <h4 class="card-title">实时监控</h4>
+                        <p class="text-muted">
+                            实时监控机器人运行状态，及时发现和处理问题，确保您的机器人服务稳定运行，提供7x24小时不间断监控。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon bg-yellow-lt text-yellow">
+                            <svg class="icon icon-lg" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M7 4v16l13 -8z"/>
+                            </svg>
+                        </div>
+                        <h4 class="card-title">快速部署</h4>
+                        <p class="text-muted">
+                            简单配置即可快速部署机器人，无需复杂的技术知识，几分钟内完成设置，让您的机器人快速上线运行。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon bg-red-lt text-red">
+                            <svg class="icon icon-lg" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z"/>
+                                <path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0"/>
+                                <path d="M8 11v-4a4 4 0 1 1 8 0v4"/>
+                            </svg>
+                        </div>
+                        <h4 class="card-title">安全可靠</h4>
+                        <p class="text-muted">
+                            企业级安全保障，多重防护机制，保护您的数据和隐私安全，确保机器人运行环境的安全性和稳定性。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon bg-purple-lt text-purple">
+                            <svg class="icon icon-lg" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5"/>
+                                <path d="M12 12l8 -4.5"/>
+                                <path d="M12 12l0 9"/>
+                                <path d="M12 12l-8 -4.5"/>
+                            </svg>
+                        </div>
+                        <h4 class="card-title">插件生态</h4>
+                        <p class="text-muted">
+                            丰富的插件生态系统，支持自定义插件开发，满足各种业务需求，让您的机器人功能更加强大和灵活。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon bg-cyan-lt text-cyan">
+                            <svg class="icon icon-lg" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M12 6l0 6l3 3"/>
+                                <path d="M12 3c-1.333 0 -2 1 -2 1s-.667 -1 -2 -1c-1 0 -2 .667 -2 2c0 1 0 3 2 3s2 -1 2 -1s1 1 2 1s2 -2 2 -3c0 -1.333 -1 -2 -2 -2z"/>
+                                <path d="M12 21l-8 -4.5l0 -9l8 -4.5l8 4.5l0 9l-8 4.5z"/>
+                            </svg>
+                        </div>
+                        <h4 class="card-title">专业支持</h4>
+                        <p class="text-muted">
+                            专业的技术支持团队，提供7x24小时技术支持服务，帮助您解决使用过程中遇到的任何问题。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Pricing Section -->
+<section class="py-5 bg-light" id="pricing">
+    <div class="container-xl">
+        <div class="row justify-content-center mb-5">
+            <div class="col-lg-8 text-center">
+                <h2 class="display-6 fw-bold mb-4">选择适合您的方案</h2>
+                <p class="lead text-muted">
+                    灵活的价格方案，满足不同规模的需求
+                </p>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-4 col-md-6">
+                <div class="card card-md">
+                    <div class="card-body text-center">
+                        <div class="text-uppercase text-muted font-weight-medium">免费版</div>
+                        <div class="display-5 fw-bold my-3">¥0</div>
+                        <ul class="list-unstyled lh-lg">
+                            <li>最多 2 个机器人</li>
+                            <li>基础功能支持</li>
+                            <li>社区技术支持</li>
+                            <li>基础插件</li>
+                        </ul>
+                        <div class="mt-4">
+                            <a class="btn btn-outline-primary w-100" href="{{ url_for('auth.register') }}">
+                                免费开始
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <div class="card card-md border-primary">
+                    <div class="ribbon ribbon-top bg-primary">
+                        <svg class="icon icon-filled" fill="none" height="24" stroke="currentColor"
+                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z"/>
+                        </svg>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="text-uppercase text-muted font-weight-medium">专业版</div>
+                        <div class="display-5 fw-bold my-3">¥99<small class="text-muted">/月</small></div>
+                        <ul class="list-unstyled lh-lg">
+                            <li>最多 10 个机器人</li>
+                            <li>高级功能支持</li>
+                            <li>优先技术支持</li>
+                            <li>全部插件</li>
+                            <li>数据分析报告</li>
+                        </ul>
+                        <div class="mt-4">
+                            <a class="btn btn-primary w-100" href="{{ url_for('auth.register') }}">
+                                立即购买
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 col-md-6">
+                <div class="card card-md">
+                    <div class="card-body text-center">
+                        <div class="text-uppercase text-muted font-weight-medium">企业版</div>
+                        <div class="display-5 fw-bold my-3">¥299<small class="text-muted">/月</small></div>
+                        <ul class="list-unstyled lh-lg">
+                            <li>无限制机器人</li>
+                            <li>企业级功能</li>
+                            <li>专属技术支持</li>
+                            <li>自定义插件开发</li>
+                            <li>高级数据分析</li>
+                            <li>API 接口支持</li>
+                        </ul>
+                        <div class="mt-4">
+                            <a class="btn btn-outline-primary w-100" href="{{ url_for('auth.register') }}">
+                                联系销售
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container-xl">
+        <div class="row justify-content-center text-center">
+            <div class="col-lg-8">
+                <h2 class="display-6 fw-bold mb-4">准备开始了吗？</h2>
+                <p class="lead mb-4 opacity-75">
+                    立即注册，开始您的机器人管理之旅。免费试用，无需信用卡。
+                </p>
+                <div class="btn-list justify-content-center">
+                    {% if user %}
+                        {% if user.role == 'admin' %}
+                        <a class="btn btn-white btn-lg" href="{{ url_for('Admin.dashboard') }}">
+                            <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z"/>
+                                <path d="M9 12l2 2l4 -4"/>
+                            </svg>
+                            进入管理后台
+                        </a>
+                        {% else %}
+                        <a class="btn btn-white btn-lg" href="{{ url_for('user.bots') }}">
+                            <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M7 7h10a2 2 0 0 1 2 2v1l1 1v3l-1 1v3a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-3l-1 -1v-3l1 -1v-1a2 2 0 0 1 2 -2z"/>
+                                <path d="M10 16h4"/>
+                                <circle cx="8.5" cy="11.5" fill="currentColor" r=".5"/>
+                                <circle cx="15.5" cy="11.5" fill="currentColor" r=".5"/>
+                            </svg>
+                            进入控制台
+                        </a>
+                        {% endif %}
+                    {% else %}
+                    <a class="btn btn-white btn-lg" href="{{ url_for('auth.register') }}">
+                        <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <path d="M12 5l0 14"/>
+                            <path d="M5 12l14 0"/>
+                        </svg>
+                        免费注册
+                    </a>
+                    {% endif %}
+                    <a class="btn btn-outline-white btn-lg" href="{{ url_for('docs.index') }}">
+                        <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                             width="24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+                            <path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/>
+                            <path d="M9 9l1 0"/>
+                            <path d="M9 13l6 0"/>
+                            <path d="M9 17l6 0"/>
+                        </svg>
+                        查看文档
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer footer-transparent d-print-none">
+    <div class="container-xl">
+        <div class="row text-center align-items-center flex-row-reverse">
+            <div class="col-lg-auto ms-lg-auto">
+                <ul class="list-inline list-inline-dots mb-0">
+                    <li class="list-inline-item">
+                        <a class="link-secondary" href="{{ url_for('docs.index') }}">开发文档</a>
+                    </li>
+                    <li class="list-inline-item">
+                        <a class="link-secondary" href="#">隐私政策</a>
+                    </li>
+                    <li class="list-inline-item">
+                        <a class="link-secondary" href="#">服务条款</a>
+                    </li>
+                    <li class="list-inline-item">
+                        <a class="link-secondary" href="#">联系我们</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="col-12 col-lg-auto mt-3 mt-lg-0">
+                <ul class="list-inline list-inline-dots mb-0">
+                    <li class="list-inline-item">
+                        Copyright &copy; 2026
+                        <a class="link-secondary" href="{{ url_for('index') }}">{{ system.title }}</a>.
+                        All rights reserved.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- Tabler Core -->
+<script src="{{ url_for('static', filename='js/tabler.min.js') }}"></script>
+</body>
+</html>

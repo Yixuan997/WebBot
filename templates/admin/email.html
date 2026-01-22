@@ -1,0 +1,140 @@
+{% extends "admin/base.html" %}
+
+{% block admin_title %}邮件设置{% endblock %}
+{% block page_title %}邮件设置{% endblock %}
+
+{% block admin_content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">邮件服务器设置</h3>
+    </div>
+    <div class="card-body">
+        <form action="{{ url_for('Admin.email') }}" method="post">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label class="form-label">SMTP服务器地址</label>
+                        <input class="form-control" name="server" required
+                               type="text" value="{{ email_config.server if email_config else '' }}">
+                        <div class="form-text">例如：smtp.qq.com</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">端口号</label>
+                        <input class="form-control" name="port" required
+                               type="number" value="{{ email_config.port if email_config else '587' }}">
+                        <div class="form-text">常用：587(TLS) 或 465(SSL)，系统会自动选择加密方式</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">邮箱账号</label>
+                <input class="form-control" name="user" required
+                       type="email" value="{{ email_config.user if email_config else '' }}">
+                <div class="form-text">您的完整邮箱地址</div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">授权码</label>
+                <input class="form-control" name="password" required
+                       type="password" value="{{ email_config.password if email_config else '' }}">
+                <div class="form-text text-warning">
+                    注意：QQ邮箱请使用授权码，不是邮箱密码！
+                    <a class="ms-2" href="https://service.mail.qq.com/detail/0/53"
+                       target="_blank">如何获取授权码？</a>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-check">
+                    <input class="form-check-input" name="use_tls" type="checkbox" {% if email_config and email_config.use_tls %}checked{% endif %}>
+                    <span class="form-check-label">使用TLS加密（587端口）</span>
+                </label>
+                <div class="form-text">
+                    注意：465端口自动使用SSL加密，587端口可选择TLS加密
+                </div>
+            </div>
+            <div class="form-footer">
+                <button class="btn btn-primary" type="submit">保存设置</button>
+                {% if email_config %}
+                <button class="btn btn-success ms-2" onclick="showTestEmailModal()" type="button">测试邮件发送</button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title">常用SMTP服务器设置</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-vcenter">
+                <thead>
+                <tr>
+                    <th>邮箱类型</th>
+                    <th>SMTP服务器</th>
+                    <th>端口</th>
+                    <th>说明</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>QQ邮箱</td>
+                    <td>smtp.qq.com</td>
+                    <td>465</td>
+                    <td>需要开启POP3/SMTP服务并使用授权码</td>
+                </tr>
+                <tr>
+                    <td>163邮箱</td>
+                    <td>smtp.163.com</td>
+                    <td>465</td>
+                    <td>需要开启SMTP服务并使用授权码</td>
+                </tr>
+                <tr>
+                    <td>Gmail</td>
+                    <td>smtp.gmail.com</td>
+                    <td>587</td>
+                    <td>需要开启"不够安全的应用"访问权限</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 测试邮件模态框 -->
+<div aria-hidden="true" class="modal modal-blur fade" id="testEmailModal" role="dialog" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('Admin.test_email') }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">测试邮件发送</h5>
+                    <button aria-label="Close" class="btn-close" data-bs-dismiss="modal" type="button"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">测试邮箱地址</label>
+                        <input class="form-control" name="test_email" placeholder="输入接收测试邮件的邮箱地址"
+                               required type="email">
+                        <div class="form-text">我们将向此邮箱发送一封测试邮件</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">取消</button>
+                    <button class="btn btn-success" type="submit">
+                        发送测试邮件
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showTestEmailModal() {
+        const modal = new bootstrap.Modal(document.getElementById('testEmailModal'));
+        modal.show();
+    }
+</script>
+{% endblock %}

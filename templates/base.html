@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>{% block title %}{{ system.title }} - 提供免费接口调用平台{% endblock %}</title>
+    <meta content="{{ system.des }}"
+          name="description">
+    <meta content="{{ system.key }}"
+          name="keywords">
+    <meta content="YAPI" name="author">
+    <meta content="YAPI" name="founder">
+    <link href="{{ url_for('static', filename='favicon.ico') }}" rel="icon" type="image/x-icon">
+    <link href="{{ url_for('static', filename='css/tabler.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+    <!--这个块允许子模板添加额外的CSS文件或内联样式。-->
+    {% block extra_css %}
+    {% endblock %}
+</head>
+<body>
+<div class="page {% block page_class %}{% endblock %}">
+    <header class="navbar navbar-expand-md navbar-dark">
+        <div class="container-xl">
+            <a class="navbar-brand navbar-brand-autodark" href="/">
+                <img alt="Tabler" class="navbar-brand-image" height="32"
+                     src="{{ url_for('static', filename='logo.svg') }}"
+                     width="110">
+            </a>
+            <div class="navbar-nav flex-row order-md-last">
+                {% if session.get('user_id') %}
+                <div class="nav-item d-none d-md-flex me-3">
+                    <a class="nav-link" href="{{ url_for('docs.index') }}">插件文档</a>
+                </div>
+                <div class="nav-item d-none d-md-flex">
+                    <a class="nav-link" href="{{ url_for('bots.list_bots') }}">我的机器人</a>
+                </div>
+                {% else %}
+                <div class="nav-item d-none d-md-flex me-3">
+                    <a class="nav-link" href="{{ url_for('auth.login') }}">登录</a>
+                </div>
+                <div class="nav-item d-none d-md-flex">
+                    <a class="nav-link" href="{{ url_for('auth.register') }}">注册</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <!-- Flash 消息 -->
+    {% include 'flash.html' %}
+
+    {% block content %}{% endblock %}
+
+    {% include 'footer.html' %}
+</div>
+
+<script src="{{ url_for('static', filename='js/tabler.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/clipboard.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<!--这个块允许子模板添加额外的JavaScript文件或内联脚本。-->
+{% block extra_js %}
+{% endblock %}
+<!-- 这个块用于添加页面特定的JavaScript代码。 -->
+{% block page_specific_js %}
+{% endblock %}
+</body>
+</html>

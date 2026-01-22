@@ -1,0 +1,53 @@
+<footer class="footer">
+    <div class="container-xl">
+        <div class="row">
+            <div class="col-md-4">
+                <h3>关于</h3>
+                <p>{{ system.title }} 是 <a href="/" target="_blank">逸轩</a>开发并维护的 API 接口项目，致力于为用户提供稳定、快速的免费
+                    API 接口服务平台。</p>
+                <p>反馈或建议请发送邮件至：{{ system.email }}</p>
+                <p>自上线以来已稳定运行：<span id="y-day"> </span> 天。</p>
+                <p>托管于 <a href="https://ccyidc.com/" target="_blank">创创云</a></p>
+            </div>
+            <div class="col-md-4">
+                <h3>友情链接</h3>
+                <ul class="list-unstyled">
+                    <li><a href="https://www.baidu.com">百度</a></li>
+                </ul>
+            </div>
+            <div class="col-md-4">
+                <h3>赞助我们</h3>
+                <div class="qr-code-container">
+                    <img alt="赞助二维码" class="qr-code-image"
+                         src="{{ url_for('static',filename='qrcodes/zpay.png') }}">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="footer-copyright">
+        <p>© <span id="current-year"></span>
+            <a href="http://www.miibeian.gov.cn/"
+               target="_blank">{{ system.icp }}</a> All rights reserved. Yixuan</p>
+    </div>
+</footer>
+{% block extra_js %}{% endblock %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        function show_date_time() {
+            var BirthDay = new Date(web_time);
+            var today = new Date();
+            var timeold = (today.getTime() - BirthDay.getTime());
+            var msPerDay = 24 * 60 * 60 * 1000;
+            var e_daysold = timeold / msPerDay;
+            var daysold = Math.floor(e_daysold);
+            return daysold;
+        }
+
+        // 获取当前年份
+        var currentYear = new Date().getFullYear();
+        document.getElementById("current-year").textContent = currentYear;
+
+        // 显示运行天数
+        document.getElementById("y-day").textContent = show_date_time();
+    });
+</script>

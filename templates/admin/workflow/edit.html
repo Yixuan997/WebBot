@@ -1,0 +1,903 @@
+{% extends "admin/base.html" %}
+
+{% block title %}编辑工作流 - {{ system.title }}{% endblock %}
+{% block page_title %}编辑工作流: {{ workflow.name }}{% endblock %}
+
+{% block content %}
+<form id="workflowForm" onsubmit="submitWorkflow(event)">
+    <!-- 工作流节点配置 -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">{{ workflow.name }}</h3>
+            <div class="card-actions">
+                <button type="button" class="btn btn-sm btn-outline-cyan me-1" onclick="loadDebugRecord()" title="加载最近一次执行的调试信息">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 9v-1a3 3 0 0 1 6 0v1" /><path d="M8 9h8a6 6 0 0 1 1 3v3a5 5 0 0 1 -10 0v-3a6 6 0 0 1 1 -3" /></svg>
+                    调试
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="addNode()">
+                    <svg class="icon" fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><path d="M12 5l0 14"/><path d="M5 12l14 0"/></svg>
+                    添加
+                </button>
+                <button type="submit" class="btn btn-sm btn-primary me-1">
+                    <svg class="icon" fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2"/><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/></svg>
+                    保存
+                </button>
+                <a href="{{ url_for('Admin.workflow_detail', workflow_id=workflow.id) }}" class="btn btn-sm btn-outline-secondary">取消</a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="nodesList" class="list-group list-group-flush">
+                <div class="empty">
+                    <p class="empty-title">还没有添加任何节点</p>
+                    <p class="empty-subtitle text-muted">点击"添加节点"开始构建工作流</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/Sortable.min.js') }}/"></script>
+<script>
+const availableNodes = {{ available_nodes|tojson }};
+const existingWorkflow = {{ config.get('workflow', [])|tojson }};
+const existingProtocols = {{ config.get('protocols', [])|tojson }};
+const workflowId = {{ workflow.id }};
+{% raw %}
+let nodeCounter = 1;
+const nodes = [];
+let sortable = null;
+let debugRecord = null;  // 调试记录
+
+// 初始化: 加载现有节点
+window.addEventListener('DOMContentLoaded', () => {
+    let maxNodeNum = 0;
+    
+    existingWorkflow.forEach(existingNode => {
+        const nodeId = existingNode.id || `node_${nodeCounter++}`;
+        nodes.push({
+            id: nodeId,
+            type: existingNode.type,
+            config: existingNode.config || {}
+        });
+        
+        // 提取节点ID中的数字，找到最大值
+        const match = nodeId.match(/^node_(\d+)$/);
+        if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNodeNum) maxNodeNum = num;
+        }
+    });
+    
+    // 计数器从最大节点号+1开始，避免ID重复
+    nodeCounter = maxNodeNum + 1;
+    
+    renderNodes();
+    
+    // 事件委托：点击输入输出标签复制变量名
+    document.getElementById('nodesList').addEventListener('click', (e) => {
+        const tag = e.target.closest('.io-tag');
+        if (tag && tag.dataset.var) {
+            const varName = `{{${tag.dataset.var}}}`;
+            navigator.clipboard.writeText(varName).then(() => {
+                showToast(`已复制: ${varName}`, 'success');
+            }).catch(() => {
+                showToast('复制失败', 'danger');
+            });
+        }
+    });
+});
+
+// 节点分类配置
+const categoryConfig = {
+    'trigger': { name: '触发器', icon: '⚡', color: '#f59f00' },
+    'logic': { name: '逻辑控制', icon: '🔀', color: '#ae3ec9' },
+    'data': { name: '数据处理', icon: '📊', color: '#206bc4' },
+    'action': { name: '消息动作', icon: '📨', color: '#2fb344' },
+    'other': { name: '其他', icon: '📦', color: '#666' }
+};
+
+// 分类映射（合并相似分类）
+const categoryMapping = {
+    'trigger': 'trigger',
+    'logic': 'logic',
+    'control': 'logic',      // 流程控制 -> 逻辑控制
+    'data': 'data',
+    'network': 'data',       // 网络请求 -> 数据处理
+    'action': 'action',
+    'time': 'other',         // 时间 -> 其他
+    'advanced': 'other',     // 高级 -> 其他
+    'utility': 'other',      // 工具 -> 其他
+    'core': 'other'          // 核心 -> 其他
+};
+
+// Tabler 背景色映射（用于头像底色）
+const categoryBgClass = {
+    'trigger': 'bg-yellow-lt',
+    'logic': 'bg-purple-lt',
+    'data': 'bg-blue-lt',
+    'action': 'bg-green-lt',
+    'other': 'bg-secondary-lt'
+};
+
+function addNode() {
+    // 过滤掉 start 和 end 节点
+    const filteredNodes = availableNodes.filter(node => node.type !== 'start' && node.type !== 'end');
+    
+    // 按分类分组（使用映射后的分类）
+    const nodesByCategory = {};
+    filteredNodes.forEach(node => {
+        const originalCat = node.category || 'other';
+        const cat = categoryMapping[originalCat] || 'other';
+        if (!nodesByCategory[cat]) nodesByCategory[cat] = [];
+        nodesByCategory[cat].push(node);
+    });
+    
+    // 分类顺序
+    const categoryOrder = ['trigger', 'logic', 'data', 'action', 'other'];
+    
+    // 生成分类列表内容
+    const contentHtml = categoryOrder.map(cat => {
+        if (!nodesByCategory[cat] || nodesByCategory[cat].length === 0) return '';
+        const config = categoryConfig[cat] || { name: cat, icon: '📦', color: '#666' };
+        const listHtml = nodesByCategory[cat].map(node => {
+            const originalIdx = availableNodes.findIndex(n => n.type === node.type);
+            return `<a class="list-group-item list-group-item-action" href="#" onclick="selectNodeType(${originalIdx}); return false;">
+                ${node.icon || '📦'} ${node.name}
+                <small class="text-muted d-block">${node.description || ''}</small>
+            </a>`;
+        }).join('');
+        return `
+            <div class="mb-3">
+                <div class="subheader mb-2">${config.icon} ${config.name}</div>
+                <div class="list-group list-group-flush">${listHtml}</div>
+            </div>`;
+    }).join('');
+    
+    const modal = document.createElement('div');
+    modal.innerHTML = `
+        <div class="modal modal-blur fade show" style="display: block;" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">选择节点类型</h5>
+                        <button type="button" class="btn-close" onclick="this.closest('.modal').parentNode.remove()"></button>
+                    </div>
+                    <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
+                        ${contentHtml}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    `;
+    document.body.appendChild(modal);
+}
+
+// 选中节点类型并创建
+function selectNodeType(nodeIndex) {
+    // 关闭弹窗
+    document.querySelector('.modal').parentNode.remove();
+    
+    // 创建节点
+    const nodeTemplate = availableNodes[nodeIndex];
+    const nodeId = `node_${nodeCounter++}`;
+    const node = {
+        id: nodeId,
+        type: nodeTemplate.type,
+        config: {}
+    };
+    
+    // 初始化默认值
+    (nodeTemplate.config_schema || []).forEach(field => {
+        node.config[field.name] = field.default !== undefined ? field.default : '';
+    });
+    
+    // 插入到 End 节点之前
+    const endNodeIndex = nodes.findIndex(n => n.type === 'end');
+    if (endNodeIndex !== -1) {
+        nodes.splice(endNodeIndex, 0, node);
+    } else {
+        nodes.push(node);
+    }
+    
+    renderNodes();
+}
+
+function renderNodes() {
+    const container = document.getElementById('nodesList');
+    
+    if (nodes.length === 0) {
+        container.innerHTML = `
+            <div class="empty">
+                <p class="empty-title">还没有添加任何节点</p>
+                <p class="empty-subtitle text-muted">点击"添加节点"开始构建工作流</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // 渲染节点列表
+    container.innerHTML = `<div class="nodes-wrapper">${nodes.map((node, index) => {
+        const nodeTemplate = availableNodes.find(n => n.type === node.type);
+        if (!nodeTemplate) return ''; 
+
+        // === 优化配置项显示 (Label 而不是 Key) ===
+        const configItemsList = Object.entries(node.config).map(([key, value]) => {
+            // 查找字段定义
+            const field = (nodeTemplate.config_schema || []).find(f => f.name === key);
+            const label = field ? field.label : key;
+            
+            // 处理显示值
+            let displayValue = value;
+            
+            // 处理跳转字段显示
+            if (['true_next', 'false_next', 'true_branch', 'false_branch', 'next_node', 'loop_body'].includes(key)) {
+                if (!value) {
+                    displayValue = key.startsWith('false') ? '不跳转(中断)' : '不跳转(继续)';
+                } else {
+                    const target = nodes.find(n => n.id === value);
+                    if (target) {
+                        const targetTmpl = availableNodes.find(t => t.type === target.type);
+                        displayValue = targetTmpl ? targetTmpl.name : value;
+                    }
+                }
+            } else if (key === 'snippet_name' && value) {
+                // 代码片段显示文件名（去掉.py后缀）
+                displayValue = value.replace('.py', '');
+            } else if (field && field.type === 'select' && field.options) {
+                const opt = field.options.find(o => o.value === value);
+                if (opt) displayValue = opt.label;
+            }
+            
+            // 截断长文本
+            displayValue = String(displayValue).length > 50 ? String(displayValue).substring(0, 50) + '...' : displayValue;
+            
+            return `<div class="text-muted" style="padding-left: 24px; margin-top: 6px; font-size: 13px;">├─ <strong>${label}:</strong> <code class="ms-1 bg-light px-1" style="font-size: 13px;">${displayValue}</code></div>`;
+        });
+        
+        // 可折叠配置项（默认全部折叠）
+        const configItems = configItemsList.length > 0 
+            ? `<div class="config-collapsed" onclick="toggleConfigExpand(this, event)" style="cursor: pointer;">
+                <div class="config-toggle" style="padding-left: 24px; margin-top: 6px; font-size: 12px; color: #206bc4;">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" style="vertical-align: -2px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 9l6 6l6 -6" /></svg>
+                    展开配置 (${configItemsList.length}项)
+                </div>
+                <div class="config-full" style="display: none;">${configItemsList.join('')}</div>
+               </div>`
+            : '';
+        
+        // 生成输入输出标签
+        const inputTags = (nodeTemplate.inputs || []).map(input => {
+            const requiredMark = input.required ? '<span class="text-red">*</span>' : '';
+            return `<span class="badge bg-green-lt me-1 mb-1 io-tag" data-var="${input.name}" style="font-size: 11px; cursor: pointer;" title="点击复制: {{${input.name}}}">📥 ${input.label}${requiredMark}</span>`;
+        }).join('');
+        
+        const outputTags = (nodeTemplate.outputs || []).map(output => {
+            return `<span class="badge bg-blue-lt me-1 mb-1 io-tag" data-var="${output.name}" style="font-size: 11px; cursor: pointer;" title="点击复制: {{${output.name}}}">📤 ${output.label}</span>`;
+        }).join('');
+        
+        const ioTags = (inputTags || outputTags) ? `<div style="padding-left: 24px; margin-top: 8px; line-height: 2;">${inputTags}${outputTags}</div>` : '';
+        
+        const isLast = index === nodes.length - 1;
+        const lineChar = isLast ? '└──' : '├──';
+        const isSystemNode = ['start', 'end'].includes(node.type);
+        
+        // 获取调试信息
+        const debugInfo = getNodeDebugInfo(node.id);
+        const debugBorderStyle = debugInfo ? (debugInfo.status === 'success' ? 'border-left: 3px solid #2fb344;' : 'border-left: 3px solid #d63939;') : '';
+        const debugHtml = debugInfo ? renderDebugInfo(debugInfo) : '';
+        
+        // 操作按钮 - End节点可以编辑，Start节点不可以
+        const editButton = (node.type !== 'start') ? `
+            <button type="button" class="btn btn-sm btn-ghost-primary btn-icon" onclick="editNode(${index})" title="编辑" style="width:24px;height:24px;min-width:0;padding:0;">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/><path d="M16 5l3 3"/></svg>
+            </button>
+        ` : '';
+        
+        const deleteButton = !isSystemNode ? `
+            <button type="button" class="btn btn-sm btn-ghost-danger btn-icon" onclick="deleteNode(${index})" title="删除" style="width:24px;height:24px;min-width:0;padding:0;">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7l16 0"/><path d="M10 11l0 6"/><path d="M14 11l0 6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/></svg>
+            </button>
+        ` : '';
+        
+        return `
+            <div class="node-item" data-index="${index}" data-node-type="${node.type}" style="margin-bottom: 12px;">
+                <div class="d-flex align-items-start">
+                    <div class="d-none d-sm-block" style="color: #6c7a91; font-size: 18px; line-height: 22px; margin-right: 8px; flex-shrink: 0; user-select: none; cursor: ${!isSystemNode ? 'grab' : 'default'};">${lineChar}</div>
+                    <div class="card flex-fill" style="box-shadow: 0 1px 2px rgba(0,0,0,0.08); border: 1px solid #e6e7e9; ${debugBorderStyle}">
+                        <div class="card-body p-2 p-sm-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-fill" style="min-width: 0;">
+                                    <div class="d-flex align-items-center flex-wrap">
+                                        <span class="badge me-2" style="background-color: ${index === 0 ? '#2fb344' : (isLast ? '#d63939' : '#206bc4')}; color: white;">${index + 1}</span>
+                                        <strong>${nodeTemplate.name}</strong>
+                                        <span class="badge bg-secondary-lt ms-2" style="font-size: 11px;">[${node.type}:${node.id}]</span>
+                                    </div>
+                                </div>
+                                <div style="flex-shrink: 0;">
+                                    ${editButton}
+                                    ${deleteButton}
+                                </div>
+                            </div>
+                            ${debugHtml}
+                            ${configItems}
+                            ${ioTags}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('')}</div>`;
+    
+    // 初始化 SortableJS
+    const nodesContainer = container.querySelector('.nodes-wrapper'); // 绑定到 wrapper
+    if (nodesContainer) {
+        if (sortable) sortable.destroy();
+        sortable = new Sortable(nodesContainer, {
+            animation: 150,
+            handle: '.card',
+            draggable: '.node-item',
+            filter: '[data-node-type="start"], [data-node-type="end"]',
+            onMove: function(evt) {
+                return evt.related.getAttribute('data-node-type') !== 'start' && 
+                       evt.related.getAttribute('data-node-type') !== 'end';
+            },
+            onEnd: function(evt) {
+                if (evt.oldIndex !== evt.newIndex) {
+                    const item = nodes.splice(evt.oldIndex, 1)[0];
+                    nodes.splice(evt.newIndex, 0, item);
+                    renderNodes();
+                }
+            }
+        });
+    }
+}
+
+function editNode(index) {
+    const node = nodes[index];
+    const nodeTemplate = availableNodes.find(n => n.type === node.type);
+    
+    const fieldsHtml = (nodeTemplate.config_schema || []).map(field => {
+        const value = node.config[field.name] !== undefined ? node.config[field.name] : (field.default || '');
+        let inputHtml = '';
+        
+        // 确定字段的显示类名（用于条件节点的模式切换）
+        let fieldClass = 'mb-3';
+        let dataMode = ''; // 用于标识字段所属模式
+        let dataShowIf = ''; // 用于 show_if 条件显示
+        
+        // 处理 show_if 条件
+        if (field.show_if) {
+            dataShowIf = `data-show-if='${JSON.stringify(field.show_if)}'`;
+        }
+        
+        if (node.type === 'condition') {
+            // 简单模式专属字段
+            if (['variable_name', 'condition_type', 'compare_value'].includes(field.name)) {
+                dataMode = 'data-condition-mode="simple"';
+            }
+            // 高级模式专属字段
+            else if (['logic_type', 'conditions'].includes(field.name)) {
+                dataMode = 'data-condition-mode="advanced"';
+            }
+            // mode 和跳转字段是共用的，不需要标记
+        }
+        
+        // === 下拉框逻辑 (包含跳转) ===
+        if (field.type === 'select') {
+            if (['true_next', 'false_next', 'true_branch', 'false_branch', 'next_node', 'loop_body'].includes(field.name)) {
+                // 跳转字段 -> 节点列表
+                const nodeOptions = nodes.map((n, idx) => {
+                    const nTemplate = availableNodes.find(t => t.type === n.type);
+                    if (n.id === node.id || n.type === 'start') return ''; // 过滤自身和Start
+                    // 显示节点名称和ID
+                    return `<option value="${n.id}" ${value === n.id ? 'selected' : ''}>${nTemplate ? nTemplate.name : n.type} (${n.id})</option>`;
+                }).join('');
+                
+                const defaultLabel = field.name === 'loop_body' ? '请选择循环体节点' : (field.name.startsWith('false') ? '不跳转(中断流程)' : '不跳转(继续执行)');
+                inputHtml = `<select class="form-select" id="field_${field.name}"><option value="">${defaultLabel}</option>${nodeOptions}</select>`;
+            } else if (field.name === 'snippet_name') {
+                // 代码片段
+                inputHtml = `<select class="form-select" id="field_${field.name}" onchange="showSnippetMetadata(this.value)"><option value="">加载中...</option></select>
+                             <div id="snippet_metadata_info" class="mt-3 p-3 bg-light rounded" style="display: none;">
+                                 <div class="row g-2">
+                                     <div class="col-12"><strong>文件:</strong> <span id="snippet_filename">-</span></div>
+                                     <div class="col-12"><strong>简介:</strong> <span id="snippet_description">-</span></div>
+                                     <div class="col-6"><strong>作者:</strong> <span id="snippet_author">-</span></div>
+                                     <div class="col-6"><strong>版本:</strong> <span id="snippet_version">-</span></div>
+                                 </div>
+                             </div>`;
+                setTimeout(() => loadSnippets(field.name, value), 100);
+            } else {
+                // 普通下拉框
+                const options = (field.options || []).map(opt => 
+                    `<option value="${opt.value}" ${value === opt.value ? 'selected' : ''}>${opt.label}</option>`
+                ).join('');
+                // 添加 onchange 事件
+                let onChange = '';
+                if (node.type === 'condition' && field.name === 'mode') {
+                    onChange = 'onchange="toggleConditionMode(this.value)"';
+                } else {
+                    // 通用：下拉框变化时更新 show_if 字段
+                    onChange = `onchange="updateShowIfFields({${field.name}: this.value})"`;
+                }
+                inputHtml = `<select class="form-select" id="field_${field.name}" ${onChange}>${options}</select>`;
+            }
+        } else if (field.type === 'variable_select') {
+            // 变量选择器 (纯下拉框)
+            const variables = [];
+            
+            // 遍历当前节点之前的节点，收集输出变量
+            for (let i = 0; i < index; i++) {
+                const prevNode = nodes[i];
+                const prevTemplate = availableNodes.find(n => n.type === prevNode.type);
+                
+                // 1. 收集节点定义的 outputs
+                if (prevTemplate && prevTemplate.outputs) {
+                    prevTemplate.outputs.forEach(out => {
+                        variables.push({name: out.name, label: `${prevTemplate.name} → ${out.label}`, source: prevNode.id});
+                    });
+                }
+                
+                // 2. 收集节点 config.save_to 自定义保存的变量
+                if (prevNode.config && prevNode.config.save_to) {
+                    const saveTo = prevNode.config.save_to;
+                    // 避免重复添加
+                    if (!variables.find(v => v.name === saveTo)) {
+                        variables.push({name: saveTo, label: `${prevTemplate ? prevTemplate.name : prevNode.type} → ${saveTo}`, source: prevNode.id});
+                    }
+                }
+            }
+            
+            // 生成 Select 选项
+            const optionsHtml = variables.map(v => {
+                return '<option value="' + v.name + '" ' + (value === v.name ? 'selected' : '') + '>' + v.label + '</option>';
+            }).join('');
+            
+            // 添加默认空选项
+            const finalOptions = `<option value="">请选择变量...</option>` + optionsHtml;
+            
+            inputHtml = `<select class="form-select" id="field_${field.name}">${finalOptions}</select>`;
+        } else if (field.type === 'textarea') {
+            inputHtml = `<textarea class="form-control" id="field_${field.name}" rows="3">${value}</textarea>`;
+        } else if (field.type === 'checkbox') {
+            inputHtml = `
+                <label class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="field_${field.name}" ${value ? 'checked' : ''}>
+                </label>`;
+        } else {
+            inputHtml = `<input type="text" class="form-control" id="field_${field.name}" value="${value}" placeholder="${field.placeholder || ''}">`;
+        }
+        
+        // 渲染 help_extra 为标签
+        let helpExtraHtml = '';
+        if (field.help_extra && field.help_extra.length > 0) {
+            helpExtraHtml = field.help_extra.map(extra => {
+                const badges = extra.values.map(v => `<span class="badge bg-secondary-lt me-1 mb-1">${v}</span>`).join('');
+                return `<div class="mt-2"><small class="text-muted">${extra.label}:</small><div class="mt-1">${badges}</div></div>`;
+            }).join('');
+        }
+        
+        return `
+            <div class="${fieldClass}" ${dataMode} ${dataShowIf}>
+                <label class="form-label ${field.required ? 'required' : ''}">${field.label}</label>
+                ${inputHtml}
+                ${field.help ? `<small class="form-hint">${field.help}</small>` : ''}
+                ${helpExtraHtml}
+            </div>
+        `;
+    }).join('');
+    
+    // Modal
+    const modal = document.createElement('div');
+    modal.innerHTML = `
+        <div class="modal modal-blur fade show" style="display: block;" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">编辑节点: ${nodeTemplate.name}</h5>
+                        <button type="button" class="btn-close" onclick="this.closest('.modal').parentNode.remove()"></button>
+                    </div>
+                    <div class="modal-body">${fieldsHtml}</div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-link link-secondary" onclick="this.closest('.modal').parentNode.remove()">取消</button>
+                        <button type="button" class="btn btn-primary ms-auto" onclick="saveNode(${index}); this.closest('.modal').parentNode.remove();">保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    `;
+    document.body.appendChild(modal);
+    
+    // 如果是条件节点，初始化字段显示状态
+    if (node.type === 'condition') {
+        setTimeout(() => {
+            const currentMode = node.config.mode || 'simple';
+            toggleConditionMode(currentMode);
+        }, 0);
+    }
+    
+    // 初始化 show_if 条件字段显示
+    setTimeout(() => updateShowIfFields(node.config), 0);
+}
+
+function saveNode(index) {
+    const node = nodes[index];
+    const nodeTemplate = availableNodes.find(n => n.type === node.type);
+    
+    // 先收集所有字段的当前值
+    const currentValues = {};
+    (nodeTemplate.config_schema || []).forEach(field => {
+        const element = document.getElementById(`field_${field.name}`);
+        if (!element) return;
+        if (field.type === 'checkbox') {
+            currentValues[field.name] = element.checked;
+        } else {
+            currentValues[field.name] = element.value;
+        }
+    });
+    
+    // 保存字段，并清理隐藏字段的值
+    (nodeTemplate.config_schema || []).forEach(field => {
+        const element = document.getElementById(`field_${field.name}`);
+        if (!element) return;
+        
+        // 检查字段是否应该显示（根据 show_if 条件）
+        let shouldSave = true;
+        if (field.show_if) {
+            for (const [key, expectedValue] of Object.entries(field.show_if)) {
+                if (currentValues[key] !== expectedValue) {
+                    shouldSave = false;
+                    break;
+                }
+            }
+        }
+        
+        if (shouldSave) {
+            // 保存当前值
+            node.config[field.name] = currentValues[field.name];
+        } else {
+            // 清理隐藏字段的值（设为默认值或空）
+            node.config[field.name] = field.default !== undefined ? field.default : '';
+        }
+    });
+    
+    renderNodes();
+}
+
+function deleteNode(index) {
+    if (confirm('确定要删除这个节点吗？')) {
+        nodes.splice(index, 1);
+        renderNodes();
+    }
+}
+
+// 切换配置项展开/折叠
+function toggleConfigExpand(container, event) {
+    event.stopPropagation();
+    const full = container.querySelector('.config-full');
+    const toggleText = container.querySelector('.config-toggle');
+    const itemCount = full.children.length;
+    
+    if (full.style.display === 'none') {
+        // 展开
+        full.style.display = 'block';
+        toggleText.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" style="vertical-align: -2px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 15l6 -6l6 6" /></svg>
+            收起配置
+        `;
+    } else {
+        // 折叠
+        full.style.display = 'none';
+        toggleText.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" style="vertical-align: -2px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 9l6 6l6 -6" /></svg>
+            展开配置 (${itemCount}项)
+        `;
+    }
+}
+
+// 通用：根据 show_if 条件更新字段显示
+function updateShowIfFields(currentValues) {
+    // 获取当前所有字段的值
+    const allValues = {...currentValues};
+    document.querySelectorAll('[id^="field_"]').forEach(el => {
+        const fieldName = el.id.replace('field_', '');
+        if (!(fieldName in allValues)) {
+            allValues[fieldName] = el.type === 'checkbox' ? el.checked : el.value;
+        }
+    });
+    
+    // 遍历所有带 data-show-if 的字段
+    document.querySelectorAll('[data-show-if]').forEach(el => {
+        try {
+            const condition = JSON.parse(el.getAttribute('data-show-if'));
+            let shouldShow = true;
+            
+            // 检查所有条件
+            for (const [key, expectedValue] of Object.entries(condition)) {
+                if (allValues[key] !== expectedValue) {
+                    shouldShow = false;
+                    break;
+                }
+            }
+            
+            el.style.display = shouldShow ? 'block' : 'none';
+        } catch (e) {
+            console.error('show_if parse error:', e);
+        }
+    });
+}
+
+// 条件节点：根据模式切换字段显示
+function toggleConditionMode(mode) {
+    // 查找所有带有 data-condition-mode 属性的字段
+    const simpleFields = document.querySelectorAll('[data-condition-mode="simple"]');
+    const advancedFields = document.querySelectorAll('[data-condition-mode="advanced"]');
+    
+    if (mode === 'simple') {
+        // 显示简单模式字段，隐藏高级模式字段
+        simpleFields.forEach(el => el.style.display = 'block');
+        advancedFields.forEach(el => el.style.display = 'none');
+    } else if (mode === 'advanced') {
+        // 隐藏简单模式字段，显示高级模式字段
+        simpleFields.forEach(el => el.style.display = 'none');
+        advancedFields.forEach(el => el.style.display = 'block');
+    }
+}
+
+// 全局变量存储代码片段数据
+let snippetsData = [];
+
+// 辅助函数：加载代码片段列表
+function loadSnippets(fieldName, currentValue) {
+    fetch('/admin/workflows/snippets')
+        .then(res => res.json())
+        .then(data => {
+            const selectEl = document.getElementById(`field_${fieldName}`);
+            if (selectEl && data.success) {
+                snippetsData = data.snippets;
+                const options = data.snippets.map(s => 
+                    `<option value="${s.filename}" ${currentValue === s.filename ? 'selected' : ''}>${s.name}</option>`
+                ).join('');
+                selectEl.innerHTML = `<option value="">请选择代码片段</option>${options}`;
+                
+                // 如果有当前值，显示元数据
+                if (currentValue) {
+                    showSnippetMetadata(currentValue);
+                }
+            }
+        })
+        .catch(console.error);
+}
+
+// 显示代码片段元数据
+function showSnippetMetadata(filename) {
+    const metadataDiv = document.getElementById('snippet_metadata_info');
+    if (!metadataDiv) return;
+    
+    if (!filename) {
+        metadataDiv.style.display = 'none';
+        return;
+    }
+    
+    const snippet = snippetsData.find(s => s.filename === filename);
+    if (snippet) {
+        document.getElementById('snippet_filename').textContent = snippet.filename;
+        document.getElementById('snippet_description').textContent = snippet.description || '无';
+        document.getElementById('snippet_author').textContent = snippet.author || '未知';
+        document.getElementById('snippet_version').textContent = snippet.version || '1.0.0';
+        metadataDiv.style.display = 'block';
+    } else {
+        metadataDiv.style.display = 'none';
+    }
+}
+
+// 加载调试记录
+function loadDebugRecord() {
+    fetch(`/admin/workflows/${workflowId}/debug`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.record) {
+                debugRecord = data.record;
+                renderNodes();  // 重新渲染节点以显示调试信息
+                showDebugSummary();
+                showToast('已加载调试记录', 'success');
+            } else {
+                debugRecord = null;
+                showToast(data.message || '暂无调试记录', 'warning');
+            }
+        })
+        .catch(err => {
+            console.error('加载调试记录失败:', err);
+            showToast('加载调试记录失败', 'danger');
+        });
+}
+
+// 清除调试记录
+function clearDebugRecord() {
+    if (!confirm('确定要清除调试记录吗？')) return;
+    
+    fetch(`/admin/workflows/${workflowId}/debug/clear`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                debugRecord = null;
+                renderNodes();
+                hideDebugSummary();
+                showToast('调试记录已清除', 'success');
+            } else {
+                showToast(data.message || '清除失败', 'danger');
+            }
+        })
+        .catch(err => {
+            console.error('清除调试记录失败:', err);
+            showToast('清除调试记录失败', 'danger');
+        });
+}
+
+// 获取节点的调试信息
+function getNodeDebugInfo(nodeId) {
+    if (!debugRecord || !debugRecord.nodes) return null;
+    return debugRecord.nodes.find(n => n.id === nodeId);
+}
+
+// 渲染节点调试信息
+function renderDebugInfo(info) {
+    if (!info) return '';
+    
+    const uid = 'debug_' + Math.random().toString(36).substr(2, 9);
+    
+    // 状态和耗时
+    let statusHtml = info.status !== 'success' ? `<span class="badge bg-danger me-1">失败</span>` : '';
+    const durationHtml = info.duration_ms !== undefined ? `<span class="text-muted">执行耗时: ${info.duration_ms}ms</span>` : '';
+    
+    // 检查数据
+    const hasInput = info.input && (typeof info.input === 'object' ? Object.keys(info.input).length > 0 : info.input);
+    const hasOutput = info.output !== undefined && info.output !== null;
+    const hasError = !!info.error;
+    
+    // 构建内容
+    let contentHtml = '';
+    
+    if (hasError) {
+        contentHtml += `<div class="text-danger mb-2" style="font-size: 12px;"><strong>错误:</strong> ${escapeHtml(info.error)}</div>`;
+    }
+    
+    if (hasInput) {
+        contentHtml += `
+            <details class="mb-2">
+                <summary style="cursor:pointer; color:#206bc4; font-size:12px;">输入变量</summary>
+                <pre class="bg-dark text-white p-2 mt-1 rounded" style="font-size:12px; max-height:300px; overflow:auto; white-space:pre-wrap; word-break:break-all;">${escapeHtml(formatDebugData(info.input))}</pre>
+            </details>`;
+    }
+    
+    if (hasOutput) {
+        contentHtml += `
+            <details class="mb-2" open>
+                <summary style="cursor:pointer; color:#206bc4; font-size:12px;">输出结果</summary>
+                <pre class="bg-dark text-white p-2 mt-1 rounded" style="font-size:12px; max-height:300px; overflow:auto; white-space:pre-wrap; word-break:break-all;">${escapeHtml(formatDebugData(info.output))}</pre>
+            </details>`;
+    }
+    
+    if (!contentHtml) {
+        return `<div style="margin: 8px 0 8px 24px; font-size: 12px;">${statusHtml}${durationHtml}</div>`;
+    }
+    
+    return `
+        <div style="margin: 8px 0 8px 24px; font-size: 12px;">
+            <div class="mb-1">${statusHtml}${durationHtml}</div>
+            ${contentHtml}
+        </div>
+    `;
+}
+
+// 格式化调试数据
+function formatDebugData(data) {
+    if (data === null || data === undefined) return '';
+    if (typeof data === 'string') {
+        try {
+            return JSON.stringify(JSON.parse(data), null, 2);
+        } catch {
+            return data;
+        }
+    }
+    return JSON.stringify(data, null, 2);
+}
+
+// 显示调试摘要
+function showDebugSummary() {
+    if (!debugRecord) return;
+    
+    // 移除旧的摘要
+    hideDebugSummary();
+    
+    const statusBadge = debugRecord.status === 'success' 
+        ? '<span class="badge bg-success-lt text-success">成功</span>' 
+        : '<span class="badge bg-danger-lt text-danger">失败</span>';
+    const triggerMsg = debugRecord.trigger_message || '-';
+    const nodeCount = debugRecord.nodes ? debugRecord.nodes.length : 0;
+    const successCount = debugRecord.nodes ? debugRecord.nodes.filter(n => n.status === 'success').length : 0;
+    
+    const summaryHtml = `
+        <div id="debugSummary" class="card card-sm mb-3">
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold">调试记录</span>
+                    <div>
+                        ${statusBadge}
+                        <a href="#" class="text-muted ms-2" onclick="clearDebugRecord(); return false;" title="清除">×</a>
+                    </div>
+                </div>
+                <div class="text-muted" style="font-size:12px;">
+                    <span class="me-3">时间: ${debugRecord.trigger_time || '-'}</span>
+                    <span class="me-3">用户: ${debugRecord.user_id || '-'}</span>
+                    <span class="me-3">群: ${debugRecord.group_id || '-'}</span>
+                    <span>节点: ${successCount}/${nodeCount}</span>
+                </div>
+                <details class="mt-2" style="font-size:12px;">
+                    <summary style="cursor:pointer; color:#206bc4;">触发消息</summary>
+                    <pre class="bg-dark text-white p-2 mt-1 rounded" style="font-size:12px; max-height:100px; overflow:auto; white-space:pre-wrap; word-break:break-all;">${escapeHtml(triggerMsg)}</pre>
+                </details>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('nodesList').insertAdjacentHTML('beforebegin', summaryHtml);
+}
+
+// 隐藏调试摘要
+function hideDebugSummary() {
+    const el = document.getElementById('debugSummary');
+    if (el) el.remove();
+}
+
+// HTML 转义
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// ========== 表单提交 ==========
+
+function submitWorkflow(event) {
+    event.preventDefault();
+    
+    // 节点不能为空
+    if (nodes.length === 0) {
+        alert('工作流节点不能为空');
+        return;
+    }
+    
+    // 构建工作流节点配置（保留原有 protocols）
+    const workflowConfig = {
+        protocols: existingProtocols,
+        workflow: nodes
+    };
+    
+    const data = new FormData();
+    data.append('workflow_data', JSON.stringify(workflowConfig));
+    
+    // 通过表单提交
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = window.location.pathname;
+    
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'workflow_data';
+    input.value = JSON.stringify(workflowConfig);
+    form.appendChild(input);
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+{% endraw %}
+</script>
+{% endblock %}

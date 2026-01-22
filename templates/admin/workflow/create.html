@@ -1,0 +1,205 @@
+{% extends "admin/base.html" %}
+
+{% block title %}创建工作流 - {{ system.title }}{% endblock %}
+{% block page_title %}创建工作流{% endblock %}
+
+{% block content %}
+<form id="workflowForm" onsubmit="submitWorkflow(event)">
+    <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label required">插件名称</label>
+                            <input type="text" class="form-control" name="name" required placeholder="例如: 欢迎新成员">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">优先级</label>
+                            <input type="number" class="form-control" name="priority" value="100" min="0" max="999">
+                            <small class="form-hint">数字越小越先执行</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">描述</label>
+                            <input type="text" class="form-control" name="description" placeholder="简单描述这个插件的功能（可选）">
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label required">触发类型</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-selectgroup-item">
+                                        <input type="radio" name="trigger_type" value="message" class="form-selectgroup-input" checked onchange="toggleTriggerConfig()">
+                                        <span class="form-selectgroup-label d-flex align-items-center p-3">
+                                            <span class="me-3">
+                                                <span class="form-selectgroup-check"></span>
+                                            </span>
+                                            <span class="form-selectgroup-label-content">
+                                                <span class="form-selectgroup-title strong mb-1">💬 消息触发</span>
+                                                <span class="d-block text-muted small">收到消息时根据关键词触发</span>
+                                            </span>
+                                        </span>
+                                    </label>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-selectgroup-item">
+                                        <input type="radio" name="trigger_type" value="schedule" class="form-selectgroup-input" onchange="toggleTriggerConfig()">
+                                        <span class="form-selectgroup-label d-flex align-items-center p-3">
+                                            <span class="me-3">
+                                                <span class="form-selectgroup-check"></span>
+                                            </span>
+                                            <span class="form-selectgroup-label-content">
+                                                <span class="form-selectgroup-title strong mb-1">⏰ 定时触发</span>
+                                                <span class="d-block text-muted small">按设定的时间自动执行</span>
+                                            </span>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                            <small class="form-hint mt-2" id="triggerHint">
+                                消息触发: 当机器人收到消息时，根据触发器节点的关键词或条件执行工作流
+                            </small>
+                        </div>
+                        
+                        <!-- 定时配置（内联） -->
+                        <div class="col-md-6" id="scheduleTypeField" style="display: none;">
+                            <label class="form-label required">调度类型</label>
+                            <select class="form-select" name="schedule_type" id="scheduleType" onchange="toggleScheduleFields()">
+                                <option value="cron">Cron 表达式</option>
+                                <option value="interval">固定间隔</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6" id="cronField" style="display: none;">
+                            <label class="form-label required">Cron 表达式</label>
+                            <input type="text" class="form-control" name="schedule_cron" value="0 8 * * *" placeholder="分 时 日 月 周">
+                            <small class="form-hint">例如 "0 8 * * *" 表示每天 08:00</small>
+                        </div>
+                        <div class="col-md-6" id="intervalField" style="display: none;">
+                            <label class="form-label required">间隔时间（分钟）</label>
+                            <input type="number" class="form-control" name="schedule_interval" value="60" min="1" max="1440">
+                            <small class="form-hint">1-1440 分钟</small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">协议限制</label>
+                            <div>
+                                <label class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="protocol_qq" value="qq">
+                                    <span class="form-check-label">QQ官方</span>
+                                </label>
+                                <label class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="protocol_onebot" value="onebot">
+                                    <span class="form-check-label">OneBot</span>
+                                </label>
+                            </div>
+                            <small class="form-hint">不选则支持所有协议</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">启用状态</label>
+                            <div class="mt-2">
+                                <label class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="enabled" checked>
+                                    <span class="form-check-label">创建后立即启用</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between">
+                    <a href="{{ url_for('Admin.workflow_list') }}" class="btn btn-outline-secondary">取消</a>
+                    <button type="submit" class="btn btn-primary">
+                        <svg class="icon me-1" fill="none" height="16" stroke="currentColor" stroke-linecap="round"
+                             stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                            <path d="M12 5l0 14"/>
+                            <path d="M5 12l14 0"/>
+                        </svg>
+                        创建工作流
+                    </button>
+                </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 触发类型切换
+function toggleTriggerConfig() {
+    const triggerType = document.querySelector('input[name="trigger_type"]:checked').value;
+    const scheduleTypeField = document.getElementById('scheduleTypeField');
+    const cronField = document.getElementById('cronField');
+    const intervalField = document.getElementById('intervalField');
+    const triggerHint = document.getElementById('triggerHint');
+    
+    if (triggerType === 'schedule') {
+        scheduleTypeField.style.display = 'block';
+        toggleScheduleFields(); // 显示对应的 cron/interval 字段
+        triggerHint.textContent = '定时触发: 按设定的时间自动执行工作流，在工作流节点中配置发送目标';
+    } else {
+        scheduleTypeField.style.display = 'none';
+        cronField.style.display = 'none';
+        intervalField.style.display = 'none';
+        triggerHint.textContent = '消息触发: 当机器人收到消息时，根据触发器节点的关键词或条件执行工作流';
+    }
+}
+
+// 调度类型切换
+function toggleScheduleFields() {
+    const scheduleType = document.getElementById('scheduleType').value;
+    const cronField = document.getElementById('cronField');
+    const intervalField = document.getElementById('intervalField');
+    
+    if (scheduleType === 'cron') {
+        cronField.style.display = 'block';
+        intervalField.style.display = 'none';
+    } else {
+        cronField.style.display = 'none';
+        intervalField.style.display = 'block';
+    }
+}
+
+function submitWorkflow(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const triggerType = formData.get('trigger_type');
+    
+    // 收集协议
+    const protocols = [];
+    if (formData.get('protocol_qq')) protocols.push('qq');
+    if (formData.get('protocol_onebot')) protocols.push('onebot');
+    
+    const data = new FormData();
+    data.append('name', formData.get('name'));
+    data.append('description', formData.get('description') || '');
+    data.append('enabled', formData.get('enabled') ? 'true' : 'false');
+    data.append('priority', formData.get('priority') || '100');
+    data.append('trigger_type', triggerType);
+    data.append('protocols', JSON.stringify(protocols));
+    
+    if (triggerType === 'schedule') {
+        const scheduleType = formData.get('schedule_type');
+        data.append('schedule_type', scheduleType);
+        if (scheduleType === 'cron') {
+            data.append('schedule_cron', formData.get('schedule_cron') || '0 8 * * *');
+        } else {
+            data.append('schedule_interval', formData.get('schedule_interval') || '60');
+        }
+    }
+    
+    // 通过表单提交
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/admin/workflows/create';
+    
+    for (const [key, value] of data.entries()) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+    }
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
+{% endblock %}
