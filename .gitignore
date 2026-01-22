@@ -74,10 +74,10 @@ Render/*
 
 # Release 目录
 Release/
-# Snippets 目录（只保留 文档和模板）
+# Snippets 目录（只保留文档和模板）
 Snippets/*
-!Snippets\_template.py
-!Snippets\README.md
+!Snippets/_template.py
+!Snippets/README.md
 
 # Gunicorn 进程文件
 gunicorn.pid
