@@ -71,6 +71,9 @@ static/uploads/
 # Render 目录（只保留 example.html）
 Render/*
 !Render/example.html
+
+# Release 目录
+Release/
 # Snippets 目录（只保留 文档和模板）
 Snippets/*
 !Snippets\_template.py
