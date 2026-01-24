@@ -113,7 +113,8 @@ class HttpRequestNode(BaseNode):
         headers = {}
         if headers_str:
             try:
-                headers = json.loads(context.render_template(headers_str))
+                rendered_headers = context.render_template(headers_str)
+                headers = json.loads(rendered_headers)
             except json.JSONDecodeError as e:
                 log_error(0, f"HTTP请求节点: 请求头JSON格式错误 - {e}", "HTTP_NODE_ERROR", url=url)
                 context.set_variable('response_error', 'Invalid headers JSON format')

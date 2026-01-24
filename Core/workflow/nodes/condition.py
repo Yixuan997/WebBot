@@ -117,6 +117,13 @@ class ConditionNode(BaseNode):
             'options': [],  # 前端动态填充
             'help': '选择跳转目标节点（留空则继续下一个节点或中断）'
         },
+        {
+            'name': 'stop_after_branch',
+            'label': '分支执行后停止',
+            'type': 'checkbox',
+            'default': False,
+            'help': '执行完分支后停止执行后续节点（在循环中会继续下一次迭代）'
+        },
     ]
 
     async def _execute(self, context) -> Any:
@@ -189,11 +196,15 @@ class ConditionNode(BaseNode):
             next_node = self.config.get('true_branch')
         else:
             next_node = self.config.get('false_branch')
+        
+        # 检查是否需要在分支执行后停止
+        stop_after = self.config.get('stop_after_branch', False)
 
         return {
             'success': True,
             'result': result,
-            'next_node': next_node if next_node else None
+            'next_node': next_node if next_node else None,
+            'stop_sequence': stop_after  # 标记是否停止后续执行
         }
 
     def _execute_advanced(self, context) -> Any:

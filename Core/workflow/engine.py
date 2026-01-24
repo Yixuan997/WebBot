@@ -106,10 +106,26 @@ class WorkflowEngine:
             visited_nodes.add(node_id)
 
             try:
+                # 检查是否需要在此节点后停止（由上一个节点的 stop_sequence 设置）
+                stop_after_this = context.get_variable('_stop_after_next', False)
+                    
                 # 执行单个节点（带调试记录）
                 node_start = time.time()
                 result, should_break = await self._execute_node(step_config, context)
                 node_duration = int((time.time() - node_start) * 1000)
+                
+                # 如果需要在此节点后停止
+                if stop_after_this:
+                    context.set_variable('_stop_after_next', False)  # 清除标记
+                    if loop_stack:
+                        # 返回 foreach 进行下一次迭代
+                        return_index = self._handle_loop_return(node_id, current_index, loop_stack, visited_nodes)
+                        if return_index is not None:
+                            current_index = return_index
+                            continue
+                    else:
+                        # 停止执行
+                        break
 
                 # 记录节点执行结果
                 if self.debug_recorder:
@@ -135,20 +151,54 @@ class WorkflowEngine:
                         continue
 
                 # 处理跳转
+                jumped = False
                 if isinstance(result, dict) and 'next_node' in result:
                     next_id = result.get('next_node')
                     if next_id and next_id in node_index_map:
+                        # 跳转到目标节点
                         current_index = node_index_map[next_id]
-                        continue
+                        jumped = True
+                        
+                        # 如果设置了 stop_sequence，执行完跳转节点后停止当前迭代
+                        if result.get('stop_sequence'):
+                            # 执行跳转目标节点
+                            await self._execute_and_record_node(
+                                self.workflow_steps[current_index], context
+                            )
+                            
+                            # 在循环中返回 foreach，否则停止执行
+                            if loop_stack:
+                                current_index = self._return_to_foreach(
+                                    loop_stack, visited_nodes, current_index
+                                )
+                                continue
+                            else:
+                                break
+                        else:
+                            # 正常跳转，继续执行
+                            continue
                     elif next_id:
                         log_error(0, f"节点 {node_id} 跳转到不存在的节点: {next_id}", "WORKFLOW_JUMP_ERROR")
+                
+                # 如果没有跳转且设置了 stop_sequence
+                elif isinstance(result, dict) and result.get('stop_sequence'):
+                    # 如果在循环中，直接返回到 foreach 节点进行下一次迭代
+                    if loop_stack:
+                        return_index = self._handle_loop_return(node_id, current_index, loop_stack, visited_nodes)
+                        if return_index is not None:
+                            current_index = return_index
+                            continue
+                    # 如果不在循环中，停止执行
+                    else:
+                        break
 
                 # 处理循环返回
-                if loop_stack:
-                    return_index = self._handle_loop_return(node_id, current_index, loop_stack, visited_nodes)
-                    if return_index is not None:
-                        current_index = return_index
-                        continue
+                if loop_stack and not jumped:
+                    if self._should_return_to_loop(current_index, visited_nodes):
+                        return_index = self._handle_loop_return(node_id, current_index, loop_stack, visited_nodes)
+                        if return_index is not None:
+                            current_index = return_index
+                            continue
 
                 current_index += 1
 
@@ -185,6 +235,52 @@ class WorkflowEngine:
             return result, True
 
         return result, False
+    
+    async def _execute_and_record_node(self, step_config: dict, context: WorkflowContext) -> Any:
+        """执行并记录节点"""
+        node_start = time.time()
+        result, _ = await self._execute_node(step_config, context)
+        node_duration = int((time.time() - node_start) * 1000)
+        
+        # 记录节点执行结果
+        if self.debug_recorder:
+            self.debug_recorder.record_node(
+                node_id=step_config.get('id'),
+                node_type=step_config.get('type'),
+                status="success",
+                output=result,
+                duration_ms=node_duration,
+                input_data=context.get_all_variables()
+            )
+        return result
+    
+    def _return_to_foreach(self, loop_stack: list, visited_nodes: set, current_index: int) -> int:
+        """返回到 foreach 节点进行下一次迭代"""
+        loop_info = loop_stack.pop()
+        visited_nodes.discard(loop_info['foreach_id'])
+        
+        # 清理循环体内节点的访问记录，以便下次迭代
+        for idx in range(loop_info['loop_body_index'], current_index + 1):
+            if idx < len(self.workflow_steps):
+                visited_nodes.discard(self.workflow_steps[idx].get('id'))
+        
+        return loop_info['foreach_index']
+    
+    def _should_return_to_loop(self, current_index: int, visited_nodes: set) -> bool:
+        """判断是否应该返回到循环节点"""
+        next_index = current_index + 1
+        
+        # 到达工作流末尾
+        if next_index >= len(self.workflow_steps):
+            return True
+        
+        # 检查下一个节点
+        next_node = self.workflow_steps[next_index]
+        next_type = next_node.get('type')
+        next_id = next_node.get('id')
+        
+        # 遇到 end 节点或已访问过的节点
+        return next_type == 'end' or next_id in visited_nodes
 
     def _handle_loop_start(self, result: dict, node_id: str, current_index: int,
                            node_index_map: dict, loop_stack: list, visited_nodes: set) -> int | None:
