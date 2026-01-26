@@ -9,20 +9,29 @@
         {% if workflows %}
         {% set subscribed_count = workflows|selectattr('user_subscribed')|list|length %}
         <div class="d-flex align-items-center flex-wrap gap-2">
-            <span class="subheader-title me-2">总数 {{ workflows|length }}</span>
-            <span class="badge bg-success-lt me-2">已订阅 {{ subscribed_count }}</span>
-            <span class="badge bg-secondary-lt">未订阅 {{ workflows|length - subscribed_count }}</span>
+            <span class="subheader-title me-2">总数 {{ pagination.total if pagination else workflows|length }}</span>
+            <span class="badge bg-success-lt me-2">本页已订阅 {{ subscribed_count }}</span>
+            <span class="badge bg-secondary-lt">本页未订阅 {{ workflows|length - subscribed_count }}</span>
         </div>
         {% else %}
         <span class="subheader-title">工作流管理</span>
         {% endif %}
+    </div>
+    
+    <div class="btn-list flex-wrap">
+        <form class="input-icon me-2" method="get" style="width: 200px;">
+            <input class="form-control form-control-sm" name="search" placeholder="搜索工作流..." type="text" value="{{ search or '' }}">
+            <span class="input-icon-addon">
+                <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><circle cx="10" cy="10" r="7"/><line x1="21" x2="15" y1="21" y2="15"/></svg>
+            </span>
+        </form>
     </div>
 </div>
 
 <div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
-        <table class="table table-vcenter card-table table-striped">
+        <table class="table table-vcenter card-table table-striped table-hover">
             <thead>
             <tr>
                 <th>工作流</th>
@@ -99,6 +108,41 @@
         </table>
         </div>
     </div>
+    
+    {% if pagination and pagination.pages > 1 %}
+    <div class="card-footer d-flex align-items-center">
+        <p class="m-0 text-muted">显示 <span>{{ workflows|length }}</span> 条，共 <span>{{ pagination.total }}</span> 条</p>
+        <ul class="pagination m-0 ms-auto">
+            {% if current_page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('user.workflows', page=current_page-1, search=search or none) }}">&laquo;</a>
+            </li>
+            {% endif %}
+            
+            {% for page in page_numbers %}
+            {% if page == '...' %}
+            <li class="page-item disabled">
+                <span class="page-link">...</span>
+            </li>
+            {% elif page == current_page %}
+            <li class="page-item active">
+                <span class="page-link">{{ page }}</span>
+            </li>
+            {% else %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('user.workflows', page=page, search=search or none) }}">{{ page }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+            
+            {% if current_page < pagination.pages %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('user.workflows', page=current_page+1, search=search or none) }}">&raquo;</a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 

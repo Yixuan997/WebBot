@@ -281,7 +281,6 @@ function renderNodes() {
         const ioTags = (inputTags || outputTags) ? `<div style="padding-left: 24px; margin-top: 8px; line-height: 2;">${inputTags}${outputTags}</div>` : '';
         
         const isLast = index === nodes.length - 1;
-        const lineChar = isLast ? '└──' : '├──';
         const isSystemNode = ['start', 'end'].includes(node.type);
         
         // 获取调试信息
@@ -304,27 +303,24 @@ function renderNodes() {
         
         return `
             <div class="node-item" data-index="${index}" data-node-type="${node.type}" style="margin-bottom: 12px;">
-                <div class="d-flex align-items-start">
-                    <div class="d-none d-sm-block" style="color: #6c7a91; font-size: 18px; line-height: 22px; margin-right: 8px; flex-shrink: 0; user-select: none; cursor: ${!isSystemNode ? 'grab' : 'default'};">${lineChar}</div>
-                    <div class="card flex-fill" style="box-shadow: 0 1px 2px rgba(0,0,0,0.08); border: 1px solid #e6e7e9; ${debugBorderStyle}">
-                        <div class="card-body p-2 p-sm-3">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="flex-fill" style="min-width: 0;">
-                                    <div class="d-flex align-items-center flex-wrap">
-                                        <span class="badge me-2" style="background-color: ${index === 0 ? '#2fb344' : (isLast ? '#d63939' : '#206bc4')}; color: white;">${index + 1}</span>
-                                        <strong>${nodeTemplate.name}</strong>
-                                        <span class="badge bg-secondary-lt ms-2" style="font-size: 11px;">[${node.type}:${node.id}]</span>
-                                    </div>
-                                </div>
-                                <div style="flex-shrink: 0;">
-                                    ${editButton}
-                                    ${deleteButton}
+                <div class="card" style="box-shadow: 0 1px 2px rgba(0,0,0,0.08); border: 1px solid #e6e7e9; ${debugBorderStyle}">
+                    <div class="card-body p-2 p-sm-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-fill" style="min-width: 0;">
+                                <div class="d-flex align-items-center flex-wrap">
+                                    <span class="badge me-2" style="background-color: ${index === 0 ? '#2fb344' : (isLast ? '#d63939' : '#206bc4')}; color: white;">${index + 1}</span>
+                                    <strong>${nodeTemplate.name}</strong>
+                                    <span class="badge bg-secondary-lt ms-2" style="font-size: 11px;">[${node.type}:${node.id}]</span>
                                 </div>
                             </div>
-                            ${debugHtml}
-                            ${configItems}
-                            ${ioTags}
+                            <div style="flex-shrink: 0;">
+                                ${editButton}
+                                ${deleteButton}
+                            </div>
                         </div>
+                        ${debugHtml}
+                        ${configItems}
+                        ${ioTags}
                     </div>
                 </div>
             </div>

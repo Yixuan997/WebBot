@@ -8,9 +8,10 @@
 用户工作流订阅管理
 """
 
-from flask import render_template, flash, redirect, url_for, session
+from flask import render_template, flash, redirect, url_for, session, request
 
 from Models import User, System, Workflow, UserWorkflow, db
+from utils.page_utils import adapt_pagination
 
 
 def user_workflows():
@@ -22,10 +23,24 @@ def user_workflows():
         return redirect(url_for('auth.login'))
 
     try:
-        # 获取所有全局启用的工作流，按ID倒序（最新创建的在前）
-        workflows = Workflow.query.filter_by(enabled=True).order_by(
-            Workflow.id.desc()
-        ).all()
+        # 获取分页参数
+        page = request.args.get('page', 1, type=int)
+        per_page = 10  # 每页显示10条
+        search = request.args.get('search', '')
+        
+        # 构建查询
+        query = Workflow.query.filter_by(enabled=True)
+        
+        # 搜索功能
+        if search:
+            query = query.filter(Workflow.name.contains(search))
+        
+        # 按ID倒序（最新创建的在前）
+        query = query.order_by(Workflow.id.desc())
+        
+        # 分页
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        workflows = pagination.items
 
         # 为每个工作流添加用户的订阅状态
         for workflow in workflows:
@@ -36,11 +51,18 @@ def user_workflows():
 
             # 如果有订阅记录，使用记录的状态；否则默认为未订阅
             workflow.user_subscribed = subscription.enabled if subscription else False
+        
+        # 使用智能分页
+        page_numbers = adapt_pagination(pagination)
 
         system = System.query.first()
         return render_template('user/workflows/list.html',
                                user=user,
                                workflows=workflows,
+                               pagination=pagination,
+                               page_numbers=page_numbers,
+                               current_page=page,
+                               search=search,
                                system=system)
 
     except Exception as e:
@@ -48,6 +70,9 @@ def user_workflows():
         return render_template('user/workflows/list.html',
                                user=user,
                                workflows=[],
+                               pagination=None,
+                               current_page=1,
+                               search='',
                                system=System.query.first())
 
 

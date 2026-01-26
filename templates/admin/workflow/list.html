@@ -71,7 +71,7 @@
 <div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
-        <table class="table table-vcenter card-table table-striped">
+        <table class="table table-vcenter card-table table-striped table-hover">
             <thead>
             <tr>
                 <th>ID</th>
@@ -198,14 +198,18 @@
             </li>
             {% endif %}
             
-            {% for page_num in range(1, pagination.pages + 1) %}
-            {% if page_num == current_page %}
+            {% for page in page_numbers %}
+            {% if page == '...' %}
+            <li class="page-item disabled">
+                <span class="page-link">...</span>
+            </li>
+            {% elif page == current_page %}
             <li class="page-item active">
-                <span class="page-link">{{ page_num }}</span>
+                <span class="page-link">{{ page }}</span>
             </li>
             {% else %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('Admin.workflow_list', page=page_num, search=search or none) }}">{{ page_num }}</a>
+                <a class="page-link" href="{{ url_for('Admin.workflow_list', page=page, search=search or none) }}">{{ page }}</a>
             </li>
             {% endif %}
             {% endfor %}

@@ -15,6 +15,7 @@ from Core.logging.file_logger import log_info, log_error
 from Core.workflow.registry import NodeRegistry
 from Models import db
 from Models.SQL.Workflow import Workflow
+from utils.page_utils import adapt_pagination
 
 
 def _clear_workflow_cache():
@@ -83,10 +84,14 @@ def workflow_list():
         ).paginate(page=page, per_page=per_page, error_out=False)
 
         workflows = pagination.items
+        
+        # 使用智能分页
+        page_numbers = adapt_pagination(pagination)
 
         return render_template('admin/workflow/list.html',
                                workflows=workflows,
                                pagination=pagination,
+                               page_numbers=page_numbers,
                                search=search,
                                current_page=page)
 

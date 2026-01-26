@@ -5,8 +5,6 @@
 @Author ：杨逸轩
 @Date   ：2025/5/12 18:48 
 """
-
-
 def generate_pagination(current_page, total_pages, neighbors=2):
     """
     生成智能分页列表
@@ -19,32 +17,53 @@ def generate_pagination(current_page, total_pages, neighbors=2):
     返回:
         包含要显示的页码和分隔符的列表
     """
+    # 边界检查
+    if total_pages <= 0:
+        return []
+    
+    if current_page < 1:
+        current_page = 1
+    elif current_page > total_pages:
+        current_page = total_pages
+    
     # 如果总页数少于等于10页，显示所有页码
     if total_pages <= 10:
         return list(range(1, total_pages + 1))
 
-    # 初始化结果列表，始终包含第一页
-    pagination = [1]
-
-    # 确定显示的页码范围
+    # 初始化结果列表
+    pagination = []
+    
+    # 始终包含第一页
+    pagination.append(1)
+    
+    # 计算中间部分的起止页码
     start_page = max(2, current_page - neighbors)
     end_page = min(total_pages - 1, current_page + neighbors)
-
-    # 处理第一页与起始页之间的间隔
+    
+    # 特殊处理：当前页接近首页时，多显示一些后续页
+    if current_page <= neighbors + 1:
+        end_page = min(total_pages - 1, 2 * neighbors + 2)
+    
+    # 特殊处理：当前页接近尾页时，多显示一些前置页
+    if current_page >= total_pages - neighbors:
+        start_page = max(2, total_pages - 2 * neighbors - 1)
+    
+    # 添加首页后的省略号
     if start_page > 2:
         pagination.append('...')
-
-    # 添加中间页码范围
-    pagination.extend(range(start_page, end_page + 1))
-
-    # 处理结束页与最后页之间的间隔
+    
+    # 添加中间页码
+    for page in range(start_page, end_page + 1):
+        pagination.append(page)
+    
+    # 添加尾页前的省略号
     if end_page < total_pages - 1:
         pagination.append('...')
-
-    # 添加最后一页（如果不是已经添加）
-    if total_pages > 1:  # 确保有最后一页
+    
+    # 始终包含最后一页（如果总页数大于1）
+    if total_pages > 1:
         pagination.append(total_pages)
-
+    
     return pagination
 
 
