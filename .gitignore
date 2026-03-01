@@ -24,7 +24,7 @@ wheels/
 venv/
 ENV/
 env/
-Bot/
+/Bot/
 
 # 开发工具
 .idea/

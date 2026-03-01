@@ -441,14 +441,18 @@ def restart_gunicorn_process():
     """重启应用进程
 
     - 在 Linux/Unix 上：如果存在 gunicorn_conf.py 且有 pidfile 配置，则优先用 Gunicorn 的 HUP 优雅重启；否则退回到重启当前进程。
-    - 在 Windows 上：Gunicorn 不支持，始终重启当前 Python 进程（保留 sys.argv 启动方式）。
+    - 在 Windows 上：Gunicorn 不支持，使用 subprocess 启动新进程并退出当前进程。
     """
     try:
-        # Windows 平台：直接重启当前进程，不尝试使用 Gunicorn
+        # Windows 平台：使用 subprocess 启动新进程
         if os.name == 'nt':
+            import subprocess
             python_exe = sys.executable
             script_args = sys.argv
-            os.execv(python_exe, [python_exe] + script_args)
+            # 启动新进程（不等待其完成）
+            subprocess.Popen([python_exe] + script_args)
+            # 退出当前进程
+            os._exit(0)
             return
 
         # 非 Windows（Linux/Unix）：优先尝试通过 Gunicorn 的 PID 文件优雅重启
