@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+    <meta content="ie=edge" http-equiv="X-UA-Compatible"/>
+    <title>{{ title }} - 插件开发文档 - {{ system.title }}</title>
+    <meta content="QQ机器人插件开发文档 - {{ title }}" name="description">
+    <meta content="QQ机器人,插件开发,开发文档,{{ title }}" name="keywords">
+
+    <!-- Favicon -->
+    <link href="{{ url_for('static', filename='favicon.ico') }}" rel="icon" type="image/x-icon">
+
+    <!-- CSS files -->
+    <link href="{{ url_for('static', filename='css/tabler.min.css') }}" rel="stylesheet"/>
+
+    <!-- Mermaid -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+
+    <style>
+        :root {
+            --tblr-primary: #206bc4;
+            --tblr-primary-rgb: 32, 107, 196;
+        }
+
+        .docs-hero {
+            background: linear-gradient(135deg, var(--tblr-primary) 0%, #1a5490 100%);
+            color: white;
+            padding: 3rem 0;
+        }
+
+        .navbar-brand-image {
+            height: 2rem;
+        }
+
+        /* Markdown内容样式 */
+        .markdown-content {
+            line-height: 1.6;
+        }
+
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3,
+        .markdown-content h4,
+        .markdown-content h5,
+        .markdown-content h6 {
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .markdown-content h1 {
+            border-bottom: 1px solid var(--tblr-border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .markdown-content h2 {
+            border-bottom: 1px solid var(--tblr-border-color-light);
+            padding-bottom: 0.3rem;
+        }
+
+        /* 标题永久链接样式 */
+        .markdown-content .toc-permalink {
+            opacity: 0;
+            margin-left: 0.5rem;
+            color: var(--tblr-muted);
+            text-decoration: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .markdown-content h1:hover .toc-permalink,
+        .markdown-content h2:hover .toc-permalink,
+        .markdown-content h3:hover .toc-permalink,
+        .markdown-content h4:hover .toc-permalink,
+        .markdown-content h5:hover .toc-permalink,
+        .markdown-content h6:hover .toc-permalink {
+            opacity: 1;
+        }
+
+        .markdown-content pre {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: var(--tblr-border-radius);
+            padding: 1rem;
+            overflow-x: auto;
+            color: #212529;
+        }
+
+        .markdown-content code {
+            background: #f8f9fa;
+            color: #e83e8c;
+            padding: 0.2rem 0.4rem;
+            border-radius: var(--tblr-border-radius-sm);
+            font-size: 0.875em;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+        }
+
+        .markdown-content pre code {
+            background: none;
+            color: #212529;
+            padding: 0;
+        }
+
+        .markdown-content blockquote {
+            border-left: 4px solid var(--tblr-primary);
+            margin: 1rem 0;
+            padding: 0.5rem 1rem;
+            background: var(--tblr-bg-surface-secondary);
+        }
+
+        .markdown-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .markdown-content table th,
+        .markdown-content table td {
+            border: 1px solid var(--tblr-border-color);
+            padding: 0.5rem;
+            text-align: left;
+        }
+
+        .markdown-content table th {
+            background: var(--tblr-bg-surface-secondary);
+            font-weight: 600;
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+            margin: 1rem 0;
+            padding-left: 2rem;
+        }
+
+        .markdown-content li {
+            margin: 0.5rem 0;
+        }
+
+        /* 目录样式 */
+        .toc ul {
+            list-style: none;
+            padding-left: 1rem;
+            margin: 0;
+        }
+
+        .toc > ul {
+            padding-left: 0;
+        }
+
+        .toc a {
+            color: var(--tblr-body-color);
+            text-decoration: none;
+            display: block;
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--tblr-border-radius-sm);
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .toc a:hover {
+            background: var(--tblr-bg-surface-secondary);
+            color: var(--tblr-primary);
+        }
+
+        .toc a.active {
+            background: var(--tblr-primary-lt);
+            color: var(--tblr-primary);
+            border-left-color: var(--tblr-primary);
+            font-weight: 600;
+            transform: translateX(2px);
+        }
+
+        /* 阅读进度条 */
+        .reading-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--tblr-primary), var(--tblr-primary-dark));
+            z-index: 1000;
+            transition: width 0.1s ease;
+        }
+
+        /* Mermaid图表样式 */
+        .mermaid {
+            text-align: center;
+            margin: 2rem 0;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: var(--tblr-border-radius);
+            padding: 1rem;
+            overflow-x: auto;
+        }
+
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* 深色模式适配 */
+        @media (prefers-color-scheme: dark) {
+            .markdown-content pre {
+                background: #2d3748;
+                border-color: #4a5568;
+                color: #e2e8f0;
+            }
+
+            .markdown-content code {
+                background: #2d3748;
+                color: #f56565;
+            }
+
+            .markdown-content pre code {
+                color: #e2e8f0;
+            }
+
+            .mermaid {
+                background: #1a202c;
+                border-color: #4a5568;
+            }
+        }
+
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+            .toc {
+                max-height: 300px;
+                overflow-y: auto;
+            }
+
+            .card.position-sticky {
+                position: relative !important;
+                margin-bottom: 1rem;
+            }
+        }
+
+        /* 超大屏幕优化 */
+        @media (min-width: 1400px) {
+            .container-fluid {
+                max-width: 1600px;
+                margin: 0 auto;
+            }
+        }
+    </style>
+</head>
+<body>
+<!-- Reading Progress Bar -->
+<div class="reading-progress"></div>
+
+<!-- Navigation -->
+<header class="navbar navbar-expand-md navbar-light d-print-none">
+    <div class="container-xl">
+        <h1 class="navbar-brand navbar-brand-autodark d-none-navbar-horizontal pe-0 pe-md-3">
+            <a href="{{ url_for('index') }}">
+                <svg class="navbar-brand-image" fill="none" height="24" stroke="currentColor"
+                     stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                    <path d="M7 7h10a2 2 0 0 1 2 2v1l1 1v3l-1 1v3a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-3l-1 -1v-3l1 -1v-1a2 2 0 0 1 2 -2z"/>
+                    <path d="M10 16h4"/>
+                    <circle cx="8.5" cy="11.5" fill="currentColor" r=".5"/>
+                    <circle cx="15.5" cy="11.5" fill="currentColor" r=".5"/>
+                </svg>
+                {{ system.title }}
+            </a>
+        </h1>
+        <div class="navbar-nav flex-row order-md-last">
+            {% if session.get('user_id') %}
+            <div class="nav-item dropdown">
+                <a class="nav-link d-flex lh-1 text-reset p-0" data-bs-toggle="dropdown" href="#">
+                    <span class="avatar avatar-sm">{{ user.username[0].upper() if user else 'U' }}</span>
+                    <div class="d-none d-xl-block ps-2">
+                        <div>{{ user.username if user else '用户' }}</div>
+                    </div>
+                </a>
+                <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+                    <a class="dropdown-item" href="{{ url_for('bots.list_bots') }}">我的机器人</a>
+                    <a class="dropdown-item" href="{{ url_for('Admin.dashboard') }}">管理后台</a>
+                    <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="{{ url_for('auth.logout') }}">退出登录</a>
+                </div>
+            </div>
+            {% else %}
+            <div class="nav-item">
+                <a class="nav-link" href="{{ url_for('auth.login') }}">
+                    <svg class="icon me-1" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2"/>
+                        <path d="M20 12h-13l3 -3m0 6l-3 -3"/>
+                    </svg>
+                    登录
+                </a>
+            </div>
+            <div class="nav-item">
+                <a class="nav-link" href="{{ url_for('auth.register') }}">
+                    <svg class="icon me-1" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg">
+                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                        <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0"/>
+                        <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/>
+                    </svg>
+                    注册
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        <div class="collapse navbar-collapse" id="navbar-menu">
+            <div class="d-flex flex-column flex-md-row flex-fill align-items-stretch align-items-md-center">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">
+                            <span class="nav-link-title">首页</span>
+                        </a>
+                    </li>
+                    <li class="nav-item active">
+                        <a class="nav-link" href="{{ url_for('docs.index') }}">
+                            <span class="nav-link-title">开发文档</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Hero Section -->
+<section class="docs-hero">
+    <div class="container-fluid px-4">
+        <div class="row align-items-center">
+            <div class="col-lg-8 mx-auto text-center">
+                <h1 class="display-5 fw-bold mb-3">{{ title }}</h1>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb breadcrumb-arrows justify-content-center">
+                        <li class="breadcrumb-item"><a href="{{ url_for('docs.index') }}">开发文档</a></li>
+                        <li aria-current="page" class="breadcrumb-item active">{{ title }}</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Main Content -->
+<section class="py-5">
+    <div class="container-fluid px-4">
+        <div class="row">
+            <!-- 侧边栏目录 -->
+            {% if toc %}
+            <div class="col-xl-2 col-lg-3 col-md-4">
+                <div class="card position-sticky" style="top: 1rem;">
+                    <div class="card-header">
+                        <h4 class="card-title">
+                            <svg class="icon me-2" fill="none" height="24" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <path d="M3 9l4 -4l4 4m-4 -4v14"/>
+                                <path d="M21 12l-4 -4l-4 4m4 -4v14"/>
+                            </svg>
+                            目录
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="toc">
+                            {{ toc|safe }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-8 col-lg-9 col-md-8">
+                {% else %}
+                <div class="col-12">
+                    {% endif %}
+                    <!-- 文档内容 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="d-flex align-items-center">
+                                <a class="btn btn-ghost-secondary btn-sm me-3" href="{{ url_for('docs.index') }}">
+                                    <svg class="icon" fill="none" height="24" stroke="currentColor"
+                                         stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                         width="24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                        <path d="M5 12l14 0"/>
+                                        <path d="M5 12l6 6"/>
+                                        <path d="M5 12l6 -6"/>
+                                    </svg>
+                                    返回文档列表
+                                </a>
+                                <h3 class="card-title mb-0">{{ title }}</h3>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="markdown-content">
+                                {{ content|safe }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% if toc %}
+                <!-- 右侧空白区域，用于平衡布局 -->
+                <div class="col-xl-2 d-none d-xl-block"></div>
+                {% endif %}
+            </div>
+        </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer footer-transparent d-print-none">
+    <div class="container-fluid px-4">
+        <div class="row text-center align-items-center flex-row-reverse">
+            <div class="col-lg-auto ms-lg-auto">
+                <ul class="list-inline list-inline-dots mb-0">
+                    <li class="list-inline-item">
+                        <a class="link-secondary" href="{{ url_for('docs.index') }}">开发文档</a>
+                    </li>
+                    <li class="list-inline-item">
+                        <a class="link-secondary" href="#">隐私政策</a>
+                    </li>
+                    <li class="list-inline-item">
+                        <a class="link-secondary" href="#">服务条款</a>
+                    </li>
+                    <li class="list-inline-item">
+                        <a class="link-secondary" href="#">联系我们</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="col-12 col-lg-auto mt-3 mt-lg-0">
+                <ul class="list-inline list-inline-dots mb-0">
+                    <li class="list-inline-item">
+                        Copyright &copy; 2024
+                        <a class="link-secondary" href="{{ url_for('index') }}">{{ system.title }}</a>.
+                        All rights reserved.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- Tabler Core -->
+<script src="{{ url_for('static', filename='js/tabler.min.js') }}"></script>
+
+<!-- Initialize Mermaid -->
+<script>
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: 'default',
+        themeVariables: {
+            primaryColor: '#206bc4',
+            primaryTextColor: '#fff',
+            primaryBorderColor: '#1a5490',
+            lineColor: '#374151',
+            sectionBkgColor: '#f8fafc',
+            altSectionBkgColor: '#ffffff',
+            gridColor: '#e5e7eb',
+            secondaryColor: '#f1f5f9',
+            tertiaryColor: '#f8fafc'
+        }
+    });
+</script>
+
+<!-- Table of Contents Scroll Spy -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tocLinks = document.querySelectorAll('.toc a');
+        const headings = document.querySelectorAll('.markdown-content h1, .markdown-content h2, .markdown-content h3, .markdown-content h4, .markdown-content h5, .markdown-content h6');
+
+        if (tocLinks.length === 0 || headings.length === 0) return;
+
+        // 为标题添加ID（如果没有的话）
+        headings.forEach((heading, index) => {
+            if (!heading.id) {
+                // 根据标题文本生成ID
+                const text = heading.textContent.trim();
+                const id = text.toLowerCase()
+                    .replace(/[^\w\u4e00-\u9fa5\s-]/g, '') // 保留中文、英文、数字、空格、连字符
+                    .replace(/\s+/g, '-') // 空格替换为连字符
+                    .replace(/-+/g, '-') // 多个连字符合并为一个
+                    .replace(/^-|-$/g, ''); // 移除首尾连字符
+                heading.id = id || `heading-${index}`;
+            }
+        });
+
+        // 创建Intersection Observer
+        const observerOptions = {
+            root: null,
+            rootMargin: '-20% 0px -70% 0px', // 当标题在视口的20%-70%区域时触发
+            threshold: 0
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const id = entry.target.id;
+                const tocLink = document.querySelector(`.toc a[href="#${id}"]`);
+
+                if (entry.isIntersecting) {
+                    // 移除所有active类
+                    tocLinks.forEach(link => link.classList.remove('active'));
+                    // 添加当前active类
+                    if (tocLink) {
+                        tocLink.classList.add('active');
+                    }
+                }
+            });
+        }, observerOptions);
+
+        // 观察所有标题
+        headings.forEach(heading => {
+            observer.observe(heading);
+        });
+
+        // 平滑滚动到目标位置
+        tocLinks.forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+
+                if (targetElement) {
+                    const offsetTop = targetElement.offsetTop - 100; // 留出一些顶部空间
+                    window.scrollTo({
+                        top: offsetTop,
+                        behavior: 'smooth'
+                    });
+
+                    // 手动更新active状态
+                    tocLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                }
+            });
+        });
+
+        // 初始化时检查当前位置
+        function updateActiveOnScroll() {
+            let current = '';
+            headings.forEach(heading => {
+                const rect = heading.getBoundingClientRect();
+                if (rect.top <= 150) { // 当标题距离顶部150px以内时
+                    current = heading.id;
+                }
+            });
+
+            if (current) {
+                tocLinks.forEach(link => link.classList.remove('active'));
+                const activeLink = document.querySelector(`.toc a[href="#${current}"]`);
+                if (activeLink) {
+                    activeLink.classList.add('active');
+                }
+            }
+        }
+
+        // 更新阅读进度条
+        function updateReadingProgress() {
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const progress = (scrollTop / scrollHeight) * 100;
+
+            const progressBar = document.querySelector('.reading-progress');
+            if (progressBar) {
+                progressBar.style.width = Math.min(progress, 100) + '%';
+            }
+        }
+
+        // 监听滚动事件（节流处理）
+        let ticking = false;
+        window.addEventListener('scroll', function () {
+            if (!ticking) {
+                requestAnimationFrame(function () {
+                    updateActiveOnScroll();
+                    updateReadingProgress();
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        });
+
+        // 页面加载完成后初始化
+        updateActiveOnScroll();
+        updateReadingProgress();
+    });
+</script>
+</body>
+</html>

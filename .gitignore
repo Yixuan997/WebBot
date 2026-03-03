@@ -43,14 +43,14 @@ local_settings.py
 # 数据和日志
 Data/
 logs/
-docs/
+/docs/
 *.log
 *.db
 *.sqlite
 *.sqlite3
 *.Y
 Plugins/
-
+BluePrints/docs/docs/plugin-development.md
 # 临时文件
 *.tmp
 *.temp
