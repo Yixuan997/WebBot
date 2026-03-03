@@ -86,12 +86,6 @@ class BaseConfig:
     # 数据库文件路径配置
     DATABASE_NAME = os.getenv('DATABASE_NAME', 'Bot.Y')
 
-    # 默认管理员配置
-    DEFAULT_ADMIN_USERNAME = os.getenv('DEFAULT_ADMIN_USERNAME')
-    DEFAULT_ADMIN_PASSWORD = os.getenv('DEFAULT_ADMIN_PASSWORD')
-    DEFAULT_ADMIN_EMAIL = os.getenv('DEFAULT_ADMIN_EMAIL')
-    DEFAULT_ADMIN_QQ = os.getenv('DEFAULT_ADMIN_QQ')
-
     @classmethod
     def get_database_path(cls, app_instance_path: str = None) -> str:
         """
@@ -135,94 +129,6 @@ class BaseConfig:
             required_tables = ['user', 'system']
             return all(table in tables for table in required_tables)
         except Exception:
-            return False
-
-    @classmethod
-    def ensure_default_admin_exists(cls) -> bool:
-        """
-        确保默认管理员账号存在
-
-        返回:
-            bool: 是否创建了新的管理员账号
-        """
-        try:
-            from Models import db, User
-            from werkzeug.security import generate_password_hash
-
-            # 检查是否已存在管理员用户
-            admin_user = User.query.filter_by(username=cls.DEFAULT_ADMIN_USERNAME).first()
-            if admin_user:
-                return False
-
-            # 创建新的管理员用户
-            admin_user = User(
-                username=cls.DEFAULT_ADMIN_USERNAME,
-                password=generate_password_hash(cls.DEFAULT_ADMIN_PASSWORD),
-                email=cls.DEFAULT_ADMIN_EMAIL,
-                qq=cls.DEFAULT_ADMIN_QQ,
-                role='admin',
-                vip=True  # 管理员默认为VIP
-            )
-
-            db.session.add(admin_user)
-            db.session.commit()
-
-            print(f"✓ 默认管理员账号创建成功:")
-            print(f"  用户名: {cls.DEFAULT_ADMIN_USERNAME}")
-            print(f"  密码: {cls.DEFAULT_ADMIN_PASSWORD}")
-            print(f"  邮箱: {cls.DEFAULT_ADMIN_EMAIL}")
-            print(f"  角色: admin")
-
-            return True
-
-        except Exception as e:
-            print(f"❌ 创建默认管理员时出错: {e}")
-            try:
-                from Models import db
-                db.session.rollback()
-            except:
-                pass
-            return False
-
-    @classmethod
-    def ensure_default_system_exists(cls) -> bool:
-        """
-        确保默认系统配置存在
-
-        返回:
-            bool: 是否创建了新的系统配置
-        """
-        try:
-            from Models import db, System
-
-            # 检查是否已存在系统配置
-            system = System.query.first()
-            if system:
-                return False
-
-            # 创建默认系统配置
-            system = System(
-                title='QQ机器人管理系统',
-                des='智能、便捷、高效的QQ机器人管理平台',
-                key='QQ机器人,管理系统,自动化,智能助手',
-                email='admin@qqbot.local',
-                icp='备案号待填写',
-                cop='© 2024 QQ机器人管理系统. All rights reserved.'
-            )
-
-            db.session.add(system)
-            db.session.commit()
-
-            print("✓ 默认系统配置创建成功")
-            return True
-
-        except Exception as e:
-            print(f"❌ 创建默认系统配置时出错: {e}")
-            try:
-                from Models import db
-                db.session.rollback()
-            except:
-                pass
             return False
 
     # Session基础配置

@@ -91,27 +91,6 @@ class ForeachNode(BaseNode):
         loop_body = self.config.get('loop_body', '').strip()
         delay = float(self.config.get('delay', 0) or 0)
 
-        # 获取列表
-        items = context.get_variable(list_variable)
-        if items is None:
-            log_error(0, f"循环变量 {list_variable} 不存在", "FOREACH_VAR_NOT_FOUND")
-            return {'success': False, 'error': f'变量 {list_variable} 不存在'}
-
-        # 智能转换为列表
-        if isinstance(items, dict):
-            # 字典 → [{key: k, value: v}, ...]
-            items = [{'key': k, 'value': v} for k, v in items.items()]
-        elif not isinstance(items, (list, tuple)):
-            log_error(0, f"变量 {list_variable} 不是列表或字典类型", "FOREACH_NOT_ITERABLE")
-            return {'success': False, 'error': f'变量 {list_variable} 不是列表或字典'}
-
-        if not items:
-            log_debug(0, f"列表 {list_variable} 为空，跳过循环", "FOREACH_EMPTY_LIST")
-            result = {'success': True, 'loop_total': 0}
-            if self.config.get('next_node'):
-                result['next_node'] = self.config['next_node']
-            return result
-
         if not loop_body:
             log_error(0, "未指定循环体节点", "FOREACH_NO_BODY")
             return {'success': False, 'error': '未指定循环体节点'}
@@ -120,8 +99,29 @@ class ForeachNode(BaseNode):
         # 使用节点配置生成唯一key，而不是id(self)，因为每次执行都会创建新实例
         loop_state_key = f'_foreach_state_{list_variable}_{item_variable}'
         loop_state = context.get_variable(loop_state_key)
-        
+
         if loop_state is None:
+            # 第一次执行：从变量获取列表，并保存到循环状态
+            items = context.get_variable(list_variable)
+            if items is None:
+                log_error(0, f"循环变量 {list_variable} 不存在", "FOREACH_VAR_NOT_FOUND")
+                return {'success': False, 'error': f'变量 {list_variable} 不存在'}
+
+            # 智能转换为列表
+            if isinstance(items, dict):
+                # 字典 → [{key: k, value: v}, ...]
+                items = [{'key': k, 'value': v} for k, v in items.items()]
+            elif not isinstance(items, (list, tuple)):
+                log_error(0, f"变量 {list_variable} 不是列表或字典类型", "FOREACH_NOT_ITERABLE")
+                return {'success': False, 'error': f'变量 {list_variable} 不是列表或字典'}
+
+            if not items:
+                log_debug(0, f"列表 {list_variable} 为空，跳过循环", "FOREACH_EMPTY_LIST")
+                result = {'success': True, 'loop_total': 0}
+                if self.config.get('next_node'):
+                    result['next_node'] = self.config['next_node']
+                return result
+
             # 初始化循环状态，保存转换后的列表
             loop_state = {
                 'index': 0,
@@ -129,7 +129,7 @@ class ForeachNode(BaseNode):
                 'items': list(items)  # 保存转换后的列表
             }
             context.set_variable(loop_state_key, loop_state)
-        
+
         # 从状态中获取列表，而不是重新获取变量
         items = loop_state['items']
         current_index = loop_state['index']
