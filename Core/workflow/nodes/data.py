@@ -37,6 +37,14 @@ class SetVariableNode(BaseNode):
             'help': '支持变量替换',
             'rows': 3
         },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'options': [],
+            'help': '执行完成后跳转到的节点'
+        },
     ]
 
     async def _execute(self, context):
@@ -46,15 +54,21 @@ class SetVariableNode(BaseNode):
 
         # 渲染值
         variable_value = context.render_template(variable_value_template)
-
+        
         # 设置变量
         context.set_variable(variable_name, variable_value)
 
-        return {
+        result = {
             'success': True,
             'variable': variable_name,
             'value': variable_value
         }
+        
+        next_node = self.config.get('next_node')
+        if next_node:
+            result['next_node'] = next_node
+        
+        return result
 
 
 class StringOperationNode(BaseNode):

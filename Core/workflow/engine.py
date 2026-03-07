@@ -99,22 +99,22 @@ class WorkflowEngine:
             node_type = step_config.get('type')
             node_id = step_config.get('id', f"step_{node_type}")
 
-            # 检查循环跳转
+            # 检测循环跳转，防止死循环
             if node_id in visited_nodes:
                 log_error(0, f"工作流 {self.name} 检测到循环跳转: {node_id}", "WORKFLOW_LOOP_DETECTED")
                 break
             visited_nodes.add(node_id)
 
             try:
-                # 检查是否需要在此节点后停止（由上一个节点的 stop_sequence 设置）
+                # 检查是否需要在此节点后停止
                 stop_after_this = context.get_variable('_stop_after_next', False)
                     
-                # 执行单个节点（带调试记录）
+                # 执行单个节点
                 node_start = time.time()
                 result, should_break = await self._execute_node(step_config, context)
                 node_duration = int((time.time() - node_start) * 1000)
                 
-                # 如果需要在此节点后停止
+                # 处理 stop_after_this 标记
                 if stop_after_this:
                     context.set_variable('_stop_after_next', False)  # 清除标记
                     if loop_stack:
@@ -138,10 +138,22 @@ class WorkflowEngine:
                         input_data=context.get_all_variables()
                     )
 
+                # 处理 should_break：
+                # - 在 foreach 循环中：结束当前迭代并回到 foreach 继续下一轮
+                # - 非循环场景：终止当前工作流
                 if should_break:
+                    if loop_stack:
+                        # 强制返回 foreach，不判断
+                        loop_info = loop_stack.pop()
+                        visited_nodes.discard(loop_info['foreach_id'])
+                        for idx in range(loop_info['loop_body_index'], current_index + 1):
+                            if idx < len(self.workflow_steps):
+                                visited_nodes.discard(self.workflow_steps[idx].get('id'))
+                        current_index = loop_info['foreach_index']
+                        continue
                     break
 
-                # 处理循环控制
+                # 处理 foreach 循环控制
                 if isinstance(result, dict) and result.get('loop'):
                     jump_index = self._handle_loop_start(result, node_id, current_index, node_index_map, loop_stack, visited_nodes)
                     if jump_index is not None:
@@ -150,7 +162,7 @@ class WorkflowEngine:
                             await asyncio.sleep(result['delay'])
                         continue
 
-                # 处理跳转
+                # 处理节点跳转（next_node）
                 jumped = False
                 if isinstance(result, dict) and 'next_node' in result:
                     next_id = result.get('next_node')
@@ -159,7 +171,7 @@ class WorkflowEngine:
                         current_index = node_index_map[next_id]
                         jumped = True
                         
-                        # 如果设置了 stop_sequence，执行完跳转节点后停止当前迭代
+                        # 处理 stop_sequence：执行跳转目标后停止
                         if result.get('stop_sequence'):
                             # 执行跳转目标节点
                             await self._execute_and_record_node(
@@ -180,7 +192,7 @@ class WorkflowEngine:
                     elif next_id:
                         log_error(0, f"节点 {node_id} 跳转到不存在的节点: {next_id}", "WORKFLOW_JUMP_ERROR")
                 
-                # 如果没有跳转且设置了 stop_sequence
+                # 处理 stop_sequence（无跳转时）
                 elif isinstance(result, dict) and result.get('stop_sequence'):
                     # 如果在循环中，直接返回到 foreach 节点进行下一次迭代
                     if loop_stack:
@@ -192,7 +204,7 @@ class WorkflowEngine:
                     else:
                         break
 
-                # 处理循环返回
+                # 检测是否到达循环体末尾
                 if loop_stack and not jumped:
                     if self._should_return_to_loop(current_index, visited_nodes):
                         return_index = self._handle_loop_return(node_id, current_index, loop_stack, visited_nodes)
@@ -259,7 +271,7 @@ class WorkflowEngine:
         loop_info = loop_stack.pop()
         visited_nodes.discard(loop_info['foreach_id'])
         
-        # 清理循环体内节点的访问记录，以便下次迭代
+        # 清理循环体内节点的访问记录
         for idx in range(loop_info['loop_body_index'], current_index + 1):
             if idx < len(self.workflow_steps):
                 visited_nodes.discard(self.workflow_steps[idx].get('id'))
@@ -274,7 +286,7 @@ class WorkflowEngine:
         if next_index >= len(self.workflow_steps):
             return True
         
-        # 检查下一个节点
+        # 检查下一个节点是否为 end 或已访问过
         next_node = self.workflow_steps[next_index]
         next_type = next_node.get('type')
         next_id = next_node.get('id')
@@ -284,12 +296,14 @@ class WorkflowEngine:
 
     def _handle_loop_start(self, result: dict, node_id: str, current_index: int,
                            node_index_map: dict, loop_stack: list, visited_nodes: set) -> int | None:
-        """处理循环开始，返回跳转索引或 None"""
+        """处理循环开始，将循环信息压栈并跳转到循环体"""
         loop_body = result.get('loop_body')
+        
         if not loop_body or loop_body not in node_index_map:
             log_error(0, f"foreach 循环体节点不存在: {loop_body}", "FOREACH_BODY_NOT_FOUND")
             return None
 
+        # 压入循环信息：foreach_index=返回位置, loop_body_index=循环体起点
         loop_stack.append({
             'foreach_index': current_index,
             'foreach_id': node_id,
@@ -301,15 +315,16 @@ class WorkflowEngine:
 
     def _handle_loop_return(self, node_id: str, current_index: int,
                             loop_stack: list, visited_nodes: set) -> int | None:
-        """处理循环返回，返回 foreach 索引或 None"""
+        """处理循环返回，判断是否应返回 foreach 进行下一次迭代"""
         loop_info = loop_stack[-1]
         loop_end_id = loop_info.get('loop_end')
         next_index = current_index + 1
 
-        # 判断是否应返回 foreach
+        # 方式1：通过 loop_end_id 判断
         if loop_end_id:
             should_return = (node_id == loop_end_id)
         else:
+            # 方式2：通过下一个节点状态判断
             next_node_type = self.workflow_steps[next_index].get('type') if next_index < len(self.workflow_steps) else None
             should_return = (
                 next_index >= len(self.workflow_steps) or
@@ -322,6 +337,7 @@ class WorkflowEngine:
         if not should_return:
             return None
 
+        # 清理循环状态，返回 foreach
         loop_stack.pop()
         visited_nodes.discard(loop_info['foreach_id'])
         for idx in range(loop_info['loop_body_index'], current_index + 1):

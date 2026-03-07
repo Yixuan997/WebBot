@@ -237,6 +237,37 @@ def get_latest_release_content():
         })
 
 
+def _validate_zip_path(entry_name: str, base_dir: str) -> tuple[bool, str]:
+    """验证 ZIP 条目路径是否安全，防止 ZipSlip 攻击
+    
+    Args:
+        entry_name: ZIP 条目名称
+        base_dir: 基础目录
+        
+    Returns:
+        tuple[bool, str]: (是否安全, 安全的绝对路径或错误信息)
+    """
+    import os.path
+    
+    norm_base = os.path.normpath(os.path.abspath(base_dir))
+    
+    parts = entry_name.replace('\\', '/').split('/')
+    
+    for part in parts:
+        if part in ('', '.', '..'):
+            return False, "路径包含非法组件"
+        if ':' in part or part.startswith('\\'):
+            return False, "路径包含非法字符"
+    
+    safe_relative = '/'.join(parts)
+    target_path = os.path.normpath(os.path.join(norm_base, safe_relative))
+    
+    if not target_path.startswith(norm_base + os.sep) and target_path != norm_base:
+        return False, "路径越界"
+    
+    return True, target_path
+
+
 def calculate_file_hash(file_path, algorithm='sha256'):
     """计算文件的哈希值"""
     hash_obj = hashlib.new(algorithm)
@@ -361,11 +392,11 @@ def download_and_apply_update():
             update_zip_path.unlink()  # 删除无效的更新包
             return jsonify({'success': False, 'error': f'文件验证失败：{verify_message}'})
 
-        # 步骤3: 解压更新包
+        # 步骤3: 解压更新包（带路径安全验证）
+        current_dir = Path.cwd()
         with zipfile.ZipFile(update_zip_path, 'r') as zip_ref:
             all_files = zip_ref.namelist()
 
-            # 查找包含app.py的目录层级
             app_py_path = None
             for file_path in all_files:
                 if file_path.endswith('app.py') and '/' in file_path:
@@ -373,16 +404,26 @@ def download_and_apply_update():
                     break
 
             if app_py_path:
-                # 有子目录结构，提取子目录内容
                 prefix = app_py_path.rsplit('/', 1)[0] + '/'
                 for member in zip_ref.infolist():
                     if member.filename.startswith(prefix) and member.filename != prefix:
-                        member.filename = member.filename[len(prefix):]
-                        if member.filename:
-                            zip_ref.extract(member, '.')
+                        relative_name = member.filename[len(prefix):]
+                        if not relative_name or relative_name.endswith('/'):
+                            continue
+                        is_safe, result = _validate_zip_path(relative_name, str(current_dir))
+                        if not is_safe:
+                            update_zip_path.unlink()
+                            return jsonify({'success': False, 'error': f'安全验证失败：检测到可疑路径 {relative_name}'})
+                        member.filename = relative_name
+                        zip_ref.extract(member, '.')
             else:
-                # 直接解压到根目录
-                zip_ref.extractall('.')
+                for member in zip_ref.infolist():
+                    if member.filename and not member.filename.endswith('/'):
+                        is_safe, result = _validate_zip_path(member.filename, str(current_dir))
+                        if not is_safe:
+                            update_zip_path.unlink()
+                            return jsonify({'success': False, 'error': f'安全验证失败：检测到可疑路径 {member.filename}'})
+                        zip_ref.extract(member, '.')
 
         # 清理更新包
         update_zip_path.unlink()

@@ -141,19 +141,20 @@ class ConditionNode(BaseNode):
 
     def _execute_simple(self, context) -> Any:
         """简单模式：单个条件判断"""
-        # 获取变量名和比较值
+        # 获取配置参数
         variable_name = self.config.get('variable_name', '')
         compare_value = self.config.get('compare_value', '')
         operator = self.config.get('condition_type', 'equals')
 
-        # 直接从上下文获取变量值，不需要大括号
+        # 从上下文获取变量值
         value1 = str(context.get_variable(variable_name, ''))
-        # 比较值支持模板渲染（如果需要引用其他变量）
+        # 比较值支持模板渲染
         value2 = context.render_template(str(compare_value))
-
+        
         # 执行判断
         result = False
 
+        # 根据运算符执行比较
         match operator:
             case 'equals':
                 result = value1 == value2
@@ -197,14 +198,13 @@ class ConditionNode(BaseNode):
         else:
             next_node = self.config.get('false_branch')
         
-        # 检查是否需要在分支执行后停止
         stop_after = self.config.get('stop_after_branch', False)
 
         return {
             'success': True,
             'result': result,
             'next_node': next_node if next_node else None,
-            'stop_sequence': stop_after  # 标记是否停止后续执行
+            'stop_sequence': stop_after
         }
 
     def _execute_advanced(self, context) -> Any:

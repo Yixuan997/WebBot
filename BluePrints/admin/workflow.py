@@ -432,6 +432,49 @@ def workflow_reload_cache():
         })
 
 
+def _validate_zip_path(entry_name: str, base_dir: str, allowed_subdirs: list[str]) -> tuple[bool, str]:
+    """验证 ZIP 条目路径是否安全，防止 ZipSlip 攻击
+    
+    Args:
+        entry_name: ZIP 条目名称
+        base_dir: 基础目录
+        allowed_subdirs: 允许的子目录列表，如 ['Snippets', 'Render']
+        
+    Returns:
+        tuple[bool, str]: (是否安全, 安全的绝对路径或错误信息)
+    """
+    import os.path
+    
+    norm_base = os.path.normpath(os.path.abspath(base_dir))
+    
+    parts = entry_name.replace('\\', '/').split('/')
+    
+    if len(parts) < 2:
+        return False, "无效的路径格式"
+    
+    subdir = parts[0]
+    if subdir not in allowed_subdirs:
+        return False, f"不允许的目录: {subdir}"
+    
+    for part in parts:
+        if part in ('', '.', '..'):
+            return False, "路径包含非法组件"
+        if ':' in part or part.startswith('\\'):
+            return False, "路径包含非法字符"
+    
+    safe_relative = '/'.join(parts)
+    target_path = os.path.normpath(os.path.join(norm_base, safe_relative))
+    
+    if not target_path.startswith(norm_base + os.sep) and target_path != norm_base:
+        return False, "路径越界"
+    
+    expected_dir = os.path.join(norm_base, subdir)
+    if not target_path.startswith(expected_dir + os.sep) and target_path != expected_dir:
+        return False, f"路径不在允许的目录 {subdir} 内"
+    
+    return True, target_path
+
+
 def workflow_import():
     """导入工作流（支持 ZIP 格式，包含代码片段和渲染模板）"""
     import zipfile
@@ -444,7 +487,6 @@ def workflow_import():
     if file.filename == '':
         return jsonify({'success': False, 'message': '未选择文件'})
 
-    # 检查文件后缀
     if not file.filename.endswith('.workflow'):
         return jsonify({'success': False, 'message': '文件格式不正确，请选择 .workflow 文件'})
 
@@ -452,7 +494,6 @@ def workflow_import():
         file_content = file.read()
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
-        # 解压 ZIP
         try:
             zip_buffer = io.BytesIO(file_content)
             zf = zipfile.ZipFile(zip_buffer, 'r')
@@ -460,31 +501,56 @@ def workflow_import():
             return jsonify({'success': False, 'message': '文件格式错误，不是有效的 ZIP 文件'})
 
         with zf:
-            # 读取工作流配置
             if 'workflow.json' not in zf.namelist():
                 return jsonify({'success': False, 'message': '文件缺少 workflow.json'})
 
             data = json.loads(zf.read('workflow.json').decode('utf-8'))
 
-            # 提取代码片段和模板文件
             copied_files = []
+            blocked_files = []
+            allowed_subdirs = ['Snippets', 'Render']
+            
             for name in zf.namelist():
-                if name.startswith('Snippets/') and name != 'Snippets/':
-                    target_path = os.path.join(base_dir, name)
-                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                    content = zf.read(name)
-                    if not os.path.exists(target_path):
-                        with open(target_path, 'wb') as f:
-                            f.write(content)
-                        copied_files.append(name)
-                elif name.startswith('Render/') and name != 'Render/':
-                    target_path = os.path.join(base_dir, name)
-                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                    content = zf.read(name)
-                    if not os.path.exists(target_path):
-                        with open(target_path, 'wb') as f:
-                            f.write(content)
-                        copied_files.append(name)
+                if name.endswith('/'):
+                    continue
+                
+                if name == 'workflow.json':
+                    continue
+                    
+                if not (name.startswith('Snippets/') or name.startswith('Render/')):
+                    continue
+                    
+                is_safe, result = _validate_zip_path(name, base_dir, allowed_subdirs)
+                
+                if not is_safe:
+                    blocked_files.append(name)
+                    log_error(0, f"阻止可疑的 ZIP 条目: {name}", "ZIPSIP_BLOCKED", reason=result)
+                    continue
+                
+                target_path = result
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                content = zf.read(name)
+                if not os.path.exists(target_path):
+                    with open(target_path, 'wb') as f:
+                        f.write(content)
+                    copied_files.append(name)
+        
+        # 安全策略：检测到可疑文件则中止导入，并回滚本次写入的文件
+        if blocked_files:
+            for copied_name in copied_files:
+                copied_path = os.path.join(base_dir, copied_name)
+                try:
+                    if os.path.exists(copied_path):
+                        os.remove(copied_path)
+                except Exception as cleanup_error:
+                    log_error(0, f"回滚导入文件失败: {copied_name}",
+                              "WORKFLOW_IMPORT_ROLLBACK_ERROR", error=str(cleanup_error))
+
+            return jsonify({
+                'success': False,
+                'message': '导入失败：检测到可疑文件，已中止导入',
+                'blocked_files': blocked_files
+            })
 
         # 校验格式
         if 'workflow' not in data:
@@ -518,7 +584,8 @@ def workflow_import():
         )
 
         log_info(0, f"导入工作流: {name}", "WORKFLOW_IMPORT",
-                 workflow_id=workflow.id, original_name=original_name, copied_files=copied_files)
+                 workflow_id=workflow.id, original_name=original_name, 
+                 copied_files=copied_files, blocked_files=blocked_files)
 
         _clear_workflow_cache()
 

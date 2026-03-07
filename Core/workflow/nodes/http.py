@@ -1,9 +1,10 @@
 """
 HTTP请求相关节点
 """
+import asyncio
 import json
 
-import requests
+import aiohttp
 
 from Core.logging.file_logger import log_error
 from .base import BaseNode
@@ -117,9 +118,9 @@ class HttpRequestNode(BaseNode):
                 headers = json.loads(rendered_headers)
             except json.JSONDecodeError as e:
                 log_error(0, f"HTTP请求节点: 请求头JSON格式错误 - {e}", "HTTP_NODE_ERROR", url=url)
-                context.set_variable('response_error', 'Invalid headers JSON format')
+                context.set_variable('response_error', '请求头JSON格式无效')
                 context.set_variable('response_success', False)
-                return {'success': False, 'error': 'Invalid headers'}
+                return {'success': False, 'error': '请求头无效'}
 
         # 解析请求体
         body = None
@@ -133,49 +134,76 @@ class HttpRequestNode(BaseNode):
                 body = body_rendered
 
         try:
-            # 发送请求
-            response = requests.request(
-                method=method,
-                url=url,
-                headers=headers,
-                json=body if isinstance(body, dict) else None,
-                data=body if isinstance(body, str) else None,
-                timeout=timeout
-            )
-
-            # 保存状态码
-            context.set_variable('response_status', response.status_code)
-            context.set_variable('response_text', response.text)
-            context.set_variable('response_success', response.status_code < 400)
+            timeout_obj = aiohttp.ClientTimeout(total=timeout)
             
+            async with aiohttp.ClientSession(timeout=timeout_obj) as session:
+                kwargs = {
+                    'method': method,
+                    'url': url,
+                    'headers': headers,
+                }
+                
+                if body is not None:
+                    if isinstance(body, dict):
+                        kwargs['json'] = body
+                    else:
+                        kwargs['data'] = body
+                
+                async with session.request(**kwargs) as response:
+                    response_status = response.status
+                    response_text = await response.text()
+                    
+                    context.set_variable('response_status', response_status)
+                    context.set_variable('response_text', response_text)
+                    context.set_variable('response_success', response_status < 400)
+                    
+                    if response_type in ['auto', 'json']:
+                        response_json = None
+                        response_error = ''
+                        try:
+                            # 放宽 Content-Type 限制，兼容返回 JSON 但头不规范的接口
+                            response_json = await response.json(content_type=None)
+                        except (json.JSONDecodeError, aiohttp.ContentTypeError, ValueError):
+                            # auto 模式下尝试使用响应文本兜底解析
+                            if response_type == 'auto':
+                                try:
+                                    response_json = json.loads(response_text)
+                                except (json.JSONDecodeError, ValueError):
+                                    response_json = None
+                            else:
+                                response_error = '响应不是有效的JSON格式'
+                        except TypeError:
+                            if response_type == 'json':
+                                response_error = '响应不是有效的JSON格式'
+                        
+                        context.set_variable('response_json', response_json)
+                        context.set_variable('response_error', response_error)
+                    else:
+                        context.set_variable('response_json', None)
+                        context.set_variable('response_error', '')
+                    
+                    return {
+                        'success': True,
+                        'status_code': response_status,
+                    }
 
-            # 尝试解析JSON响应
-            if response_type in ['auto', 'json']:
-                try:
-                    response_json = response.json()
-                    context.set_variable('response_json', response_json)
-                except json.JSONDecodeError:
-                    if response_type == 'json':
-                        context.set_variable('response_error', 'Response is not valid JSON')
-                    context.set_variable('response_json', None)
-
-            context.set_variable('response_error', '')
-
-            return {
-                'success': True,
-                'status_code': response.status_code,
-            }
-
-        except requests.exceptions.Timeout:
-            error_msg = f'Request timeout after {timeout} seconds'
+        except asyncio.TimeoutError:
+            error_msg = f'请求超时，超过 {timeout} 秒未响应'
             log_error(0, f"HTTP请求节点: 请求超时 - {error_msg}", "HTTP_NODE_ERROR", url=url)
             context.set_variable('response_error', error_msg)
             context.set_variable('response_success', False)
             return {'success': False, 'error': error_msg}
 
-        except requests.exceptions.RequestException as e:
-            error_msg = str(e)
+        except aiohttp.ClientError as e:
+            error_msg = f'请求失败: {str(e)}'
             log_error(0, f"HTTP请求节点: 请求失败 - {error_msg}", "HTTP_NODE_ERROR", url=url)
+            context.set_variable('response_error', error_msg)
+            context.set_variable('response_success', False)
+            return {'success': False, 'error': error_msg}
+
+        except Exception as e:
+            error_msg = f'请求失败: {str(e)}'
+            log_error(0, f"HTTP请求节点: 请求异常 - {error_msg}", "HTTP_NODE_ERROR", url=url)
             context.set_variable('response_error', error_msg)
             context.set_variable('response_success', False)
             return {'success': False, 'error': error_msg}
@@ -256,7 +284,7 @@ class JsonExtractNode(BaseNode):
         if not json_data:
             log_error(0, f"JSON提取节点: JSON源为空 - {json_source_name}", "JSON_EXTRACT_ERROR")
             context.set_variable(save_to, default_value)
-            return {'success': False, 'error': 'JSON source is empty'}
+            return {'success': False, 'error': 'JSON源数据为空'}
 
         # 如果是字符串,尝试解析为JSON
         if isinstance(json_data, str):
@@ -265,7 +293,7 @@ class JsonExtractNode(BaseNode):
             except json.JSONDecodeError as e:
                 log_error(0, f"JSON提取节点: 无效的JSON字符串 - {e}", "JSON_EXTRACT_ERROR")
                 context.set_variable(save_to, default_value)
-                return {'success': False, 'error': 'Invalid JSON string'}
+                return {'success': False, 'error': '无效的JSON字符串'}
 
         # 提取字段
         try:
@@ -309,7 +337,7 @@ class JsonExtractNode(BaseNode):
             elif hasattr(current, part):
                 current = getattr(current, part)
             else:
-                raise KeyError(f'Cannot access "{part}" in path "{path}"')
+                raise KeyError(f'无法访问路径 "{path}" 中的 "{part}"')
 
             if current is None:
                 break
