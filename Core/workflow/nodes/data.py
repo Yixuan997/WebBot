@@ -136,6 +136,15 @@ class StringOperationNode(BaseNode):
             'placeholder': 'output',
             'help': '结果保存的变量名'
         },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '处理完成后跳转到的节点'
+        },
     ]
 
     async def _execute(self, context) -> dict[str, Any]:

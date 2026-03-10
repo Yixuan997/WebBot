@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.1.1-green.svg)](https://flask.palletsprojects.com/)
-[![版本](https://img.shields.io/badge/版本-v2.0.5-green.svg)](#)
+[![版本](https://img.shields.io/badge/版本-v2.0.6-green.svg)](#)
 [![状态](https://img.shields.io/badge/状态-稳定版-brightgreen.svg)](#)
 
 ## ✨ 功能特点

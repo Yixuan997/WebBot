@@ -4,32 +4,256 @@
 {% block page_title %}编辑工作流: {{ workflow.name }}{% endblock %}
 
 {% block content %}
+<style>
+.workflow-layout .sticky-panel {
+    position: sticky;
+    top: 1rem;
+}
+.workflow-canvas {
+    background: radial-gradient(circle at 20% 20%, #ffffff 0%, #f7f9fd 40%, #f2f5fb 100%);
+    border: 1px solid #dfe6f2;
+    border-radius: 14px;
+    min-height: 70vh;
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+}
+.workflow-node-card {
+    border: 1px solid #e6e7e9;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+.workflow-node-card:hover {
+    box-shadow: 0 4px 16px rgba(32, 107, 196, 0.12);
+}
+#lfCanvas {
+    width: 100%;
+    height: 72vh;
+    min-height: 560px;
+    position: relative;
+    z-index: 12;
+}
+.workflow-layout .card-header {
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+    border-bottom: 1px solid #e7edf8;
+}
+#lfCanvas .lf-node-selected rect,
+#lfCanvas .lf-node-selected polygon,
+#lfCanvas .lf-node-selected ellipse {
+    filter: drop-shadow(0 4px 12px rgba(32, 107, 196, 0.22));
+}
+#lfCanvas .wf-card-node {
+    position: relative;
+    border-radius: 12px;
+    border: 1px solid #dbe2ee;
+    background: #fff;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(16,24,40,0.06);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+#lfCanvas .wf-card-shell {
+    width: 100%;
+    height: 100%;
+}
+#lfCanvas .wf-card-head {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 10px 0 8px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+}
+#lfCanvas .wf-card-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#lfCanvas .wf-card-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.22);
+    font-size: 12px;
+}
+#lfCanvas .wf-card-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 11px;
+    line-height: 1;
+    font-weight: 500;
+}
+#lfCanvas .wf-card-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+#lfCanvas .wf-card-body {
+    min-height: 50px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #334155;
+    display: flex;
+    align-items: center;
+}
+.workflow-canvas #floatingQuickLinkBtn {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    border: 1px solid #c8d5ea;
+    background: #ffffff;
+    color: #2f6fec;
+    font-size: 16px;
+    line-height: 1;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.18);
+    transition: background-color .16s ease;
+    z-index: 40;
+}
+.workflow-canvas #floatingQuickLinkBtn:hover {
+    background: #eef4ff;
+}
+.workflow-hint {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    z-index: 20;
+    font-size: 12px;
+    color: #62748b;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid #dce3ee;
+    border-radius: 10px;
+    padding: 6px 10px;
+}
+.workflow-viewport-tools {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    z-index: 20;
+    display: flex;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #dce3ee;
+    border-radius: 10px;
+    padding: 6px;
+}
+.workflow-viewport-tools .btn {
+    min-width: 34px;
+}
+.workflow-debug-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: min(380px, calc(100% - 24px));
+    max-height: calc(100% - 80px);
+    overflow: auto;
+    z-index: 25;
+    background: rgba(255,255,255,0.98);
+    border: 1px solid #dce3ee;
+    border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+    display: none;
+}
+.workflow-debug-panel .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e8edf5;
+    font-weight: 600;
+}
+.workflow-debug-panel .body {
+    padding: 10px 12px 12px;
+    font-size: 12px;
+}
+.workflow-debug-panel pre {
+    margin: 0;
+    border-radius: 8px;
+    padding: 8px;
+    background: #0f172a;
+    color: #f8fafc;
+    max-height: 220px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.workflow-debug-panel .meta {
+    color: #64748b;
+    margin-bottom: 8px;
+}
+@media (max-width: 991.98px) {
+    .workflow-layout .sticky-panel {
+        position: static;
+    }
+    .workflow-canvas {
+        min-height: 50vh;
+    }
+    #lfCanvas {
+        height: 62vh;
+        min-height: 420px;
+    }
+}
+</style>
 <form id="workflowForm" onsubmit="submitWorkflow(event)">
-    <!-- 工作流节点配置 -->
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">{{ workflow.name }}</h3>
-            <div class="card-actions">
-                <button type="button" class="btn btn-sm btn-outline-cyan me-1" onclick="loadDebugRecord()" title="加载最近一次执行的调试信息">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 9v-1a3 3 0 0 1 6 0v1" /><path d="M8 9h8a6 6 0 0 1 1 3v3a5 5 0 0 1 -10 0v-3a6 6 0 0 1 1 -3" /></svg>
-                    调试
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="addNode()">
-                    <svg class="icon" fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><path d="M12 5l0 14"/><path d="M5 12l14 0"/></svg>
-                    添加
-                </button>
-                <button type="submit" class="btn btn-sm btn-primary me-1">
-                    <svg class="icon" fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2"/><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/></svg>
-                    保存
-                </button>
-                <a href="{{ url_for('Admin.workflow_detail', workflow_id=workflow.id) }}" class="btn btn-sm btn-outline-secondary">取消</a>
-            </div>
-        </div>
-        <div class="card-body">
-            <div id="nodesList" class="list-group list-group-flush">
-                <div class="empty">
-                    <p class="empty-title">还没有添加任何节点</p>
-                    <p class="empty-subtitle text-muted">点击"添加节点"开始构建工作流</p>
+    <div class="row g-3 workflow-layout">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ workflow.name }}</h3>
+                    <div class="card-actions">
+                        <span class="badge bg-blue-lt text-blue me-1">总节点 <span id="totalNodesCount">0</span></span>
+                        <span class="badge bg-azure-lt text-azure me-2">业务节点 <span id="businessNodesCount">0</span></span>
+                        <button type="button" class="btn btn-sm btn-outline-cyan me-1" onclick="loadDebugRecord()" title="加载最近一次执行的调试信息">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 9v-1a3 3 0 0 1 6 0v1" /><path d="M8 9h8a6 6 0 0 1 1 3v3a5 5 0 0 1 -10 0v-3a6 6 0 0 1 1 -3" /></svg>
+                            调试
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="addNode()">
+                            <svg class="icon" fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><path d="M12 5l0 14"/><path d="M5 12l14 0"/></svg>
+                            添加
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="moveSelectedNodeUp()">上移</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="moveSelectedNodeDown()">下移</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="editSelectedNode()">编辑选中</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger me-1" onclick="deleteSelectedNode()">删除选中</button>
+                        <button type="submit" class="btn btn-sm btn-primary me-1">
+                            <svg class="icon" fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2"/><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/></svg>
+                            保存
+                        </button>
+                        <a href="{{ url_for('Admin.workflow_detail', workflow_id=workflow.id) }}" class="btn btn-sm btn-outline-secondary">取消</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="workflow-canvas">
+                        <div id="lfCanvas"></div>
+                        <div id="nodeDebugPanel" class="workflow-debug-panel">
+                            <div class="head">
+                                <span>节点调试详情</span>
+                                <button type="button" class="btn btn-sm btn-ghost-secondary" onclick="hideNodeDebugPanel()">关闭</button>
+                            </div>
+                            <div class="body" id="nodeDebugPanelBody"></div>
+                        </div>
+                        <div class="workflow-hint">分支线显示：满足 / 不满足</div>
+                        <div class="workflow-viewport-tools">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="缩小" onclick="zoomOut()">-</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="放大" onclick="zoomIn()">+</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="重置" onclick="zoomReset()">1:1</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" title="适应画布" onclick="zoomFit()">⤢</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -38,7 +262,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/Sortable.min.js') }}/"></script>
+<script src="{{ url_for('static', filename='vendor/logicflow/logicflow.min.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/logicflow/logicflow.css') }}" />
 <script>
 const availableNodes = {{ available_nodes|tojson }};
 const existingWorkflow = {{ config.get('workflow', [])|tojson }};
@@ -47,8 +272,15 @@ const workflowId = {{ workflow.id }};
 {% raw %}
 let nodeCounter = 1;
 const nodes = [];
-let sortable = null;
 let debugRecord = null;  // 调试记录
+let debugNodeMap = new Map();
+let lf = null;
+let selectedNodeId = null;
+let autoLayoutMode = true;
+let floatingLinkNodeId = null;
+let floatingHideTimer = null;
+const EDGE_FIELDS = ['next_node', 'true_next', 'false_next', 'true_branch', 'false_branch', 'loop_body'];
+const availableNodeByType = new Map((availableNodes || []).map(n => [n.type, n]));
 
 // 初始化: 加载现有节点
 window.addEventListener('DOMContentLoaded', () => {
@@ -73,21 +305,893 @@ window.addEventListener('DOMContentLoaded', () => {
     // 计数器从最大节点号+1开始，避免ID重复
     nodeCounter = maxNodeNum + 1;
     
+    initLogicFlow();
     renderNodes();
-    
-    // 事件委托：点击输入输出标签复制变量名
-    document.getElementById('nodesList').addEventListener('click', (e) => {
-        const tag = e.target.closest('.io-tag');
-        if (tag && tag.dataset.var) {
-            const varName = `{{${tag.dataset.var}}}`;
-            navigator.clipboard.writeText(varName).then(() => {
-                showToast(`已复制: ${varName}`, 'success');
-            }).catch(() => {
-                showToast('复制失败', 'danger');
-            });
+});
+
+function updateWorkflowStats() {
+    const total = nodes.length;
+    const business = nodes.filter(n => !['start', 'end'].includes(n.type)).length;
+    const totalEl = document.getElementById('totalNodesCount');
+    const businessEl = document.getElementById('businessNodesCount');
+    if (totalEl) totalEl.textContent = total;
+    if (businessEl) businessEl.textContent = business;
+}
+
+function getNodeTemplateByType(type) {
+    return availableNodeByType.get(type) || null;
+}
+
+function closeModalContainer(triggerEl) {
+    const modal = triggerEl?.closest('.modal');
+    const container = modal?.parentNode;
+    if (container) container.remove();
+}
+
+function mapEdgeLabel(field) {
+    const map = {
+        true_next: '满足',
+        true_branch: '满足',
+        false_next: '不满足',
+        false_branch: '不满足'
+    };
+    return map[field] || '';
+}
+
+function firstExistingField(schemaNames, candidates) {
+    for (const field of candidates) {
+        if (schemaNames.has(field)) return field;
+    }
+    return '';
+}
+
+function getEdgeTextValue(edge) {
+    const text = edge?.text;
+    if (!text) return '';
+    if (typeof text === 'string') return text;
+    if (typeof text?.value === 'string') return text.value;
+    return '';
+}
+
+function nodeSupportsQuickLink(node) {
+    const template = getNodeTemplateByType(node.type);
+    const schemaNames = new Set((template?.config_schema || []).map(f => f.name));
+    return ['next_node', 'loop_body', 'true_next', 'false_next', 'true_branch', 'false_branch']
+        .some(field => schemaNames.has(field));
+}
+
+function connectSourceToTarget(sourceId, targetId) {
+    const sourceNode = nodes.find(n => n.id === sourceId);
+    if (!sourceNode || !targetId) return false;
+    const template = getNodeTemplateByType(sourceNode.type);
+    const schemaNames = new Set((template?.config_schema || []).map(f => f.name));
+
+    // 兼容：start 节点即使模板未刷新，也允许设置 next_node
+    if (schemaNames.has('next_node') || sourceNode.type === 'start') {
+        sourceNode.config.next_node = targetId;
+        return true;
+    }
+    if (schemaNames.has('loop_body')) {
+        sourceNode.config.loop_body = targetId;
+        return true;
+    }
+
+    const trueField = firstExistingField(schemaNames, ['true_branch', 'true_next']);
+    const falseField = firstExistingField(schemaNames, ['false_branch', 'false_next']);
+    if (trueField || falseField) {
+        const trueValue = trueField ? (sourceNode.config[trueField] || '') : '';
+        const falseValue = falseField ? (sourceNode.config[falseField] || '') : '';
+        if (trueField && !trueValue) {
+            sourceNode.config[trueField] = targetId;
+            return true;
+        }
+        if (falseField && !falseValue) {
+            sourceNode.config[falseField] = targetId;
+            return true;
+        }
+        if (trueField) {
+            sourceNode.config[trueField] = targetId;
+            return true;
+        }
+        if (falseField) {
+            sourceNode.config[falseField] = targetId;
+            return true;
+        }
+    }
+    return false;
+}
+
+function buildEdges(includeDefault = false) {
+    const exists = new Set(nodes.map(n => n.id));
+    const edges = [];
+    const explicitBySource = {};
+
+    nodes.forEach(node => {
+        EDGE_FIELDS.forEach(field => {
+            const targetId = node.config?.[field];
+            if (targetId && exists.has(targetId)) {
+                if (!explicitBySource[node.id]) explicitBySource[node.id] = new Set();
+                explicitBySource[node.id].add(targetId);
+                edges.push({
+                    sourceId: node.id,
+                    targetId,
+                    label: mapEdgeLabel(field),
+                    field,
+                    kind: 'explicit',
+                    auto: false
+                });
+            }
+        });
+    });
+
+    if (includeDefault) {
+        for (let i = 0; i < nodes.length - 1; i++) {
+            const source = nodes[i];
+            const target = nodes[i + 1];
+            if (source.type === 'end') continue;
+            const hasExplicit = explicitBySource[source.id] && explicitBySource[source.id].size > 0;
+            if (!hasExplicit) {
+                edges.push({
+                    sourceId: source.id,
+                    targetId: target.id,
+                    label: '',
+                    kind: 'default',
+                    auto: true
+                });
+            }
+        }
+    }
+
+    return edges;
+}
+
+function getShapeByNodeType(type) {
+    return 'wf-card';
+}
+
+function getNodeVisual(node, nodeMeta) {
+    const defaults = {
+        headColor: '#2f6fec',
+        icon: '⚙',
+        badgeText: '',
+        badgeBg: 'rgba(255,255,255,0.2)',
+        badgeColor: '#fff'
+    };
+    const byType = {
+        start: { headColor: '#2f6fec', icon: '▶', badgeText: '开始' },
+        end: { headColor: '#111827', icon: '■', badgeText: '结束' },
+        condition: { headColor: '#f2993a', icon: '◆', badgeText: '判断' },
+        loop: { headColor: '#0ea5a4', icon: '↻', badgeText: '循环' },
+        python_snippet: { headColor: '#6d28d9', icon: 'Py', badgeText: '脚本' },
+        send_message: { headColor: '#2563eb', icon: '✉', badgeText: '动作' },
+        data: { headColor: '#0f766e', icon: '⧉', badgeText: '数据' }
+    };
+    return { ...defaults, ...(byType[node.type] || {}) };
+}
+
+function getNodeSubtitle(node, nodeMeta) {
+    const cfg = node.config || {};
+    const short = (v, n = 30) => {
+        const s = String(v || '').replace(/\s+/g, ' ').trim();
+        if (!s) return '';
+        return s.length > n ? `${s.slice(0, n)}...` : s;
+    };
+    if (node.type === 'condition') {
+        const variable = cfg.variable_name || '条件判断';
+        const compare = short(cfg.compare_value, 18);
+        const op = cfg.condition_type || 'equals';
+        return compare ? `${variable} ${op} ${compare}` : variable;
+    }
+    if (node.type === 'keyword_trigger') {
+        const keywords = short(cfg.keywords, 24);
+        return keywords ? `关键词: ${keywords}` : '关键词触发';
+    }
+    if (node.type === 'endpoint') {
+        const action = short(cfg.action, 20);
+        return action ? `接口: ${action}` : '调用接口';
+    }
+    if (node.type === 'data_storage') {
+        const store = short(cfg.storage_name, 14);
+        const op = short(cfg.operation, 10);
+        if (store && op) return `${store} / ${op}`;
+        if (store) return `存储: ${store}`;
+    }
+    if (node.type === 'set_variable') {
+        const name = short(cfg.variable_name, 18);
+        return name ? `变量: ${name}` : '设置变量';
+    }
+    if (node.type === 'foreach') {
+        const listVar = short(cfg.list_variable, 16);
+        const itemVar = short(cfg.item_variable, 12);
+        if (listVar && itemVar) return `${listVar} → ${itemVar}`;
+        if (listVar) return `遍历: ${listVar}`;
+    }
+    if (node.type === 'send_message' && cfg.content) {
+        return short(cfg.content, 28);
+    }
+    if (node.type === 'python_snippet' && cfg.snippet_name) {
+        return `脚本: ${cfg.snippet_name.replace('.py', '')}`;
+    }
+
+    // 通用兜底：提取首个“业务字段”，避免总是显示“已配置跳转”
+    const ignored = new Set([
+        'next_node', 'true_next', 'false_next', 'true_branch', 'false_branch', 'loop_body',
+        'allow_continue', 'stop_after_branch', 'mode'
+    ]);
+    for (const [k, v] of Object.entries(cfg)) {
+        if (ignored.has(k)) continue;
+        if (v === undefined || v === null || String(v).trim() === '') continue;
+        return `${k}: ${short(v, 22)}`;
+    }
+    return nodeMeta?.description || node.type;
+}
+
+function escapeNodeHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function registerWorkflowCardNode(LFCore) {
+    if (!LFCore || typeof LFCore.HtmlNode !== 'function' || typeof LFCore.HtmlNodeModel !== 'function') return;
+
+    class WorkflowCardModel extends LFCore.HtmlNodeModel {
+        setAttributes() {
+            this.width = 292;
+            this.height = 88;
+            this.text.editable = false;
+            this.draggable = !autoLayoutMode;
+        }
+    }
+
+    class WorkflowCardView extends LFCore.HtmlNode {
+        setHtml(rootEl) {
+            const model = this.props.model;
+            const p = model.properties || {};
+            const headColor = p.headColor || '#2f6fec';
+            const badgeBg = p.badgeBg || 'rgba(255,255,255,0.20)';
+            const badgeColor = p.badgeColor || '#fff';
+            const nodeId = model.id || '';
+            rootEl.innerHTML = `
+              <div class="wf-card-node" data-node-id="${escapeNodeHtml(nodeId)}" data-can-quick-link="${p.canQuickLink ? '1' : '0'}">
+                <div class="wf-card-shell">
+                  <div class="wf-card-head" style="background:${headColor}">
+                    <div class="wf-card-title">
+                      <span class="wf-card-icon">${escapeNodeHtml(p.icon || '⚙')}</span>
+                      <span>${escapeNodeHtml(p.title || '节点')}</span>
+                    </div>
+                    <div class="wf-card-actions">
+                      ${p.badgeText ? `<span class="wf-card-badge" style="background:${badgeBg};color:${badgeColor}">${escapeNodeHtml(p.badgeText)}</span>` : ''}
+                    </div>
+                  </div>
+                  <div class="wf-card-body">${escapeNodeHtml(p.subtitle || '')}</div>
+                </div>
+              </div>
+            `;
+        }
+    }
+
+    lf.register({
+        type: 'wf-card',
+        view: WorkflowCardView,
+        model: WorkflowCardModel
+    });
+}
+
+function computeAutoLayoutPositions(allEdges) {
+    const levelMap = {};
+    const queue = [];
+    const nodeSet = new Set(nodes.map(n => n.id));
+    const adjacency = {};
+    const indegree = {};
+    const outdegree = {};
+    const nodeTypeById = new Map(nodes.map(n => [n.id, n.type]));
+
+    nodes.forEach(n => {
+        adjacency[n.id] = [];
+        indegree[n.id] = 0;
+        outdegree[n.id] = 0;
+    });
+    allEdges.forEach(e => {
+        if (nodeSet.has(e.sourceId) && nodeSet.has(e.targetId)) {
+            adjacency[e.sourceId].push(e.targetId);
+            outdegree[e.sourceId] = (outdegree[e.sourceId] || 0) + 1;
+            indegree[e.targetId] = (indegree[e.targetId] || 0) + 1;
         }
     });
-});
+
+    const startNodeId = nodes.find(n => n.type === 'start')?.id || nodes[0]?.id;
+    if (startNodeId) {
+        levelMap[startNodeId] = 0;
+        queue.push(startNodeId);
+    }
+
+    while (queue.length) {
+        const current = queue.shift();
+        const currentLevel = levelMap[current] ?? 0;
+        (adjacency[current] || []).forEach(targetId => {
+            if (levelMap[targetId] === undefined) {
+                levelMap[targetId] = currentLevel + 1;
+                queue.push(targetId);
+            }
+        });
+    }
+
+    let maxLevel = Math.max(0, ...Object.values(levelMap));
+    nodes.forEach(n => {
+        if (levelMap[n.id] === undefined) {
+            maxLevel += 1;
+            levelMap[n.id] = maxLevel;
+        }
+    });
+
+    // 强制布局语义：start 始终第一层，end 始终最后一层
+    const startIds = nodes.filter(n => n.type === 'start').map(n => n.id);
+    const endIds = nodes.filter(n => n.type === 'end').map(n => n.id);
+    startIds.forEach(id => {
+        levelMap[id] = 0;
+    });
+    const maxNonEndLevel = Math.max(
+        0,
+        ...nodes
+            .filter(n => n.type !== 'end')
+            .map(n => levelMap[n.id] ?? 0)
+    );
+    endIds.forEach(id => {
+        levelMap[id] = maxNonEndLevel + 1;
+    });
+
+    const levels = {};
+    const parentMap = {};
+    nodes.forEach(n => {
+        const lv = levelMap[n.id];
+        if (!levels[lv]) levels[lv] = [];
+        levels[lv].push(n.id);
+        parentMap[n.id] = [];
+    });
+    allEdges.forEach(e => {
+        if (parentMap[e.targetId]) parentMap[e.targetId].push(e.sourceId);
+    });
+
+    // 关键：按父节点的横向位置重心排序，减少线条交叉和穿卡片感
+    const orderedLevels = {};
+    const sortedLevelKeys = Object.keys(levels).map(Number).sort((a, b) => a - b);
+    const orderIndex = {};
+
+    sortedLevelKeys.forEach(level => {
+        const ids = levels[level].slice();
+        if (level === 0) {
+            ids.sort((a, b) => {
+                const aStart = nodeTypeById.get(a) === 'start' ? -1 : 0;
+                const bStart = nodeTypeById.get(b) === 'start' ? -1 : 0;
+                return aStart - bStart;
+            });
+        } else {
+            ids.sort((a, b) => {
+                const parentsA = parentMap[a] || [];
+                const parentsB = parentMap[b] || [];
+                const centerA = parentsA.length
+                    ? parentsA.reduce((sum, p) => sum + (orderIndex[p] ?? 0), 0) / parentsA.length
+                    : Number.MAX_SAFE_INTEGER;
+                const centerB = parentsB.length
+                    ? parentsB.reduce((sum, p) => sum + (orderIndex[p] ?? 0), 0) / parentsB.length
+                    : Number.MAX_SAFE_INTEGER;
+                if (centerA !== centerB) return centerA - centerB;
+                const degreeA = (outdegree[a] || 0) + (indegree[a] || 0);
+                const degreeB = (outdegree[b] || 0) + (indegree[b] || 0);
+                return degreeB - degreeA;
+            });
+        }
+        orderedLevels[level] = ids;
+        ids.forEach((id, idx) => {
+            orderIndex[id] = idx;
+        });
+    });
+
+    const positions = {};
+    const maxLevelWidth = Math.max(1, ...Object.values(orderedLevels).map(ids => ids.length));
+    const gapX = Math.max(420, Math.min(560, 380 + maxLevelWidth * 18));
+    const gapY = 230;
+    const centerX = Math.max(760, 560 + (maxLevelWidth * gapX) / 2);
+    sortedLevelKeys.forEach(level => {
+        const ids = orderedLevels[level] || [];
+        const startX = centerX - ((ids.length - 1) * gapX) / 2;
+        ids.forEach((id, idx) => {
+            positions[id] = {
+                x: startX + idx * gapX,
+                y: 90 + level * gapY
+            };
+        });
+    });
+
+    // 进一步降低中部重叠：start 固定最左，end 固定最右（保持层级不变）
+    const allPos = Object.values(positions);
+    if (allPos.length) {
+        const minX = Math.min(...allPos.map(p => p.x));
+        const maxX = Math.max(...allPos.map(p => p.x));
+        const startIdsForLayout = nodes.filter(n => n.type === 'start').map(n => n.id);
+        const endIdsForLayout = nodes.filter(n => n.type === 'end').map(n => n.id);
+        startIdsForLayout.forEach(id => {
+            if (positions[id]) positions[id].x = minX - 260;
+        });
+        endIdsForLayout.forEach(id => {
+            if (positions[id]) positions[id].x = maxX + 260;
+        });
+    }
+    return positions;
+}
+
+function buildEdgeRoute(edge, nodeBoxMap, nodeTypeMap) {
+    // 使用 LogicFlow 默认路由，避免自定义路径在复杂布局下产生遮挡/绕线异常
+    return {};
+}
+
+function buildLogicFlowData() {
+    const allEdges = buildEdges(true);
+    const autoPositions = computeAutoLayoutPositions(allEdges);
+    const debugByNodeId = debugNodeMap;
+    const lfNodes = nodes.map((node, index) => {
+        const row = Math.floor(index / 4);
+        const col = index % 4;
+        const nodeMeta = getNodeTemplateByType(node.type);
+        const pos = autoLayoutMode ? autoPositions[node.id] : { x: 140 + col * 260, y: 120 + row * 180 };
+        const visual = getNodeVisual(node, nodeMeta);
+        const dbg = debugByNodeId.get(node.id);
+        if (dbg?.status === 'success') {
+            visual.badgeText = '运行成功';
+            visual.badgeBg = '#d1fae5';
+            visual.badgeColor = '#065f46';
+        } else if (dbg?.status === 'error') {
+            visual.badgeText = '执行失败';
+            visual.badgeBg = '#fee2e2';
+            visual.badgeColor = '#991b1b';
+        }
+        let title = nodeMeta?.name || node.type;
+        if (node.type === 'start') title = '开始';
+        if (node.type === 'end') title = '结束';
+        const subtitle = getNodeSubtitle(node, nodeMeta);
+        return {
+            id: node.id,
+            type: getShapeByNodeType(node.type),
+            x: pos?.x || 140,
+            y: pos?.y || 120,
+            width: 292,
+            height: 86,
+            text: '',
+            properties: {
+                nodeType: node.type,
+                title,
+                subtitle,
+                icon: visual.icon,
+                headColor: visual.headColor,
+                badgeText: visual.badgeText,
+                badgeBg: visual.badgeBg,
+                badgeColor: visual.badgeColor,
+                canQuickLink: nodeSupportsQuickLink(node)
+            }
+        };
+    });
+    const nodeBoxMap = new Map(lfNodes.map(n => [n.id, n]));
+    const nodeTypeMap = new Map(nodes.map(n => [n.id, n.type]));
+    const lfEdges = allEdges.map((edge, idx) => {
+        const route = buildEdgeRoute(edge, nodeBoxMap, nodeTypeMap);
+        return {
+            id: `e_${idx}_${edge.sourceId}_${edge.targetId}`,
+            type: 'polyline',
+            sourceNodeId: edge.sourceId,
+            targetNodeId: edge.targetId,
+            ...(edge.label ? { text: edge.label } : {}),
+            ...route,
+            properties: {
+                auto: !!edge.auto,
+                field: edge.field || ''
+            }
+        };
+    });
+
+    return { nodes: lfNodes, edges: lfEdges };
+}
+
+function syncNodeConfigsFromGraph() {
+    if (!lf) return;
+    const graph = lf.getGraphData();
+    const sourceMap = {};
+
+    (graph.edges || []).forEach(edge => {
+        if (edge.properties?.auto) return;
+        const sourceId = edge.sourceNodeId;
+        const targetId = edge.targetNodeId;
+        if (!sourceId || !targetId) return;
+        if (!sourceMap[sourceId]) {
+            sourceMap[sourceId] = {
+                byField: {},
+                unassigned: []
+            };
+        }
+        const info = sourceMap[sourceId];
+        let field = edge.properties?.field || '';
+        if (!field) {
+            const label = getEdgeTextValue(edge).trim();
+            if (label === '满足') field = 'true_branch';
+            if (label === '不满足') field = 'false_branch';
+        }
+        if (EDGE_FIELDS.includes(field)) {
+            info.byField[field] = targetId;
+        } else {
+            info.unassigned.push(targetId);
+        }
+    });
+
+    nodes.forEach(node => {
+        if (!node.config) node.config = {};
+        EDGE_FIELDS.forEach(field => {
+            if (field in node.config) node.config[field] = '';
+        });
+
+        const nodeTemplate = getNodeTemplateByType(node.type);
+        const allowed = EDGE_FIELDS.filter(field => (nodeTemplate?.config_schema || []).some(f => f.name === field));
+        const allowedSet = new Set(allowed);
+        const trueField = firstExistingField(allowedSet, ['true_branch', 'true_next']);
+        const falseField = firstExistingField(allowedSet, ['false_branch', 'false_next']);
+        const singleField = firstExistingField(allowedSet, ['next_node', 'loop_body']);
+        const used = new Set();
+        const mapping = sourceMap[node.id] || { byField: {}, unassigned: [] };
+
+        if (trueField) {
+            const direct = mapping.byField.true_branch || mapping.byField.true_next;
+            if (direct) {
+                node.config[trueField] = direct;
+                used.add(direct);
+            }
+        }
+        if (falseField) {
+            const direct = mapping.byField.false_branch || mapping.byField.false_next;
+            if (direct) {
+                node.config[falseField] = direct;
+                used.add(direct);
+            }
+        }
+        if (singleField && mapping.byField[singleField]) {
+            node.config[singleField] = mapping.byField[singleField];
+            used.add(mapping.byField[singleField]);
+        }
+
+        const remaining = mapping.unassigned.filter(t => !used.has(t));
+        if (singleField && !node.config[singleField] && remaining.length) {
+            node.config[singleField] = remaining.shift();
+        }
+        if (trueField && !node.config[trueField] && remaining.length) {
+            node.config[trueField] = remaining.shift();
+        }
+        if (falseField && !node.config[falseField] && remaining.length) {
+            node.config[falseField] = remaining.shift();
+        }
+    });
+}
+
+function getNodeTemplateById(nodeId) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return null;
+    const template = getNodeTemplateByType(node.type);
+    return { node, template };
+}
+
+function openQuickLinkModal(nodeId) {
+    const data = getNodeTemplateById(nodeId);
+    if (!data) {
+        showToast('未找到节点', 'danger');
+        return;
+    }
+    const { node, template } = data;
+    if (!template) {
+        showToast('节点模板不存在', 'danger');
+        return;
+    }
+
+    const schemaNames = new Set((template.config_schema || []).map(f => f.name));
+    const hasTrue = schemaNames.has('true_branch') || schemaNames.has('true_next');
+    const hasFalse = schemaNames.has('false_branch') || schemaNames.has('false_next');
+    const singleField = ['next_node', 'loop_body', 'true_next', 'true_branch'].find(f => schemaNames.has(f));
+
+    if (!hasTrue && !hasFalse && !singleField) {
+        showToast('该节点不支持快捷连接，请在编辑中配置。', 'warning');
+        return;
+    }
+
+    const optionsHtml = nodes
+        .filter(n => n.id !== node.id && n.type !== 'start')
+        .map(n => {
+            const t = getNodeTemplateByType(n.type);
+            return `<option value="${n.id}">${escapeNodeHtml((t?.name || n.type) + ` (${n.id})`)}</option>`;
+        }).join('');
+
+    const currentTrue = node.config.true_branch || node.config.true_next || '';
+    const currentFalse = node.config.false_branch || node.config.false_next || '';
+    const currentSingle = node.config.next_node || node.config.loop_body || '';
+
+    const bodyHtml = (hasTrue || hasFalse)
+        ? `
+            ${hasTrue ? `<div class="mb-3"><label class="form-label">满足 →</label><select id="quick_true" class="form-select"><option value="">不跳转(继续)</option>${optionsHtml}</select></div>` : ''}
+            ${hasFalse ? `<div class="mb-3"><label class="form-label">不满足 →</label><select id="quick_false" class="form-select"><option value="">不跳转(中断)</option>${optionsHtml}</select></div>` : ''}
+          `
+        : `
+            <div class="mb-2"><label class="form-label">下一节点</label><select id="quick_single" class="form-select"><option value="">不跳转</option>${optionsHtml}</select></div>
+          `;
+
+    const modal = document.createElement('div');
+    modal.innerHTML = `
+      <div class="modal modal-blur fade show" style="display:block;" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">快捷连接</h5>
+              <button type="button" class="btn-close js-modal-close"></button>
+            </div>
+            <div class="modal-body">${bodyHtml}</div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-link link-secondary js-modal-close">取消</button>
+              <button
+                type="button"
+                class="btn btn-primary ms-auto js-quick-apply"
+                data-node-id="${escapeNodeHtml(node.id)}"
+                data-has-true="${hasTrue ? '1' : '0'}"
+                data-has-false="${hasFalse ? '1' : '0'}"
+                data-single-field="${escapeNodeHtml(singleField || '')}"
+              >应用</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-backdrop fade show"></div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelectorAll('.js-modal-close').forEach(el => {
+        el.addEventListener('click', () => closeModalContainer(el));
+    });
+    const applyBtn = modal.querySelector('.js-quick-apply');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+            applyQuickLink(
+                applyBtn.getAttribute('data-node-id') || '',
+                applyBtn.getAttribute('data-has-true') === '1',
+                applyBtn.getAttribute('data-has-false') === '1',
+                applyBtn.getAttribute('data-single-field') || ''
+            );
+            closeModalContainer(applyBtn);
+        });
+    }
+
+    const tEl = document.getElementById('quick_true');
+    if (tEl && currentTrue) tEl.value = currentTrue;
+    const fEl = document.getElementById('quick_false');
+    if (fEl && currentFalse) fEl.value = currentFalse;
+    const sEl = document.getElementById('quick_single');
+    if (sEl && currentSingle) sEl.value = currentSingle;
+}
+
+function applyQuickLink(nodeId, hasTrue, hasFalse, singleField) {
+    const data = getNodeTemplateById(nodeId);
+    if (!data) return;
+    const { node, template } = data;
+    const schemaNames = new Set((template.config_schema || []).map(f => f.name));
+    const trueField = firstExistingField(schemaNames, ['true_branch', 'true_next']);
+    const falseField = firstExistingField(schemaNames, ['false_branch', 'false_next']);
+    const singleTargetField = singleField || firstExistingField(schemaNames, ['next_node', 'loop_body']);
+
+    if (hasTrue) {
+        const v = document.getElementById('quick_true')?.value || '';
+        if (trueField) node.config[trueField] = v;
+        ['true_branch', 'true_next'].forEach(f => {
+            if (f !== trueField && f in node.config) node.config[f] = '';
+        });
+    }
+    if (hasFalse) {
+        const v = document.getElementById('quick_false')?.value || '';
+        if (falseField) node.config[falseField] = v;
+        ['false_branch', 'false_next'].forEach(f => {
+            if (f !== falseField && f in node.config) node.config[f] = '';
+        });
+    }
+    if (!hasTrue && !hasFalse && singleTargetField) {
+        const v = document.getElementById('quick_single')?.value || '';
+        node.config[singleTargetField] = v;
+    }
+
+    renderNodes();
+    showToast('连接已更新', 'success');
+}
+
+function initLogicFlow() {
+    const container = document.getElementById('lfCanvas');
+    const LFClass =
+        window.Core?.LogicFlow ||
+        window.LogicFlow?.default ||
+        window.LogicFlow?.LogicFlow ||
+        window.LogicFlow;
+    if (!container || typeof LFClass !== 'function') {
+        showToast('LogicFlow 加载失败，请检查网络或静态资源。', 'danger');
+        return;
+    }
+
+    lf = new LFClass({
+        container,
+        grid: true,
+        keyboard: { enabled: true }
+    });
+
+    registerWorkflowCardNode(window.Core || window.LogicFlow || {});
+
+    lf.setTheme({
+        rect: { stroke: '#dbe2ee', fill: '#ffffff', radius: 14, strokeWidth: 1.2 },
+        circle: { stroke: '#2f3b52', fill: '#ffffff', strokeWidth: 1.4 },
+        diamond: { stroke: '#0054a6', fill: '#e8f1ff' },
+        polyline: { stroke: '#8a99b3', strokeWidth: 1.8 },
+        edgeText: { color: '#4b5e7b', fontSize: 13, background: { fill: '#ffffff' } },
+        nodeText: { color: '#1f2937', fontSize: 14 }
+    });
+
+    lf.on('node:click', ({ data }) => {
+        selectedNodeId = data?.id || null;
+        if (selectedNodeId) showNodeDebugPanel(selectedNodeId);
+    });
+    lf.on('blank:click', () => {
+        selectedNodeId = null;
+        hideNodeDebugPanel();
+    });
+    lf.on('edge:add', () => {
+        syncNodeConfigsFromGraph();
+    });
+    lf.on('edge:delete', () => {
+        syncNodeConfigsFromGraph();
+    });
+
+    if (typeof lf.updateEditConfig === 'function') {
+        lf.updateEditConfig({
+            stopMoveNode: autoLayoutMode
+        });
+    }
+
+    initFloatingQuickLinkButton();
+}
+
+function hideFloatingQuickLinkButton() {
+    const btn = document.getElementById('floatingQuickLinkBtn');
+    if (btn) btn.style.display = 'none';
+    floatingLinkNodeId = null;
+}
+
+function positionFloatingQuickLinkButton(nodeEl) {
+    const btn = document.getElementById('floatingQuickLinkBtn');
+    const canvasWrap = document.querySelector('.workflow-canvas');
+    if (!btn || !canvasWrap || !nodeEl) return;
+    const nodeRect = nodeEl.getBoundingClientRect();
+    const wrapRect = canvasWrap.getBoundingClientRect();
+    const left = nodeRect.right - wrapRect.left + 10;
+    const top = nodeRect.top - wrapRect.top + (nodeRect.height - 24) / 2;
+    btn.style.left = `${left}px`;
+    btn.style.top = `${top}px`;
+    btn.style.display = 'inline-flex';
+}
+
+function initFloatingQuickLinkButton() {
+    const canvasWrap = document.querySelector('.workflow-canvas');
+    const container = document.getElementById('lfCanvas');
+    if (!canvasWrap || !container || canvasWrap.dataset.floatingLinkBound) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'floatingQuickLinkBtn';
+    btn.title = '快捷连接下一节点';
+    btn.textContent = '+';
+    btn.addEventListener('click', () => {
+        if (floatingLinkNodeId) {
+            const sourceId = floatingLinkNodeId;
+            hideFloatingQuickLinkButton();
+            addNode(sourceId);
+        }
+    });
+    btn.addEventListener('mouseenter', () => {
+        if (floatingHideTimer) clearTimeout(floatingHideTimer);
+    });
+    btn.addEventListener('mouseleave', () => {
+        hideFloatingQuickLinkButton();
+    });
+    canvasWrap.appendChild(btn);
+
+    container.addEventListener('mouseover', (e) => {
+        const card = e.target.closest('.wf-card-node');
+        if (!card) return;
+        if (floatingHideTimer) clearTimeout(floatingHideTimer);
+        if (card.getAttribute('data-can-quick-link') !== '1') {
+            hideFloatingQuickLinkButton();
+            return;
+        }
+        const nodeId = card.getAttribute('data-node-id');
+        if (!nodeId) return;
+        floatingLinkNodeId = nodeId;
+        positionFloatingQuickLinkButton(card);
+    });
+
+    container.addEventListener('mouseout', (e) => {
+        const fromCard = e.target.closest('.wf-card-node');
+        if (!fromCard) return;
+        const toEl = e.relatedTarget;
+        if (toEl && (toEl.closest('.wf-card-node') || toEl.id === 'floatingQuickLinkBtn')) return;
+        floatingHideTimer = setTimeout(() => hideFloatingQuickLinkButton(), 80);
+    });
+
+    container.addEventListener('scroll', () => hideFloatingQuickLinkButton());
+    canvasWrap.dataset.floatingLinkBound = '1';
+}
+
+function getNodeIndexById(nodeId) {
+    return nodes.findIndex(n => n.id === nodeId);
+}
+
+function editSelectedNode() {
+    if (!selectedNodeId) {
+        showToast('请先在流程图中点击一个节点。', 'warning');
+        return;
+    }
+    const idx = getNodeIndexById(selectedNodeId);
+    if (idx < 0) {
+        showToast('未找到选中节点。', 'danger');
+        return;
+    }
+    editNode(idx);
+}
+
+function deleteSelectedNode() {
+    if (!selectedNodeId) {
+        showToast('请先在流程图中点击一个节点。', 'warning');
+        return;
+    }
+    const idx = getNodeIndexById(selectedNodeId);
+    if (idx < 0) {
+        showToast('未找到选中节点。', 'danger');
+        return;
+    }
+    deleteNode(idx);
+}
+
+function moveSelectedNode(step) {
+    if (!selectedNodeId) {
+        showToast('请先在流程图中点击一个节点。', 'warning');
+        return;
+    }
+    const idx = getNodeIndexById(selectedNodeId);
+    if (idx < 0) {
+        showToast('未找到选中节点。', 'danger');
+        return;
+    }
+    const targetIdx = idx + step;
+    if (targetIdx < 0 || targetIdx >= nodes.length) {
+        showToast('已经到边界位置。', 'warning');
+        return;
+    }
+
+    const node = nodes[idx];
+    const targetNode = nodes[targetIdx];
+    if (!node || !targetNode) return;
+    if (node.type === 'start' || node.type === 'end' || targetNode.type === 'start' || targetNode.type === 'end') {
+        showToast('开始/结束节点位置固定，不能交换。', 'warning');
+        return;
+    }
+
+    nodes[idx] = targetNode;
+    nodes[targetIdx] = node;
+    renderNodes();
+}
+
+function moveSelectedNodeUp() {
+    moveSelectedNode(-1);
+}
+
+function moveSelectedNodeDown() {
+    moveSelectedNode(1);
+}
 
 // 节点分类配置
 const categoryConfig = {
@@ -112,16 +1216,7 @@ const categoryMapping = {
     'core': 'other'          // 核心 -> 其他
 };
 
-// Tabler 背景色映射（用于头像底色）
-const categoryBgClass = {
-    'trigger': 'bg-yellow-lt',
-    'logic': 'bg-purple-lt',
-    'data': 'bg-blue-lt',
-    'action': 'bg-green-lt',
-    'other': 'bg-secondary-lt'
-};
-
-function addNode() {
+function addNode(sourceNodeId = '') {
     // 过滤掉 start 和 end 节点
     const filteredNodes = availableNodes.filter(node => node.type !== 'start' && node.type !== 'end');
     
@@ -143,7 +1238,7 @@ function addNode() {
         const config = categoryConfig[cat] || { name: cat, icon: '📦', color: '#666' };
         const listHtml = nodesByCategory[cat].map(node => {
             const originalIdx = availableNodes.findIndex(n => n.type === node.type);
-            return `<a class="list-group-item list-group-item-action" href="#" onclick="selectNodeType(${originalIdx}); return false;">
+            return `<a class="list-group-item list-group-item-action js-select-node-type" href="#" data-node-index="${originalIdx}" data-source-node-id="${escapeNodeHtml(sourceNodeId)}">
                 ${node.icon || '📦'} ${node.name}
                 <small class="text-muted d-block">${node.description || ''}</small>
             </a>`;
@@ -162,7 +1257,7 @@ function addNode() {
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">选择节点类型</h5>
-                        <button type="button" class="btn-close" onclick="this.closest('.modal').parentNode.remove()"></button>
+                        <button type="button" class="btn-close js-modal-close"></button>
                     </div>
                     <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
                         ${contentHtml}
@@ -173,12 +1268,25 @@ function addNode() {
         <div class="modal-backdrop fade show"></div>
     `;
     document.body.appendChild(modal);
+    modal.querySelectorAll('.js-modal-close').forEach(el => {
+        el.addEventListener('click', () => closeModalContainer(el));
+    });
+    modal.querySelectorAll('.js-select-node-type').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const nodeIndex = parseInt(el.getAttribute('data-node-index') || '-1', 10);
+            const sourceId = el.getAttribute('data-source-node-id') || '';
+            if (nodeIndex >= 0) selectNodeType(nodeIndex, sourceId);
+        });
+    });
 }
 
 // 选中节点类型并创建
-function selectNodeType(nodeIndex) {
+function selectNodeType(nodeIndex, sourceNodeId = '') {
     // 关闭弹窗
-    document.querySelector('.modal').parentNode.remove();
+    const activeModal = document.querySelector('.modal');
+    const modalContainer = activeModal?.parentNode;
+    if (modalContainer) modalContainer.remove();
     
     // 创建节点
     const nodeTemplate = availableNodes[nodeIndex];
@@ -194,161 +1302,70 @@ function selectNodeType(nodeIndex) {
         node.config[field.name] = field.default !== undefined ? field.default : '';
     });
     
-    // 插入到 End 节点之前
-    const endNodeIndex = nodes.findIndex(n => n.type === 'end');
-    if (endNodeIndex !== -1) {
-        nodes.splice(endNodeIndex, 0, node);
+    // 有来源节点时，优先插入到来源节点后面；否则插入到 End 节点前
+    if (sourceNodeId) {
+        const sourceIndex = nodes.findIndex(n => n.id === sourceNodeId);
+        if (sourceIndex >= 0) {
+            nodes.splice(sourceIndex + 1, 0, node);
+        } else {
+            const endNodeIndex = nodes.findIndex(n => n.type === 'end');
+            if (endNodeIndex !== -1) {
+                nodes.splice(endNodeIndex, 0, node);
+            } else {
+                nodes.push(node);
+            }
+        }
     } else {
-        nodes.push(node);
+        const endNodeIndex = nodes.findIndex(n => n.type === 'end');
+        if (endNodeIndex !== -1) {
+            nodes.splice(endNodeIndex, 0, node);
+        } else {
+            nodes.push(node);
+        }
     }
-    
+
+    let autoLinked = false;
+    if (sourceNodeId) {
+        autoLinked = connectSourceToTarget(sourceNodeId, nodeId);
+    }
+
     renderNodes();
+    if (sourceNodeId) {
+        if (autoLinked) {
+            showToast('已新增节点并自动连线', 'success');
+        } else {
+            showToast(`已新增节点(${nodeId})，请手动选择分支连线`, 'warning');
+            setTimeout(() => openQuickLinkModal(sourceNodeId), 0);
+        }
+    } else {
+        setTimeout(() => openQuickLinkModal(nodeId), 0);
+    }
 }
 
 function renderNodes() {
-    const container = document.getElementById('nodesList');
-    
-    if (nodes.length === 0) {
-        container.innerHTML = `
-            <div class="empty">
-                <p class="empty-title">还没有添加任何节点</p>
-                <p class="empty-subtitle text-muted">点击"添加节点"开始构建工作流</p>
-            </div>
-        `;
-        return;
+    if (lf) {
+        lf.render(buildLogicFlowData());
     }
-    
-    // 渲染节点列表
-    container.innerHTML = `<div class="nodes-wrapper">${nodes.map((node, index) => {
-        const nodeTemplate = availableNodes.find(n => n.type === node.type);
-        if (!nodeTemplate) return ''; 
+    updateWorkflowStats();
+    if (selectedNodeId) {
+        showNodeDebugPanel(selectedNodeId);
+    }
+}
 
-        // === 优化配置项显示 (Label 而不是 Key) ===
-        const configItemsList = Object.entries(node.config).map(([key, value]) => {
-            // 查找字段定义
-            const field = (nodeTemplate.config_schema || []).find(f => f.name === key);
-            const label = field ? field.label : key;
-            
-            // 处理显示值
-            let displayValue = value;
-            
-            // 处理跳转字段显示
-            if (['true_next', 'false_next', 'true_branch', 'false_branch', 'next_node', 'loop_body'].includes(key)) {
-                if (!value) {
-                    displayValue = key.startsWith('false') ? '不跳转(中断)' : '不跳转(继续)';
-                } else {
-                    const target = nodes.find(n => n.id === value);
-                    if (target) {
-                        const targetTmpl = availableNodes.find(t => t.type === target.type);
-                        displayValue = targetTmpl ? targetTmpl.name : value;
-                    }
-                }
-            } else if (key === 'snippet_name' && value) {
-                // 代码片段显示文件名（去掉.py后缀）
-                displayValue = value.replace('.py', '');
-            } else if (field && field.type === 'select' && field.options) {
-                const opt = field.options.find(o => o.value === value);
-                if (opt) displayValue = opt.label;
-            }
-            
-            // 截断长文本
-            displayValue = String(displayValue).length > 50 ? String(displayValue).substring(0, 50) + '...' : displayValue;
-            
-            return `<div class="text-muted" style="padding-left: 24px; margin-top: 6px; font-size: 13px;">├─ <strong>${label}:</strong> <code class="ms-1 bg-light px-1" style="font-size: 13px;">${displayValue}</code></div>`;
-        });
-        
-        // 可折叠配置项（默认全部折叠）
-        const configItems = configItemsList.length > 0 
-            ? `<div class="config-collapsed" onclick="toggleConfigExpand(this, event)" style="cursor: pointer;">
-                <div class="config-toggle" style="padding-left: 24px; margin-top: 6px; font-size: 12px; color: #206bc4;">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" style="vertical-align: -2px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 9l6 6l6 -6" /></svg>
-                    展开配置 (${configItemsList.length}项)
-                </div>
-                <div class="config-full" style="display: none;">${configItemsList.join('')}</div>
-               </div>`
-            : '';
-        
-        // 生成输入输出标签
-        const inputTags = (nodeTemplate.inputs || []).map(input => {
-            const requiredMark = input.required ? '<span class="text-red">*</span>' : '';
-            return `<span class="badge bg-green-lt me-1 mb-1 io-tag" data-var="${input.name}" style="font-size: 11px; cursor: pointer;" title="点击复制: {{${input.name}}}">📥 ${input.label}${requiredMark}</span>`;
-        }).join('');
-        
-        const outputTags = (nodeTemplate.outputs || []).map(output => {
-            return `<span class="badge bg-blue-lt me-1 mb-1 io-tag" data-var="${output.name}" style="font-size: 11px; cursor: pointer;" title="点击复制: {{${output.name}}}">📤 ${output.label}</span>`;
-        }).join('');
-        
-        const ioTags = (inputTags || outputTags) ? `<div style="padding-left: 24px; margin-top: 8px; line-height: 2;">${inputTags}${outputTags}</div>` : '';
-        
-        const isLast = index === nodes.length - 1;
-        const isSystemNode = ['start', 'end'].includes(node.type);
-        
-        // 获取调试信息
-        const debugInfo = getNodeDebugInfo(node.id);
-        const debugBorderStyle = debugInfo ? (debugInfo.status === 'success' ? 'border-left: 3px solid #2fb344;' : 'border-left: 3px solid #d63939;') : '';
-        const debugHtml = debugInfo ? renderDebugInfo(debugInfo) : '';
-        
-        // 操作按钮 - End节点可以编辑，Start节点不可以
-        const editButton = (node.type !== 'start') ? `
-            <button type="button" class="btn btn-sm btn-ghost-primary btn-icon" onclick="editNode(${index})" title="编辑" style="width:24px;height:24px;min-width:0;padding:0;">
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/><path d="M16 5l3 3"/></svg>
-            </button>
-        ` : '';
-        
-        const deleteButton = !isSystemNode ? `
-            <button type="button" class="btn btn-sm btn-ghost-danger btn-icon" onclick="deleteNode(${index})" title="删除" style="width:24px;height:24px;min-width:0;padding:0;">
-                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7l16 0"/><path d="M10 11l0 6"/><path d="M14 11l0 6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/></svg>
-            </button>
-        ` : '';
-        
-        return `
-            <div class="node-item" data-index="${index}" data-node-type="${node.type}" style="margin-bottom: 12px;">
-                <div class="card" style="box-shadow: 0 1px 2px rgba(0,0,0,0.08); border: 1px solid #e6e7e9; ${debugBorderStyle}">
-                    <div class="card-body p-2 p-sm-3">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-fill" style="min-width: 0;">
-                                <div class="d-flex align-items-center flex-wrap">
-                                    <span class="badge me-2" style="background-color: ${index === 0 ? '#2fb344' : (isLast ? '#d63939' : '#206bc4')}; color: white;">${index + 1}</span>
-                                    <strong>${nodeTemplate.name}</strong>
-                                    <span class="badge bg-secondary-lt ms-2" style="font-size: 11px;">[${node.type}:${node.id}]</span>
-                                </div>
-                            </div>
-                            <div style="flex-shrink: 0;">
-                                ${editButton}
-                                ${deleteButton}
-                            </div>
-                        </div>
-                        ${debugHtml}
-                        ${configItems}
-                        ${ioTags}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('')}</div>`;
-    
-    // 初始化 SortableJS
-    const nodesContainer = container.querySelector('.nodes-wrapper'); // 绑定到 wrapper
-    if (nodesContainer) {
-        if (sortable) sortable.destroy();
-        sortable = new Sortable(nodesContainer, {
-            animation: 150,
-            handle: '.card',
-            draggable: '.node-item',
-            filter: '[data-node-type="start"], [data-node-type="end"]',
-            onMove: function(evt) {
-                return evt.related.getAttribute('data-node-type') !== 'start' && 
-                       evt.related.getAttribute('data-node-type') !== 'end';
-            },
-            onEnd: function(evt) {
-                if (evt.oldIndex !== evt.newIndex) {
-                    const item = nodes.splice(evt.oldIndex, 1)[0];
-                    nodes.splice(evt.newIndex, 0, item);
-                    renderNodes();
-                }
-            }
-        });
-    }
+function zoomIn() {
+    if (lf) lf.zoom(true);
+}
+
+function zoomOut() {
+    if (lf) lf.zoom(false);
+}
+
+function zoomReset() {
+    if (lf) lf.resetZoom();
+}
+
+function zoomFit() {
+    if (lf) lf.fitView(40, 40);
 }
 
 function editNode(index) {
@@ -494,12 +1511,12 @@ function editNode(index) {
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">编辑节点: ${nodeTemplate.name}</h5>
-                        <button type="button" class="btn-close" onclick="this.closest('.modal').parentNode.remove()"></button>
+                        <button type="button" class="btn-close js-modal-close"></button>
                     </div>
                     <div class="modal-body">${fieldsHtml}</div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-link link-secondary" onclick="this.closest('.modal').parentNode.remove()">取消</button>
-                        <button type="button" class="btn btn-primary ms-auto" onclick="saveNode(${index}); this.closest('.modal').parentNode.remove();">保存</button>
+                        <button type="button" class="btn btn-link link-secondary js-modal-close">取消</button>
+                        <button type="button" class="btn btn-primary ms-auto js-save-node" data-node-index="${index}">保存</button>
                     </div>
                 </div>
             </div>
@@ -507,6 +1524,17 @@ function editNode(index) {
         <div class="modal-backdrop fade show"></div>
     `;
     document.body.appendChild(modal);
+    modal.querySelectorAll('.js-modal-close').forEach(el => {
+        el.addEventListener('click', () => closeModalContainer(el));
+    });
+    const saveBtn = modal.querySelector('.js-save-node');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const idx = parseInt(saveBtn.getAttribute('data-node-index') || '-1', 10);
+            if (idx >= 0) saveNode(idx);
+            closeModalContainer(saveBtn);
+        });
+    }
     
     // 如果是条件节点，初始化字段显示状态
     if (node.type === 'condition') {
@@ -566,32 +1594,25 @@ function saveNode(index) {
 
 function deleteNode(index) {
     if (confirm('确定要删除这个节点吗？')) {
+        const removedNode = nodes[index];
+        if (!removedNode) return;
+        if (['start', 'end'].includes(removedNode.type)) {
+            showToast('开始/结束节点不允许删除。', 'warning');
+            return;
+        }
+        nodes.forEach(n => {
+            EDGE_FIELDS.forEach(field => {
+                if (n.config && n.config[field] === removedNode.id) {
+                    n.config[field] = '';
+                }
+            });
+        });
         nodes.splice(index, 1);
+        if (selectedNodeId === removedNode.id) {
+            selectedNodeId = null;
+            hideNodeDebugPanel();
+        }
         renderNodes();
-    }
-}
-
-// 切换配置项展开/折叠
-function toggleConfigExpand(container, event) {
-    event.stopPropagation();
-    const full = container.querySelector('.config-full');
-    const toggleText = container.querySelector('.config-toggle');
-    const itemCount = full.children.length;
-    
-    if (full.style.display === 'none') {
-        // 展开
-        full.style.display = 'block';
-        toggleText.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" style="vertical-align: -2px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 15l6 -6l6 6" /></svg>
-            收起配置
-        `;
-    } else {
-        // 折叠
-        full.style.display = 'none';
-        toggleText.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" style="vertical-align: -2px;"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M6 9l6 6l6 -6" /></svg>
-            展开配置 (${itemCount}项)
-        `;
     }
 }
 
@@ -698,11 +1719,15 @@ function loadDebugRecord() {
         .then(data => {
             if (data.success && data.record) {
                 debugRecord = data.record;
+                debugNodeMap = new Map((debugRecord.nodes || []).map(n => [n.id, n]));
                 renderNodes();  // 重新渲染节点以显示调试信息
                 showDebugSummary();
+                if (selectedNodeId) showNodeDebugPanel(selectedNodeId);
                 showToast('已加载调试记录', 'success');
             } else {
                 debugRecord = null;
+                debugNodeMap = new Map();
+                hideNodeDebugPanel();
                 showToast(data.message || '暂无调试记录', 'warning');
             }
         })
@@ -721,8 +1746,10 @@ function clearDebugRecord() {
         .then(data => {
             if (data.success) {
                 debugRecord = null;
+                debugNodeMap = new Map();
                 renderNodes();
                 hideDebugSummary();
+                hideNodeDebugPanel();
                 showToast('调试记录已清除', 'success');
             } else {
                 showToast(data.message || '清除失败', 'danger');
@@ -736,58 +1763,8 @@ function clearDebugRecord() {
 
 // 获取节点的调试信息
 function getNodeDebugInfo(nodeId) {
-    if (!debugRecord || !debugRecord.nodes) return null;
-    return debugRecord.nodes.find(n => n.id === nodeId);
-}
-
-// 渲染节点调试信息
-function renderDebugInfo(info) {
-    if (!info) return '';
-    
-    const uid = 'debug_' + Math.random().toString(36).substr(2, 9);
-    
-    // 状态和耗时
-    let statusHtml = info.status !== 'success' ? `<span class="badge bg-danger me-1">失败</span>` : '';
-    const durationHtml = info.duration_ms !== undefined ? `<span class="text-muted">执行耗时: ${info.duration_ms}ms</span>` : '';
-    
-    // 检查数据
-    const hasInput = info.input && (typeof info.input === 'object' ? Object.keys(info.input).length > 0 : info.input);
-    const hasOutput = info.output !== undefined && info.output !== null;
-    const hasError = !!info.error;
-    
-    // 构建内容
-    let contentHtml = '';
-    
-    if (hasError) {
-        contentHtml += `<div class="text-danger mb-2" style="font-size: 12px;"><strong>错误:</strong> ${escapeHtml(info.error)}</div>`;
-    }
-    
-    if (hasInput) {
-        contentHtml += `
-            <details class="mb-2">
-                <summary style="cursor:pointer; color:#206bc4; font-size:12px;">输入变量</summary>
-                <pre class="bg-dark text-white p-2 mt-1 rounded" style="font-size:12px; max-height:300px; overflow:auto; white-space:pre-wrap; word-break:break-all;">${escapeHtml(formatDebugData(info.input))}</pre>
-            </details>`;
-    }
-    
-    if (hasOutput) {
-        contentHtml += `
-            <details class="mb-2" open>
-                <summary style="cursor:pointer; color:#206bc4; font-size:12px;">输出结果</summary>
-                <pre class="bg-dark text-white p-2 mt-1 rounded" style="font-size:12px; max-height:300px; overflow:auto; white-space:pre-wrap; word-break:break-all;">${escapeHtml(formatDebugData(info.output))}</pre>
-            </details>`;
-    }
-    
-    if (!contentHtml) {
-        return `<div style="margin: 8px 0 8px 24px; font-size: 12px;">${statusHtml}${durationHtml}</div>`;
-    }
-    
-    return `
-        <div style="margin: 8px 0 8px 24px; font-size: 12px;">
-            <div class="mb-1">${statusHtml}${durationHtml}</div>
-            ${contentHtml}
-        </div>
-    `;
+    if (!debugRecord || !nodeId) return null;
+    return debugNodeMap.get(nodeId) || null;
 }
 
 // 格式化调试数据
@@ -841,7 +1818,58 @@ function showDebugSummary() {
         </div>
     `;
     
-    document.getElementById('nodesList').insertAdjacentHTML('beforebegin', summaryHtml);
+    const canvasWrap = document.querySelector('.workflow-canvas');
+    if (canvasWrap) {
+        canvasWrap.insertAdjacentHTML('beforebegin', summaryHtml);
+    }
+}
+
+function hideNodeDebugPanel() {
+    const panel = document.getElementById('nodeDebugPanel');
+    const body = document.getElementById('nodeDebugPanelBody');
+    if (body) body.innerHTML = '';
+    if (panel) panel.style.display = 'none';
+}
+
+function showNodeDebugPanel(nodeId) {
+    const panel = document.getElementById('nodeDebugPanel');
+    const body = document.getElementById('nodeDebugPanelBody');
+    if (!panel || !body || !nodeId) return;
+
+    const node = nodes.find(n => n.id === nodeId);
+    const nodeMeta = availableNodes.find(n => n.type === node?.type);
+    const debugInfo = getNodeDebugInfo(nodeId);
+
+    if (!debugRecord) {
+        body.innerHTML = `<div class="text-muted">请先点击“调试”加载最近一次执行记录。</div>`;
+        panel.style.display = 'block';
+        return;
+    }
+    if (!debugInfo) {
+        body.innerHTML = `
+            <div class="meta">${escapeHtml(nodeMeta?.name || node?.type || nodeId)} (${escapeHtml(nodeId)})</div>
+            <div class="text-muted">当前调试记录中没有该节点执行数据。</div>
+        `;
+        panel.style.display = 'block';
+        return;
+    }
+
+    const statusBadge = debugInfo.status === 'success'
+        ? '<span class="badge bg-success-lt text-success">成功</span>'
+        : '<span class="badge bg-danger-lt text-danger">失败</span>';
+    const duration = debugInfo.duration_ms !== undefined ? `${debugInfo.duration_ms}ms` : '-';
+    const outputText = formatDebugData(debugInfo.output);
+    const inputText = formatDebugData(debugInfo.input);
+    const errorText = debugInfo.error ? escapeHtml(debugInfo.error) : '';
+
+    body.innerHTML = `
+        <div class="meta">${escapeHtml(nodeMeta?.name || node?.type || nodeId)} (${escapeHtml(nodeId)})</div>
+        <div class="mb-2">${statusBadge} <span class="text-muted ms-2">耗时: ${duration}</span></div>
+        ${errorText ? `<div class="mb-2 text-danger"><strong>错误:</strong> ${errorText}</div>` : ''}
+        ${inputText ? `<div class="mb-2"><div class="mb-1 fw-semibold">输入</div><pre>${escapeHtml(inputText)}</pre></div>` : ''}
+        ${outputText ? `<div><div class="mb-1 fw-semibold">输出</div><pre>${escapeHtml(outputText)}</pre></div>` : ''}
+    `;
+    panel.style.display = 'block';
 }
 
 // 隐藏调试摘要
@@ -864,6 +1892,7 @@ function escapeHtml(str) {
 
 function submitWorkflow(event) {
     event.preventDefault();
+    syncNodeConfigsFromGraph();
     
     // 节点不能为空
     if (nodes.length === 0) {
@@ -876,9 +1905,6 @@ function submitWorkflow(event) {
         protocols: existingProtocols,
         workflow: nodes
     };
-    
-    const data = new FormData();
-    data.append('workflow_data', JSON.stringify(workflowConfig));
     
     // 通过表单提交
     const form = document.createElement('form');

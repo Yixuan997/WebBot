@@ -34,7 +34,17 @@ class StartNode(BaseNode):
         {'name': 'bot_id', 'label': 'bot_id - 机器人QQ号', 'type': 'string'},
     ]
 
-    config_schema = []  # 开始节点不需要配置
+    config_schema = [
+        {
+            'name': 'next_node',
+            'label': '下一节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '选择工作流入口后的下一节点（留空则结束）'
+        }
+    ]
 
     async def _execute(self, context) -> dict[str, Any]:
         """
@@ -127,7 +137,7 @@ class StartNode(BaseNode):
         context.set_variable('protocol', protocol)  # 协议类型
         context.set_variable('bot_id', str(bot_id))  # 机器人QQ号
 
-        return {
+        result = {
             'success': True,
             'extracted_fields': {
                 'message': message_text,
@@ -137,6 +147,10 @@ class StartNode(BaseNode):
                 'is_group': is_group,
             }
         }
+        next_node = self.config.get('next_node')
+        if next_node:
+            result['next_node'] = next_node
+        return result
 
 
 class EndNode(BaseNode):

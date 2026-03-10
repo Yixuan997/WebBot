@@ -88,6 +88,15 @@ class HtmlRenderNode(BaseNode):
                 'placeholder': '',
                 'help': '图片高度（像素），留空则自适应'
             },
+            {
+                'name': 'next_node',
+                'label': '下一个节点',
+                'type': 'select',
+                'required': False,
+                'default': '',
+                'options': [],
+                'help': '渲染完成后跳转到的节点'
+            },
         ]
 
     async def _execute(self, context) -> dict[str, Any]:

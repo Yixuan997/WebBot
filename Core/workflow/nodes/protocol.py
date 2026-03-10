@@ -31,6 +31,15 @@ class ProtocolCheckNode(BaseNode):
             'required': False,
             'help': '选择要检查的协议（可选）'
         },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '协议检查后跳转到的节点'
+        },
     ]
 
     def _execute(self, context):

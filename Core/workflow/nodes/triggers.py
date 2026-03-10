@@ -41,6 +41,15 @@ class KeywordTriggerNode(BaseNode):
                 {'value': 'starts_with', 'label': '开头匹配'},
             ]
         },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '匹配通过后跳转到的节点'
+        },
     ]
 
     async def _execute(self, context):

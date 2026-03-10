@@ -29,8 +29,15 @@ class WorkflowEngine:
         self.config = config
         self.name = name or config.get('name', 'Unnamed Workflow')
         self.workflow_id = workflow_id
-        self.workflow_steps = config.get('workflow', [])
+        self.workflow_steps = config.get('workflow', []) or []
         self.debug_recorder = None
+
+    def _find_start_index(self) -> int:
+        """优先从 start 节点开始执行，未找到则回退第一个节点。"""
+        for idx, step in enumerate(self.workflow_steps):
+            if step.get('type') == 'start':
+                return idx
+        return 0
 
     async def execute(self, event) -> dict[str, Any]:
         """
@@ -90,7 +97,7 @@ class WorkflowEngine:
     async def _run_nodes(self, context: WorkflowContext):
         """执行所有节点"""
         node_index_map = {step.get('id'): idx for idx, step in enumerate(self.workflow_steps)}
-        current_index = 0
+        current_index = self._find_start_index()
         visited_nodes = set()
         loop_stack = []
 
@@ -212,7 +219,18 @@ class WorkflowEngine:
                             current_index = return_index
                             continue
 
-                current_index += 1
+                # 纯连线模式：无显式下一跳时不再按数组顺序兜底
+                if node_type == 'end':
+                    break
+                log_error(
+                    0,
+                    f"节点 {node_id} 未配置下一跳，工作流终止",
+                    "WORKFLOW_NEXT_NODE_MISSING",
+                    workflow=self.name,
+                    node_id=node_id,
+                    node_type=node_type
+                )
+                break
 
             except Exception as e:
                 log_error(0, f"节点 {node_id} 执行失败: {e}", "WORKFLOW_NODE_ERROR",
@@ -228,7 +246,8 @@ class WorkflowEngine:
                     )
                 if step_config.get('on_fail'):
                     self._handle_error(step_config['on_fail'], context, e)
-                current_index += 1
+                # 纯连线模式下，异常后不按数组继续，避免执行路径失真
+                break
 
     async def _execute_node(self, step_config: dict, context: WorkflowContext) -> tuple[Any, bool]:
         """执行单个节点，返回 (result, should_break)"""

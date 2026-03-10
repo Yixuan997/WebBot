@@ -134,6 +134,15 @@ class DataStorageNode(BaseNode):
             'placeholder': 'result',
             'help': '将结果保存到指定变量'
         },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '存储操作完成后跳转到的节点'
+        },
     ]
 
     async def _execute(self, context) -> dict[str, Any]:

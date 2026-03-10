@@ -59,10 +59,17 @@ class BaseNode(ABC):
         # 1. 执行节点逻辑
         result = await self._execute(context)
 
-        # 2. 自动保存输出到 context
+        # 2. 统一注入显式跳转（纯连线模式）
+        # 兼容旧节点：很多节点实现没有主动把 config.next_node 放回 result
+        if isinstance(result, dict):
+            next_node = self.config.get('next_node')
+            if next_node and 'next_node' not in result:
+                result['next_node'] = next_node
+
+        # 3. 自动保存输出到 context
         self._auto_save_outputs(context, result)
 
-        # 3. 返回结果给引擎
+        # 4. 返回结果给引擎
         return result
 
     @abstractmethod

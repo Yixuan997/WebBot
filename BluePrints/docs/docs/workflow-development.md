@@ -206,6 +206,16 @@ protocol          # 用户所属协议
 
 保存工作流后，向机器人发送 "echo 你好"，机器人将回复你发送的内容。
 
+### 4. 执行路径规则（重要）
+
+当前工作流引擎按**显式跳转字段**执行，不再按节点数组顺序自动兜底：
+
+- 通用跳转：`next_node`
+- 条件分支：`true_branch` / `false_branch`
+- 循环入口：`loop_body`
+
+建议：除 `end` 节点外，所有业务节点都明确配置下一跳；未配置时流程通常会在该节点终止。
+
 ## 📦 节点类型
 
 ### 核心节点
@@ -297,7 +307,7 @@ raw_data.message[0].type       # 第一个消息段类型
   - `is_not_empty`: 不为空
   - `regex`: 正则匹配
 - `compare_value`: 比较值（`regex` 时为正则表达式）
-- `true_branch`: 满足条件跳转的节点ID
+- `true_branch`: 满足条件跳转的节点ID（建议填写）
 - `false_branch`: 不满足条件跳转的节点ID（留空则中断）
 
 **高级模式配置项**：
@@ -345,7 +355,7 @@ raw_data.message[0].type       # 第一个消息段类型
 - `keyboard_id`: 按钮ID（markdown类型时可选）
 - `ark_template_id`: ARK模板ID（ark类型时使用，如 23/24/37）
 - `skip_if_unsupported`: 协议不支持时是否跳过（默认 true）
-- `next_node`: 执行后跳转的节点ID（可选）
+- `next_node`: 执行后跳转的节点ID（建议填写；留空可能终止流程）
 
 **示例**：
 ```json
@@ -493,7 +503,7 @@ raw_data.message[0].type       # 第一个消息段类型
 - `action`: API端点名称，如 `send_msg`, `delete_msg`, `set_group_card`
 - `params`: JSON格式的请求参数，支持模板（可使用点号访问嵌套变量如 `{{response_json.data.url}}`）
 - `enable_template`: 是否启用变量替换（默认 true）
-- `next_node`: 执行后跳转的节点ID（可选，用于控制流程走向）
+- `next_node`: 执行后跳转的节点ID（建议填写；留空可能终止流程）
 
 **输出变量**：
 - `endpoint_response`: API响应结果（直接是数据本体，不像HTTP节点有 status/retcode/data 包裹）

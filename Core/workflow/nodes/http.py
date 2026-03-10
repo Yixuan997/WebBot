@@ -88,6 +88,15 @@ class HttpRequestNode(BaseNode):
             'required': False,
             'help': '期望的响应类型'
         },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '请求完成后跳转到的节点'
+        },
     ]
 
     async def _execute(self, context):
@@ -260,6 +269,15 @@ class JsonExtractNode(BaseNode):
             'required': False,
             'placeholder': '',
             'help': '如果提取失败使用的默认值(可选)'
+        },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '提取完成后跳转到的节点'
         },
     ]
 

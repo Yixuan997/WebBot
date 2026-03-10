@@ -29,6 +29,15 @@ class DelayNode(BaseNode):
             'placeholder': '1',
             'help': '暂停的秒数,支持小数如0.5'
         },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '延迟完成后跳转到的节点'
+        },
     ]
 
     def _execute(self, context):
@@ -89,6 +98,15 @@ class ScheduleCheckNode(BaseNode):
             'type': 'checkbox',
             'default': False,
             'help': '勾选后周六日不触发'
+        },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '时间段检查后跳转到的节点'
         },
     ]
 
@@ -177,6 +195,15 @@ class TimestampNode(BaseNode):
             'default': '%Y-%m-%d %H:%M:%S',
             'required': False,
             'help': '时间显示格式'
+        },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '获取时间后跳转到的节点'
         },
     ]
 

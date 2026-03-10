@@ -30,6 +30,15 @@ class PythonSnippetNode(BaseNode):
             'options': [],  # 前端动态加载
             'help': '选择预定义的代码片段，存储在 Snippets/ 目录中'
         },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '代码执行后跳转到的节点'
+        },
     ]
 
     async def _execute(self, context):
@@ -106,8 +115,21 @@ class CommentNode(BaseNode):
             'help': '此节点仅用于说明，不会执行任何操作',
             'rows': 3
         },
+        {
+            'name': 'next_node',
+            'label': '下一个节点',
+            'type': 'select',
+            'required': False,
+            'default': '',
+            'options': [],
+            'help': '注释节点执行后跳转到的节点'
+        },
     ]
 
     def execute(self, context) -> dict[str, Any]:
         """注释节点不执行任何操作"""
-        return {'success': True}
+        result = {'success': True}
+        next_node = self.config.get('next_node')
+        if next_node:
+            result['next_node'] = next_node
+        return result

@@ -31,12 +31,17 @@
   - `cron`: Cron 表达式，如 `"0 8 * * *"` 表示每天 08:00
   - `interval_minutes`: 固定间隔（分钟）
 - `allow_continue`: 是否允许后续工作流继续处理
-- `workflow`: 节点数组，按执行顺序排列
+- `workflow`: 节点数组（建议按阅读顺序排列）
 
 **节点结构**：
 - `id`: 唯一标识，start 节点固定为 "start"，end 节点固定为 "end"，其他用 "node_1", "node_2" 等
 - `type`: 节点类型（见下方节点列表）
 - `config`: 节点配置
+
+**执行路径规则（重要）**：
+- 当前引擎按**显式跳转字段**执行：`next_node / true_branch / false_branch / loop_body`
+- 不再按数组“下一个节点”自动兜底
+- 除 `end` 节点外，每个节点都配置明确下一跳；未配置时通常会终止流程
 
 ## 可用内置变量
 
@@ -160,8 +165,8 @@
 - `compare_value`: string - 比较值（简单模式）
 - `logic_type`: string - 逻辑类型（高级模式）：`AND` 或 `OR`
 - `conditions`: string - 条件列表（高级模式），每行格式：`变量名|运算符|比较值`，变量名支持点号访问如 `response_json.code|equals|200`
-- `true_branch`: string - 满足条件跳转的节点ID（留空则继续下一个）
-- `false_branch`: string - 不满足条件跳转的节点ID（留空则中断）
+- `true_branch`: string - 满足条件跳转的节点ID（建议必填，避免无下一跳）
+- `false_branch`: string - 不满足条件跳转的节点ID（留空会中断）
 - `stop_after_branch`: boolean - 在循环中执行分支后是否停止当前迭代（默认 false，设为 true 可避免执行两个分支）
 
 输出变量：
@@ -196,7 +201,7 @@
 - `keyboard_id`: string - 按钮ID（markdown类型时可选）
 - `ark_template_id`: string - ARK模板ID（ark类型时使用，如 23/24/37）
 - `skip_if_unsupported`: boolean - 协议不支持时是否跳过（默认 true）
-- `next_node`: string - 执行后跳转到的节点ID（可选）
+- `next_node`: string - 执行后跳转到的节点ID（建议填写；留空可能终止）
 
 ### 6. set_variable - 设置变量
 设置或修改上下文变量。
@@ -327,7 +332,7 @@
 - `action`: string - API端点名称，如 `send_msg`, `delete_msg`, `set_group_card`
 - `params`: string - JSON格式的请求参数，支持模板（可用 `{{response_json.data.xxx}}` 访问嵌套属性）
 - `enable_template`: boolean - 是否启用变量替换（默认 true）
-- `next_node`: string - 执行后跳转到的节点ID（可选）
+- `next_node`: string - 执行后跳转到的节点ID（建议填写；留空可能终止）
 
 输出变量：
 - `endpoint_response`: any - API响应结果（直接是数据本体，不像HTTP节点有 status/retcode/data 包裹）
@@ -759,7 +764,7 @@
 4. **JSON字符串中的引号需要转义**
 5. **布尔值在 JSON 模板数据中使用小写**：true/false
 6. **关键词用换行符分隔**：`关键词1\n关键词2`
-7. **条件不满足且无 false_branch 时会中断工作流**
+7. **显式跳转执行**：除 `end` 外应显式配置下一跳（`next_node/true_branch/false_branch/loop_body`）
 8. **定时工作流需在节点中指定发送目标**
 9. **循环中的条件节点应设置 `stop_after_branch: true`**，避免执行两个分支
 
