@@ -59,7 +59,7 @@ class EndpointNode(BaseNode):
             'required': False,
             'default': '',
             'options': [],
-            'help': '选择下一个要执行的节点（留空则顺序执行）'
+            'help': '选择下一个要执行的节点（留空则终止当前流程）'
         }
     ]
 

@@ -24,11 +24,11 @@ from config import config as app_config
 from Models import db, Workflow
 
 
-EDGE_FIELDS = ("next_node", "true_next", "false_next", "true_branch", "false_branch", "loop_body")
+EDGE_FIELDS = ("next_node", "true_branch", "false_branch", "loop_body")
 
 
 def normalize_explicit_links(workflow_steps: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
-    """按引擎兼容逻辑补全显式连线，返回 。"""
+    """按纯连线模式补全显式连线，返回(新步骤列表, 补边数量)。"""
     steps = copy.deepcopy(workflow_steps or [])
     if len(steps) < 2:
         return steps, 0
@@ -56,8 +56,8 @@ def normalize_explicit_links(workflow_steps: list[dict[str, Any]]) -> tuple[list
             patched_count += 1
             continue
 
-        true_field = "true_branch" if "true_branch" in config else ("true_next" if "true_next" in config else "")
-        false_field = "false_branch" if "false_branch" in config else ("false_next" if "false_next" in config else "")
+        true_field = "true_branch" if "true_branch" in config else ""
+        false_field = "false_branch" if "false_branch" in config else ""
         if true_field or false_field:
             if true_field:
                 config[true_field] = next_id

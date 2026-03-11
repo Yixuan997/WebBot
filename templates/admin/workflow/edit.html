@@ -279,7 +279,7 @@ let selectedNodeId = null;
 let autoLayoutMode = true;
 let floatingLinkNodeId = null;
 let floatingHideTimer = null;
-const EDGE_FIELDS = ['next_node', 'true_next', 'false_next', 'true_branch', 'false_branch', 'loop_body'];
+const EDGE_FIELDS = ['next_node', 'true_branch', 'false_branch', 'loop_body'];
 const availableNodeByType = new Map((availableNodes || []).map(n => [n.type, n]));
 
 // 初始化: 加载现有节点
@@ -330,9 +330,7 @@ function closeModalContainer(triggerEl) {
 
 function mapEdgeLabel(field) {
     const map = {
-        true_next: '满足',
         true_branch: '满足',
-        false_next: '不满足',
         false_branch: '不满足'
     };
     return map[field] || '';
@@ -356,7 +354,7 @@ function getEdgeTextValue(edge) {
 function nodeSupportsQuickLink(node) {
     const template = getNodeTemplateByType(node.type);
     const schemaNames = new Set((template?.config_schema || []).map(f => f.name));
-    return ['next_node', 'loop_body', 'true_next', 'false_next', 'true_branch', 'false_branch']
+    return ['next_node', 'loop_body', 'true_branch', 'false_branch']
         .some(field => schemaNames.has(field));
 }
 
@@ -366,7 +364,6 @@ function connectSourceToTarget(sourceId, targetId) {
     const template = getNodeTemplateByType(sourceNode.type);
     const schemaNames = new Set((template?.config_schema || []).map(f => f.name));
 
-    // 兼容：start 节点即使模板未刷新，也允许设置 next_node
     if (schemaNames.has('next_node') || sourceNode.type === 'start') {
         sourceNode.config.next_node = targetId;
         return true;
@@ -376,8 +373,8 @@ function connectSourceToTarget(sourceId, targetId) {
         return true;
     }
 
-    const trueField = firstExistingField(schemaNames, ['true_branch', 'true_next']);
-    const falseField = firstExistingField(schemaNames, ['false_branch', 'false_next']);
+    const trueField = firstExistingField(schemaNames, ['true_branch']);
+    const falseField = firstExistingField(schemaNames, ['false_branch']);
     if (trueField || falseField) {
         const trueValue = trueField ? (sourceNode.config[trueField] || '') : '';
         const falseValue = falseField ? (sourceNode.config[falseField] || '') : '';
@@ -401,7 +398,7 @@ function connectSourceToTarget(sourceId, targetId) {
     return false;
 }
 
-function buildEdges(includeDefault = false) {
+function buildEdges() {
     const exists = new Set(nodes.map(n => n.id));
     const edges = [];
     const explicitBySource = {};
@@ -423,24 +420,6 @@ function buildEdges(includeDefault = false) {
             }
         });
     });
-
-    if (includeDefault) {
-        for (let i = 0; i < nodes.length - 1; i++) {
-            const source = nodes[i];
-            const target = nodes[i + 1];
-            if (source.type === 'end') continue;
-            const hasExplicit = explicitBySource[source.id] && explicitBySource[source.id].size > 0;
-            if (!hasExplicit) {
-                edges.push({
-                    sourceId: source.id,
-                    targetId: target.id,
-                    label: '',
-                    kind: 'default',
-                    auto: true
-                });
-            }
-        }
-    }
 
     return edges;
 }
@@ -515,7 +494,7 @@ function getNodeSubtitle(node, nodeMeta) {
 
     // 通用兜底：提取首个“业务字段”，避免总是显示“已配置跳转”
     const ignored = new Set([
-        'next_node', 'true_next', 'false_next', 'true_branch', 'false_branch', 'loop_body',
+        'next_node', 'true_branch', 'false_branch', 'loop_body',
         'allow_continue', 'stop_after_branch', 'mode'
     ]);
     for (const [k, v] of Object.entries(cfg)) {
@@ -729,7 +708,7 @@ function buildEdgeRoute(edge, nodeBoxMap, nodeTypeMap) {
 }
 
 function buildLogicFlowData() {
-    const allEdges = buildEdges(true);
+    const allEdges = buildEdges();
     const autoPositions = computeAutoLayoutPositions(allEdges);
     const debugByNodeId = debugNodeMap;
     const lfNodes = nodes.map((node, index) => {
@@ -833,21 +812,21 @@ function syncNodeConfigsFromGraph() {
         const nodeTemplate = getNodeTemplateByType(node.type);
         const allowed = EDGE_FIELDS.filter(field => (nodeTemplate?.config_schema || []).some(f => f.name === field));
         const allowedSet = new Set(allowed);
-        const trueField = firstExistingField(allowedSet, ['true_branch', 'true_next']);
-        const falseField = firstExistingField(allowedSet, ['false_branch', 'false_next']);
+        const trueField = firstExistingField(allowedSet, ['true_branch']);
+        const falseField = firstExistingField(allowedSet, ['false_branch']);
         const singleField = firstExistingField(allowedSet, ['next_node', 'loop_body']);
         const used = new Set();
         const mapping = sourceMap[node.id] || { byField: {}, unassigned: [] };
 
         if (trueField) {
-            const direct = mapping.byField.true_branch || mapping.byField.true_next;
+            const direct = mapping.byField.true_branch;
             if (direct) {
                 node.config[trueField] = direct;
                 used.add(direct);
             }
         }
         if (falseField) {
-            const direct = mapping.byField.false_branch || mapping.byField.false_next;
+            const direct = mapping.byField.false_branch;
             if (direct) {
                 node.config[falseField] = direct;
                 used.add(direct);
@@ -891,9 +870,9 @@ function openQuickLinkModal(nodeId) {
     }
 
     const schemaNames = new Set((template.config_schema || []).map(f => f.name));
-    const hasTrue = schemaNames.has('true_branch') || schemaNames.has('true_next');
-    const hasFalse = schemaNames.has('false_branch') || schemaNames.has('false_next');
-    const singleField = ['next_node', 'loop_body', 'true_next', 'true_branch'].find(f => schemaNames.has(f));
+    const hasTrue = schemaNames.has('true_branch');
+    const hasFalse = schemaNames.has('false_branch');
+    const singleField = ['next_node', 'loop_body'].find(f => schemaNames.has(f));
 
     if (!hasTrue && !hasFalse && !singleField) {
         showToast('该节点不支持快捷连接，请在编辑中配置。', 'warning');
@@ -907,17 +886,17 @@ function openQuickLinkModal(nodeId) {
             return `<option value="${n.id}">${escapeNodeHtml((t?.name || n.type) + ` (${n.id})`)}</option>`;
         }).join('');
 
-    const currentTrue = node.config.true_branch || node.config.true_next || '';
-    const currentFalse = node.config.false_branch || node.config.false_next || '';
+    const currentTrue = node.config.true_branch || '';
+    const currentFalse = node.config.false_branch || '';
     const currentSingle = node.config.next_node || node.config.loop_body || '';
 
     const bodyHtml = (hasTrue || hasFalse)
         ? `
-            ${hasTrue ? `<div class="mb-3"><label class="form-label">满足 →</label><select id="quick_true" class="form-select"><option value="">不跳转(继续)</option>${optionsHtml}</select></div>` : ''}
-            ${hasFalse ? `<div class="mb-3"><label class="form-label">不满足 →</label><select id="quick_false" class="form-select"><option value="">不跳转(中断)</option>${optionsHtml}</select></div>` : ''}
+            ${hasTrue ? `<div class="mb-3"><label class="form-label">满足 →</label><select id="quick_true" class="form-select"><option value="">不跳转(终止流程)</option>${optionsHtml}</select></div>` : ''}
+            ${hasFalse ? `<div class="mb-3"><label class="form-label">不满足 →</label><select id="quick_false" class="form-select"><option value="">不跳转(终止流程)</option>${optionsHtml}</select></div>` : ''}
           `
         : `
-            <div class="mb-2"><label class="form-label">下一节点</label><select id="quick_single" class="form-select"><option value="">不跳转</option>${optionsHtml}</select></div>
+            <div class="mb-2"><label class="form-label">下一节点</label><select id="quick_single" class="form-select"><option value="">不跳转(终止流程)</option>${optionsHtml}</select></div>
           `;
 
     const modal = document.createElement('div');
@@ -976,21 +955,21 @@ function applyQuickLink(nodeId, hasTrue, hasFalse, singleField) {
     if (!data) return;
     const { node, template } = data;
     const schemaNames = new Set((template.config_schema || []).map(f => f.name));
-    const trueField = firstExistingField(schemaNames, ['true_branch', 'true_next']);
-    const falseField = firstExistingField(schemaNames, ['false_branch', 'false_next']);
+    const trueField = firstExistingField(schemaNames, ['true_branch']);
+    const falseField = firstExistingField(schemaNames, ['false_branch']);
     const singleTargetField = singleField || firstExistingField(schemaNames, ['next_node', 'loop_body']);
 
     if (hasTrue) {
         const v = document.getElementById('quick_true')?.value || '';
         if (trueField) node.config[trueField] = v;
-        ['true_branch', 'true_next'].forEach(f => {
+        ['true_branch'].forEach(f => {
             if (f !== trueField && f in node.config) node.config[f] = '';
         });
     }
     if (hasFalse) {
         const v = document.getElementById('quick_false')?.value || '';
         if (falseField) node.config[falseField] = v;
-        ['false_branch', 'false_next'].forEach(f => {
+        ['false_branch'].forEach(f => {
             if (f !== falseField && f in node.config) node.config[f] = '';
         });
     }
@@ -1400,7 +1379,7 @@ function editNode(index) {
         
         // === 下拉框逻辑 (包含跳转) ===
         if (field.type === 'select') {
-            if (['true_next', 'false_next', 'true_branch', 'false_branch', 'next_node', 'loop_body'].includes(field.name)) {
+            if (['true_branch', 'false_branch', 'next_node', 'loop_body'].includes(field.name)) {
                 // 跳转字段 -> 节点列表
                 const nodeOptions = nodes.map((n, idx) => {
                     const nTemplate = availableNodes.find(t => t.type === n.type);
@@ -1409,7 +1388,7 @@ function editNode(index) {
                     return `<option value="${n.id}" ${value === n.id ? 'selected' : ''}>${nTemplate ? nTemplate.name : n.type} (${n.id})</option>`;
                 }).join('');
                 
-                const defaultLabel = field.name === 'loop_body' ? '请选择循环体节点' : (field.name.startsWith('false') ? '不跳转(中断流程)' : '不跳转(继续执行)');
+                const defaultLabel = field.name === 'loop_body' ? '请选择循环体节点' : '不跳转(终止流程)';
                 inputHtml = `<select class="form-select" id="field_${field.name}"><option value="">${defaultLabel}</option>${nodeOptions}</select>`;
             } else if (field.name === 'snippet_name') {
                 // 代码片段

@@ -59,8 +59,8 @@ class BaseNode(ABC):
         # 1. 执行节点逻辑
         result = await self._execute(context)
 
-        # 2. 统一注入显式跳转（纯连线模式）
-        # 兼容旧节点：很多节点实现没有主动把 config.next_node 放回 result
+        # 2. 统一注入显式跳转
+        # 节点可只在 config 中声明 next_node，这里统一回填到 result
         if isinstance(result, dict):
             next_node = self.config.get('next_node')
             if next_node and 'next_node' not in result:

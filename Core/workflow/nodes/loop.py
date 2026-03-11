@@ -76,7 +76,7 @@ class ForeachNode(BaseNode):
             'required': False,
             'default': '',
             'options': [],
-            'help': '所有循环执行完毕后跳转到的节点（留空则顺序执行）'
+            'help': '所有循环执行完毕后跳转到的节点（留空则终止当前流程）'
         }
     ]
 
