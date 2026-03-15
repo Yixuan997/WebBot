@@ -96,6 +96,10 @@
                                href="{{ url_for('Admin.workflow_create') }}">
                                 创建工作流
                             </a>
+                            <a class="dropdown-item {% if request.endpoint == 'Admin.workflow_ai_page' %}active{% endif %}"
+                               href="{{ url_for('Admin.workflow_ai_page') }}">
+                                AI 生成工作流
+                            </a>
                             <a class="dropdown-item {% if request.endpoint == 'Admin.globals_list' %}active{% endif %}"
                                href="{{ url_for('Admin.globals_list') }}">
                                 全局变量

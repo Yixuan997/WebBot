@@ -1,0 +1,275 @@
+{% extends "admin/base.html" %}
+
+{% block title %}AI 生成工作流 - {{ system.title }}{% endblock %}
+{% block page_title %}AI 生成工作流{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="card-title mb-0">AI 生成工作流</h3>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleConfigPanel()">配置</button>
+                    <button type="button" class="btn btn-sm btn-success" id="createBtn" onclick="createWorkflow()" disabled>
+                        确认创建并去编辑
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="configPanel" class="border-bottom bg-body-tertiary p-3 d-none">
+                    <div class="row g-2">
+                        <div class="col-12 col-lg-4">
+                            <label class="form-label">API Base URL</label>
+                            <input type="text" class="form-control" id="ai_base_url" placeholder="https://api.openai.com/v1">
+                        </div>
+                        <div class="col-12 col-lg-4">
+                            <label class="form-label">API Key / Token</label>
+                            <input type="password" class="form-control" id="ai_api_key" placeholder="sk-...">
+                        </div>
+                        <div class="col-12 col-lg-4">
+                            <label class="form-label">Model</label>
+                            <input type="text" class="form-control" id="ai_model" placeholder="gpt-5">
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="saveAiConfig()">保存配置</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAiConfig()">清空配置</button>
+                    </div>
+                </div>
+
+                <div id="resultAlert" class="alert d-none m-3 mb-0"></div>
+
+                <div id="chatStream" class="p-3 border-bottom bg-body-tertiary overflow-auto" style="height:58vh;min-height:420px;"></div>
+
+                <div class="p-3">
+                    <textarea class="form-control" id="ai_prompt" rows="4" placeholder="例如：用户发送“签到”时，记录签到次数并回复累计次数。"></textarea>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <small class="text-muted">单会话模式，不保存历史消息。</small>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary" id="cancelGenerateBtn" onclick="cancelGenerate()" disabled>停止</button>
+                            <button type="button" class="btn btn-primary" id="generateBtn" onclick="generateWorkflow()">发送并生成</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const AI_STORAGE_KEY = 'workflow_ai_config_v1';
+let latestWorkflow = null;
+let generateAbortController = null;
+
+function showAlert(type, message) {
+    const el = document.getElementById('resultAlert');
+    el.className = `alert alert-${type} m-3 mb-0`;
+    el.textContent = message;
+    el.classList.remove('d-none');
+}
+
+function hideAlert() {
+    const el = document.getElementById('resultAlert');
+    el.classList.add('d-none');
+}
+
+function escapeHtml(text) {
+    return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function scrollChatToBottom() {
+    const stream = document.getElementById('chatStream');
+    stream.scrollTop = stream.scrollHeight;
+}
+
+function appendChatMessage(role, html) {
+    const stream = document.getElementById('chatStream');
+    const row = document.createElement('div');
+    row.className = `d-flex mb-3 ${role === 'user' ? 'justify-content-end' : 'justify-content-start'}`;
+    const bubbleClass = role === 'user'
+        ? 'bg-primary text-white'
+        : 'bg-white border text-body';
+    row.innerHTML = `
+        <div class="rounded p-2 shadow-sm ${bubbleClass}" style="max-width:min(88%,900px);white-space:pre-wrap;word-break:break-word;">${html}</div>
+    `;
+    stream.appendChild(row);
+    scrollChatToBottom();
+    return row.querySelector('div');
+}
+
+function setChatMessageContent(target, html) {
+    if (!target) return;
+    target.innerHTML = html;
+    scrollChatToBottom();
+}
+
+function setGeneratingState(generating) {
+    const btn = document.getElementById('generateBtn');
+    const cancelBtn = document.getElementById('cancelGenerateBtn');
+    btn.disabled = generating;
+    btn.textContent = generating ? '生成中...' : '发送并生成';
+    cancelBtn.disabled = !generating;
+}
+
+function toggleConfigPanel() {
+    const panel = document.getElementById('configPanel');
+    panel.classList.toggle('d-none');
+}
+
+function saveAiConfig() {
+    const payload = {
+        base_url: document.getElementById('ai_base_url').value.trim(),
+        api_key: document.getElementById('ai_api_key').value.trim(),
+        model: document.getElementById('ai_model').value.trim()
+    };
+    localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function loadAiConfig() {
+    const raw = localStorage.getItem(AI_STORAGE_KEY);
+    if (!raw) return;
+    try {
+        const cfg = JSON.parse(raw);
+        document.getElementById('ai_base_url').value = cfg.base_url || '';
+        document.getElementById('ai_api_key').value = cfg.api_key || '';
+        document.getElementById('ai_model').value = cfg.model || '';
+    } catch (e) {
+        console.error('loadAiConfig error', e);
+    }
+}
+
+function clearAiConfig() {
+    localStorage.removeItem(AI_STORAGE_KEY);
+    document.getElementById('ai_base_url').value = '';
+    document.getElementById('ai_api_key').value = '';
+    document.getElementById('ai_model').value = '';
+}
+
+function cancelGenerate() {
+    if (generateAbortController) {
+        generateAbortController.abort();
+    }
+}
+
+async function generateWorkflow() {
+    hideAlert();
+    latestWorkflow = null;
+    document.getElementById('createBtn').disabled = true;
+
+    const payload = {
+        base_url: document.getElementById('ai_base_url').value.trim(),
+        api_key: document.getElementById('ai_api_key').value.trim(),
+        model: document.getElementById('ai_model').value.trim(),
+        prompt: document.getElementById('ai_prompt').value.trim()
+    };
+
+    if (!payload.base_url || !payload.api_key || !payload.model || !payload.prompt) {
+        showAlert('danger', '请完整填写 API 地址、Token、模型和需求描述。');
+        return;
+    }
+
+    saveAiConfig();
+    appendChatMessage('user', escapeHtml(payload.prompt).replace(/\n/g, '<br>'));
+    const assistantBubble = appendChatMessage(
+        'assistant',
+        '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>正在生成工作流，请稍候...'
+    );
+
+    generateAbortController = new AbortController();
+    setGeneratingState(true);
+
+    try {
+        const response = await fetch('{{ url_for("Admin.workflow_ai_generate") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
+            signal: generateAbortController.signal
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+            setChatMessageContent(
+                assistantBubble,
+                `生成失败：${escapeHtml(data.message || '未知错误')}`
+            );
+            return;
+        }
+
+        latestWorkflow = data.workflow;
+        document.getElementById('createBtn').disabled = false;
+        const workflowJson = escapeHtml(JSON.stringify(data.workflow, null, 2));
+        setChatMessageContent(
+            assistantBubble,
+            `<pre class="mb-0 p-2 rounded bg-dark text-white" style="max-height:360px;overflow:auto;">${workflowJson}</pre>`
+        );
+    } catch (e) {
+        if (e.name === 'AbortError') {
+            setChatMessageContent(assistantBubble, '本次生成已停止。');
+        } else {
+            console.error(e);
+            setChatMessageContent(assistantBubble, '请求失败，请检查网络或接口配置。');
+        }
+    } finally {
+        generateAbortController = null;
+        setGeneratingState(false);
+    }
+}
+
+async function createWorkflow() {
+    if (!latestWorkflow) {
+        showAlert('danger', '请先生成并通过校验。');
+        return;
+    }
+
+    const btn = document.getElementById('createBtn');
+    btn.disabled = true;
+    btn.textContent = '创建中...';
+
+    try {
+        const response = await fetch('{{ url_for("Admin.workflow_ai_create") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({workflow: latestWorkflow})
+        });
+        const data = await response.json();
+        if (!data.success) {
+            showAlert('danger', data.message || '创建失败');
+            btn.disabled = false;
+            btn.textContent = '确认创建并去编辑';
+            return;
+        }
+        appendChatMessage('assistant', '工作流已创建，正在跳转到编辑页面...');
+        if (data.edit_url) {
+            window.location.href = data.edit_url;
+        }
+    } catch (e) {
+        console.error(e);
+        showAlert('danger', '创建失败，请稍后重试。');
+        btn.disabled = false;
+        btn.textContent = '确认创建并去编辑';
+    }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    loadAiConfig();
+    appendChatMessage('assistant', '请输入需求并点击“发送并生成”。');
+    const promptEl = document.getElementById('ai_prompt');
+    if (promptEl) {
+        promptEl.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' || event.shiftKey) return;
+            event.preventDefault();
+            if (!document.getElementById('generateBtn').disabled) {
+                generateWorkflow();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

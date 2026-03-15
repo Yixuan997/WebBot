@@ -98,6 +98,19 @@
     align-items: center;
     gap: 6px;
 }
+#lfCanvas .wf-card-id {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    background: rgba(255,255,255,0.24);
+    color: #fff;
+    font-family: Monaco, Consolas, "Courier New", monospace;
+}
 #lfCanvas .wf-card-body {
     min-height: 50px;
     padding: 10px 12px;
@@ -437,13 +450,13 @@ function getNodeVisual(node, nodeMeta) {
         badgeColor: '#fff'
     };
     const byType = {
-        start: { headColor: '#2f6fec', icon: '▶', badgeText: '开始' },
-        end: { headColor: '#111827', icon: '■', badgeText: '结束' },
-        condition: { headColor: '#f2993a', icon: '◆', badgeText: '判断' },
-        loop: { headColor: '#0ea5a4', icon: '↻', badgeText: '循环' },
-        python_snippet: { headColor: '#6d28d9', icon: 'Py', badgeText: '脚本' },
-        send_message: { headColor: '#2563eb', icon: '✉', badgeText: '动作' },
-        data: { headColor: '#0f766e', icon: '⧉', badgeText: '数据' }
+        start: { headColor: '#2f6fec', icon: '▶', badgeText: '' },
+        end: { headColor: '#111827', icon: '■', badgeText: '' },
+        condition: { headColor: '#f2993a', icon: '◆', badgeText: '' },
+        loop: { headColor: '#0ea5a4', icon: '↻', badgeText: '' },
+        python_snippet: { headColor: '#6d28d9', icon: 'Py', badgeText: '' },
+        send_message: { headColor: '#2563eb', icon: '✉', badgeText: '' },
+        data: { headColor: '#0f766e', icon: '⧉', badgeText: '' }
     };
     return { ...defaults, ...(byType[node.type] || {}) };
 }
@@ -505,6 +518,12 @@ function getNodeSubtitle(node, nodeMeta) {
     return nodeMeta?.description || node.type;
 }
 
+function getNodeSelectLabel(node) {
+    const nodeMeta = getNodeTemplateByType(node.type);
+    const title = nodeMeta?.name || node.type;
+    return `${title} (${node.id})`;
+}
+
 function escapeNodeHtml(text) {
     return String(text || '')
         .replace(/&/g, '&amp;')
@@ -542,6 +561,7 @@ function registerWorkflowCardNode(LFCore) {
                       <span>${escapeNodeHtml(p.title || '节点')}</span>
                     </div>
                     <div class="wf-card-actions">
+                      <span class="wf-card-id">${escapeNodeHtml(nodeId)}</span>
                       ${p.badgeText ? `<span class="wf-card-badge" style="background:${badgeBg};color:${badgeColor}">${escapeNodeHtml(p.badgeText)}</span>` : ''}
                     </div>
                   </div>
@@ -882,8 +902,7 @@ function openQuickLinkModal(nodeId) {
     const optionsHtml = nodes
         .filter(n => n.id !== node.id && n.type !== 'start')
         .map(n => {
-            const t = getNodeTemplateByType(n.type);
-            return `<option value="${n.id}">${escapeNodeHtml((t?.name || n.type) + ` (${n.id})`)}</option>`;
+            return `<option value="${n.id}">${escapeNodeHtml(getNodeSelectLabel(n))}</option>`;
         }).join('');
 
     const currentTrue = node.config.true_branch || '';
@@ -1382,10 +1401,9 @@ function editNode(index) {
             if (['true_branch', 'false_branch', 'next_node', 'loop_body'].includes(field.name)) {
                 // 跳转字段 -> 节点列表
                 const nodeOptions = nodes.map((n, idx) => {
-                    const nTemplate = availableNodes.find(t => t.type === n.type);
                     if (n.id === node.id || n.type === 'start') return ''; // 过滤自身和Start
-                    // 显示节点名称和ID
-                    return `<option value="${n.id}" ${value === n.id ? 'selected' : ''}>${nTemplate ? nTemplate.name : n.type} (${n.id})</option>`;
+                    // 显示节点名称 + 关键配置摘要 + ID，避免同类型节点难以区分
+                    return `<option value="${n.id}" ${value === n.id ? 'selected' : ''}>${escapeNodeHtml(getNodeSelectLabel(n))}</option>`;
                 }).join('');
                 
                 const defaultLabel = field.name === 'loop_body' ? '请选择循环体节点' : '不跳转(终止流程)';

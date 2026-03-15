@@ -8,14 +8,21 @@
 
 import json
 import os
+import re
+from pathlib import Path
+from typing import Any
 
+import requests
 from flask import render_template, request, flash, redirect, url_for, jsonify, g
 
 from Core.logging.file_logger import log_info, log_error
 from Core.workflow.registry import NodeRegistry
-from Models import db
+from Models import db, GlobalVariable
 from Models.SQL.Workflow import Workflow
 from utils.page_utils import adapt_pagination
+
+
+AI_EDGE_FIELDS = ('next_node', 'true_branch', 'false_branch', 'loop_body')
 
 
 def _clear_workflow_cache():
@@ -63,6 +70,212 @@ def _get_available_nodes() -> list[dict]:
     return available_nodes
 
 
+def _load_ai_prompt() -> str:
+    """加载 AI 生成工作流的系统提示词。"""
+    prompt_path = Path(__file__).resolve().parents[1] / 'docs' / 'docs' / 'workflow-ai-prompt.md'
+    try:
+        return prompt_path.read_text(encoding='utf-8')
+    except Exception as e:
+        log_error(0, f"读取 AI 提示词失败: {e}", "WORKFLOW_AI_PROMPT_LOAD_ERROR", error=str(e))
+        return ""
+
+
+def _extract_json_block(text: str) -> str:
+    """从 AI 输出中提取 JSON 文本。"""
+    raw = (text or '').strip()
+    if not raw:
+        return ''
+
+    fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL | re.IGNORECASE)
+    if fence_match:
+        return fence_match.group(1).strip()
+
+    start = raw.find('{')
+    end = raw.rfind('}')
+    if start >= 0 and end > start:
+        return raw[start:end + 1].strip()
+    return raw
+
+
+def _validate_workflow_ai_config(config: dict[str, Any]) -> tuple[bool, str, dict[str, Any]]:
+    """校验 AI 生成的工作流配置是否可落库。"""
+    if not isinstance(config, dict):
+        return False, '工作流配置必须是 JSON 对象', {}
+
+    name = str(config.get('name', '')).strip()
+    if not name:
+        return False, '工作流名称不能为空', {}
+
+    steps = config.get('workflow')
+    if not isinstance(steps, list) or not steps:
+        return False, 'workflow 节点列表不能为空', {}
+
+    node_ids: list[str] = []
+    node_types: dict[str, str] = {}
+    id_set = set()
+    for idx, step in enumerate(steps):
+        if not isinstance(step, dict):
+            return False, f'第 {idx + 1} 个节点格式错误', {}
+
+        node_id = str(step.get('id', '')).strip()
+        node_type = str(step.get('type', '')).strip()
+        node_config = step.get('config', {})
+
+        if not node_id or not node_type:
+            return False, f'第 {idx + 1} 个节点缺少 id/type', {}
+        if node_id in id_set:
+            return False, f'节点 ID 重复: {node_id}', {}
+        if not isinstance(node_config, dict):
+            return False, f'节点 {node_id} 的 config 必须是对象', {}
+
+        id_set.add(node_id)
+        node_ids.append(node_id)
+        node_types[node_id] = node_type
+
+    if 'start' not in id_set or node_types.get('start') != 'start':
+        return False, '必须包含 id=start 且 type=start 的开始节点', {}
+    if 'end' not in id_set or node_types.get('end') != 'end':
+        return False, '必须包含 id=end 且 type=end 的结束节点', {}
+
+    available_node_types = set(NodeRegistry.list_all().keys())
+    for node_id, node_type in node_types.items():
+        if node_type not in available_node_types:
+            return False, f'存在未知节点类型: {node_type} ({node_id})', {}
+
+    refs: list[tuple[str, str, str]] = []
+    for step in steps:
+        node_id = str(step.get('id', '')).strip()
+        node_type = str(step.get('type', '')).strip()
+        cfg = step.get('config', {}) or {}
+        if node_type == 'end':
+            continue
+
+        has_edge = False
+        for field in AI_EDGE_FIELDS:
+            target = cfg.get(field)
+            if target:
+                has_edge = True
+                refs.append((node_id, field, str(target).strip()))
+        if not has_edge:
+            return False, f'节点 {node_id} 未配置显式连线（next_node/true_branch/false_branch/loop_body）', {}
+
+    for source_id, field, target_id in refs:
+        if target_id not in id_set:
+            return False, f'节点 {source_id} 的 {field} 指向不存在节点: {target_id}', {}
+        if source_id == target_id:
+            return False, f'节点 {source_id} 的 {field} 不能指向自身', {}
+
+    result = {
+        'name': name,
+        'description': str(config.get('description', '')).strip(),
+        'protocols': config.get('protocols') if isinstance(config.get('protocols'), list) else [],
+        'trigger_type': str(config.get('trigger_type', 'message') or 'message'),
+        'allow_continue': bool(config.get('allow_continue', True)),
+        'workflow': steps
+    }
+
+    if result['trigger_type'] == 'schedule':
+        schedule = config.get('schedule')
+        if not isinstance(schedule, dict):
+            return False, '定时工作流缺少 schedule 配置', {}
+        result['schedule'] = schedule
+
+    return True, '', result
+
+
+def _request_openai_compatible(
+    base_url: str,
+    api_key: str,
+    model: str,
+    system_prompt: str,
+    user_prompt: str
+) -> tuple[bool, str]:
+    """调用 OpenAI 兼容 HTTP API（chat/completions）。"""
+    if not base_url or not api_key or not model:
+        return False, '缺少 AI 配置（base_url/api_key/model）'
+
+    def _build_url(base: str, suffix: str) -> str:
+        url_base = base.rstrip('/')
+        if url_base.endswith(suffix):
+            return url_base
+        return f"{url_base}{suffix}"
+
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json',
+    }
+
+    chat_url = _build_url(base_url, '/chat/completions')
+    payload = {
+        'model': model,
+        'messages': [
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': user_prompt},
+        ],
+    }
+
+    try:
+        mode = 'chat'
+        log_info(
+            0,
+            "AI 接口请求开始",
+            "WORKFLOW_AI_REQUEST_START",
+            base_url=base_url,
+            request_url=chat_url,
+            model=model,
+            mode=mode,
+        )
+
+        response = requests.post(chat_url, headers=headers, json=payload, timeout=60)
+        if response.status_code >= 400:
+            log_error(
+                0,
+                "AI 接口返回非成功状态码",
+                "WORKFLOW_AI_REQUEST_HTTP_ERROR",
+                request_url=chat_url,
+                status_code=response.status_code,
+                response_body=response.text[:1200],
+                model=model,
+                mode=mode,
+            )
+            return False, f'AI 接口调用失败: HTTP {response.status_code} {response.text[:300]}'
+
+        data = response.json()
+        choices = data.get('choices') or []
+        if not choices:
+            return False, 'AI 返回内容为空（choices 为空）'
+        message = choices[0].get('message') or {}
+        content = message.get('content') if isinstance(message, dict) else ''
+        if isinstance(content, list):
+            text_parts = []
+            for part in content:
+                if isinstance(part, dict):
+                    txt = part.get('text')
+                    if isinstance(txt, str) and txt.strip():
+                        text_parts.append(txt.strip())
+            content = "\n".join(text_parts).strip()
+        if not content:
+            return False, 'AI 返回内容为空（message.content 为空）'
+
+        log_info(
+            0,
+            "AI 接口请求成功",
+            "WORKFLOW_AI_REQUEST_SUCCESS",
+            request_url=chat_url,
+            model=model,
+            mode=mode,
+        )
+        return True, str(content)
+    except requests.RequestException as e:
+        log_error(0, "AI 接口请求异常", "WORKFLOW_AI_REQUEST_EXCEPTION",
+                  request_url=base_url, error=str(e), model=model)
+        return False, f'AI 接口请求失败: {e}'
+    except Exception as e:
+        log_error(0, "AI 接口响应解析异常", "WORKFLOW_AI_RESPONSE_PARSE_EXCEPTION",
+                  request_url=base_url, error=str(e), model=model)
+        return False, f'AI 接口解析失败: {e}'
+
+
 def workflow_list():
     """工作流列表页面"""
     try:
@@ -99,6 +312,166 @@ def workflow_list():
         log_error(0, f"获取工作流列表失败: {e}", "WORKFLOW_LIST_ERROR", error=str(e))
         flash('获取工作流列表失败', 'error')
         return render_template('admin/workflow/list.html', workflows=[], pagination=None)
+
+
+def workflow_ai_page():
+    """AI 生成工作流页面。"""
+    return render_template('admin/workflow/ai.html')
+
+
+def workflow_ai_config_get():
+    """读取 AI 配置（数据库）。"""
+    try:
+        base_url_var = GlobalVariable.get_by_key('workflow_ai_base_url')
+        model_var = GlobalVariable.get_by_key('workflow_ai_model')
+        api_key_var = GlobalVariable.get_by_key('workflow_ai_api_key')
+
+        return jsonify({
+            'success': True,
+            'config': {
+                'base_url': base_url_var.value if base_url_var else '',
+                'model': model_var.value if model_var else '',
+                'api_key': api_key_var.value if api_key_var else '',
+            }
+        })
+    except Exception as e:
+        log_error(0, f"读取 AI 配置失败: {e}", "WORKFLOW_AI_CONFIG_GET_ERROR", error=str(e))
+        return jsonify({'success': False, 'message': f'读取配置失败: {e}'})
+
+
+def workflow_ai_config_save():
+    """保存 AI 配置（数据库）。"""
+    try:
+        data = request.get_json(silent=True) or {}
+        base_url = str(data.get('base_url', '')).strip()
+        model = str(data.get('model', '')).strip()
+        api_key = str(data.get('api_key', '')).strip()
+
+        GlobalVariable.set_value(
+            'workflow_ai_base_url',
+            base_url,
+            description='AI 工作流生成接口地址',
+            is_secret=False
+        )
+        GlobalVariable.set_value(
+            'workflow_ai_model',
+            model,
+            description='AI 工作流生成模型',
+            is_secret=False
+        )
+        GlobalVariable.set_value(
+            'workflow_ai_api_key',
+            api_key,
+            description='AI 工作流生成 API Key',
+            is_secret=True
+        )
+        return jsonify({'success': True, 'message': 'AI 配置已保存到数据库'})
+    except Exception as e:
+        log_error(0, f"保存 AI 配置失败: {e}", "WORKFLOW_AI_CONFIG_SAVE_ERROR", error=str(e))
+        return jsonify({'success': False, 'message': f'保存配置失败: {e}'})
+
+
+def workflow_ai_generate():
+    """调用 AI 生成工作流，并执行结构校验后返回预览。"""
+    try:
+        data = request.get_json(silent=True) or {}
+        base_url = str(data.get('base_url', '')).strip()
+        api_key = str(data.get('api_key', '')).strip()
+        model = str(data.get('model', '')).strip()
+        prompt = str(data.get('prompt', '')).strip()
+
+        if not prompt:
+            return jsonify({'success': False, 'message': '需求描述不能为空'})
+
+        system_prompt = _load_ai_prompt()
+        if not system_prompt:
+            return jsonify({'success': False, 'message': 'AI 提示词文件不存在或读取失败'})
+
+        ok, ai_result = _request_openai_compatible(
+            base_url=base_url,
+            api_key=api_key,
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=prompt
+        )
+        if not ok:
+            return jsonify({'success': False, 'message': ai_result})
+
+        json_text = _extract_json_block(ai_result)
+        try:
+            workflow_config = json.loads(json_text)
+        except json.JSONDecodeError as e:
+            return jsonify({
+                'success': False,
+                'message': f'AI 返回不是有效 JSON: {e}',
+                'raw_output': ai_result
+            })
+
+        valid, err, normalized = _validate_workflow_ai_config(workflow_config)
+        if not valid:
+            return jsonify({
+                'success': False,
+                'message': f'结构校验未通过: {err}',
+                'workflow': workflow_config,
+                'raw_output': ai_result
+            })
+
+        return jsonify({
+            'success': True,
+            'message': '生成成功，结构校验通过',
+            'workflow': normalized,
+            'raw_output': ai_result
+        })
+
+    except Exception as e:
+        log_error(0, f"AI 生成工作流失败: {e}", "WORKFLOW_AI_GENERATE_ERROR", error=str(e))
+        return jsonify({'success': False, 'message': f'AI 生成失败: {e}'})
+
+
+def workflow_ai_create():
+    """将 AI 校验通过的工作流写入数据库。"""
+    try:
+        data = request.get_json(silent=True) or {}
+        workflow_config = data.get('workflow')
+        if workflow_config is None:
+            return jsonify({'success': False, 'message': '缺少 workflow 数据'})
+
+        valid, err, normalized = _validate_workflow_ai_config(workflow_config)
+        if not valid:
+            return jsonify({'success': False, 'message': f'结构校验未通过: {err}'})
+
+        original_name = normalized['name']
+        name = original_name
+        suffix = 1
+        while Workflow.query.filter_by(name=name).first():
+            name = f"{original_name}_AI{suffix}"
+            suffix += 1
+        normalized['name'] = name
+
+        creator_id = g.user.id if hasattr(g, 'user') else None
+        created = Workflow.create_from_config(
+            name=name,
+            description=normalized.get('description', ''),
+            config=normalized,
+            creator_id=creator_id,
+            enabled=False,
+            priority=100
+        )
+        _clear_workflow_cache()
+
+        return jsonify({
+            'success': True,
+            'message': '工作流创建成功',
+            'workflow_id': created.id,
+            'name': name,
+            'renamed': name != original_name,
+            'edit_url': url_for('Admin.workflow_edit', workflow_id=created.id)
+        })
+
+    except Exception as e:
+        log_error(0, f"AI 工作流创建失败: {e}", "WORKFLOW_AI_CREATE_ERROR", error=str(e))
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'创建失败: {e}'})
 
 
 def workflow_create():

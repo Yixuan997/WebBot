@@ -20,6 +20,8 @@ from .users import users, edit_user, delete_user
 from .workflow import (workflow_list, workflow_create, workflow_edit, workflow_delete,
                        workflow_toggle, workflow_detail, workflow_update_basic, snippets_list,
                        workflow_reload_cache, workflow_export, workflow_import,
+                       workflow_ai_page, workflow_ai_generate, workflow_ai_create,
+                       workflow_ai_config_get, workflow_ai_config_save,
                        workflow_debug_record, workflow_debug_clear)
 from ..utils import role_required
 
@@ -131,6 +133,21 @@ Admin_bp.add_url_rule('/workflows/<int:workflow_id>/export', view_func=role_requ
 Admin_bp.add_url_rule('/workflows/import', view_func=role_required('admin')(workflow_import),
                       methods=['POST'],
                       endpoint='workflow_import')  # 导入工作流
+Admin_bp.add_url_rule('/workflows/ai', view_func=role_required('admin')(workflow_ai_page),
+                      methods=['GET'],
+                      endpoint='workflow_ai_page')  # AI 生成工作流页面
+Admin_bp.add_url_rule('/workflows/ai/config', view_func=role_required('admin')(workflow_ai_config_get),
+                      methods=['GET'],
+                      endpoint='workflow_ai_config_get')  # 读取 AI 配置
+Admin_bp.add_url_rule('/workflows/ai/config', view_func=role_required('admin')(workflow_ai_config_save),
+                      methods=['POST'],
+                      endpoint='workflow_ai_config_save')  # 保存 AI 配置
+Admin_bp.add_url_rule('/workflows/ai/generate', view_func=role_required('admin')(workflow_ai_generate),
+                      methods=['POST'],
+                      endpoint='workflow_ai_generate')  # AI 生成工作流
+Admin_bp.add_url_rule('/workflows/ai/create', view_func=role_required('admin')(workflow_ai_create),
+                      methods=['POST'],
+                      endpoint='workflow_ai_create')  # AI 结果落库
 Admin_bp.add_url_rule('/workflows/<int:workflow_id>/debug', view_func=role_required('admin')(workflow_debug_record),
                       methods=['GET'],
                       endpoint='workflow_debug_record')  # 获取工作流调试记录
