@@ -9,12 +9,7 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h3 class="card-title mb-0">AI 生成工作流</h3>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleConfigPanel()">配置</button>
-                    <button type="button" class="btn btn-sm btn-success" id="createBtn" onclick="createWorkflow()" disabled>
-                        确认创建并去编辑
-                    </button>
-                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleConfigPanel()">配置</button>
             </div>
             <div class="card-body p-0">
                 <div id="configPanel" class="border-bottom bg-body-tertiary p-3 d-none">
@@ -40,7 +35,7 @@
 
                 <div id="resultAlert" class="alert d-none m-3 mb-0"></div>
 
-                <div id="chatStream" class="p-3 border-bottom bg-body-tertiary overflow-auto" style="height:58vh;min-height:420px;"></div>
+                <div id="chatStream" class="p-3 border-bottom bg-white overflow-auto" style="height:58vh;min-height:420px;"></div>
 
                 <div class="p-3">
                     <textarea class="form-control" id="ai_prompt" rows="4" placeholder="例如：用户发送“签到”时，记录签到次数并回复累计次数。"></textarea>
@@ -61,6 +56,14 @@
 {% block extra_js %}
 <script>
 const AI_STORAGE_KEY = 'workflow_ai_config_v1';
+const WELCOME_PROMPTS = [
+    '做一个签到工作流：发送“签到”后累计次数并回复',
+    '做一个关键词回复：命中“菜单”返回功能列表',
+    '做一个群通知：管理员发送指令后群发文本',
+    '做一个定时播报：每天 08:00 推送天气和一句话',
+    '做一个链接解析：识别抖音链接并返回结果',
+    '做一个入群欢迎：新成员进群后自动发送欢迎语'
+];
 let latestWorkflow = null;
 let generateAbortController = null;
 
@@ -90,14 +93,15 @@ function scrollChatToBottom() {
 }
 
 function appendChatMessage(role, html) {
+    hideWelcomeState();
     const stream = document.getElementById('chatStream');
     const row = document.createElement('div');
-    row.className = `d-flex mb-3 ${role === 'user' ? 'justify-content-end' : 'justify-content-start'}`;
+    row.className = `chat-message-row d-flex flex-column mb-3 ${role === 'user' ? 'align-items-end' : 'align-items-start'}`;
     const bubbleClass = role === 'user'
-        ? 'bg-primary text-white'
+        ? 'bg-success text-white'
         : 'bg-white border text-body';
     row.innerHTML = `
-        <div class="rounded p-2 shadow-sm ${bubbleClass}" style="max-width:min(88%,900px);white-space:pre-wrap;word-break:break-word;">${html}</div>
+        <div class="rounded p-2 shadow-sm ${bubbleClass}" style="max-width:min(88%,900px);word-break:break-word;">${html}</div>
     `;
     stream.appendChild(row);
     scrollChatToBottom();
@@ -110,11 +114,177 @@ function setChatMessageContent(target, html) {
     scrollChatToBottom();
 }
 
+function hasChatMessages() {
+    return document.querySelectorAll('#chatStream .chat-message-row').length > 0;
+}
+
+function hideWelcomeState() {
+    const welcome = document.getElementById('chatWelcome');
+    if (welcome) {
+        welcome.remove();
+    }
+}
+
+function renderWelcomeState() {
+    if (hasChatMessages()) return;
+    const stream = document.getElementById('chatStream');
+    const chipsHtml = WELCOME_PROMPTS.map((prompt) => `
+        <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary rounded-pill px-3"
+            data-prompt="${escapeHtml(prompt)}"
+            onclick="applyExamplePrompt(this.dataset.prompt)"
+        >${escapeHtml(prompt)}</button>
+    `).join('');
+
+    stream.innerHTML = `
+        <div id="chatWelcome" class="h-100 d-flex align-items-center justify-content-center px-2">
+            <div class="w-100 text-center" style="max-width:980px;">
+                <div class="fs-2 fw-bold mb-2">有什么我能帮你的吗？</div>
+                <div class="text-secondary mb-4">描述你的需求，我会为你生成工作流。</div>
+                <div class="d-flex flex-wrap justify-content-center gap-2" style="max-width:900px;margin:0 auto;">
+                    ${chipsHtml}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function applyExamplePrompt(promptText) {
+    const promptEl = document.getElementById('ai_prompt');
+    if (!promptEl) return;
+    promptEl.value = String(promptText || '').trim();
+    if (!promptEl.value) {
+        promptEl.focus();
+        return;
+    }
+    if (document.getElementById('generateBtn').disabled) return;
+    await generateWorkflow();
+}
+
+function setChatActionButtons(target, html) {
+    if (!target || !target.parentElement) return;
+    const row = target.parentElement;
+    let actionWrap = row.querySelector('.chat-action-wrap');
+    const content = String(html || '').trim();
+    if (!content) {
+        if (actionWrap) actionWrap.remove();
+        return;
+    }
+    if (!actionWrap) {
+        actionWrap = document.createElement('div');
+        actionWrap.className = 'chat-action-wrap mt-2 d-flex gap-2 flex-wrap';
+        row.appendChild(actionWrap);
+    }
+    actionWrap.innerHTML = content;
+    scrollChatToBottom();
+}
+
+function extractJsonText(rawText) {
+    const raw = String(rawText || '').trim();
+    if (!raw) return '';
+    const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (fenced && fenced[1]) {
+        return fenced[1].trim();
+    }
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+        return raw.slice(start, end + 1).trim();
+    }
+    return '';
+}
+
+function buildJsonBubble(jsonText) {
+    return `<pre class="mb-0 p-2 rounded bg-dark text-white" style="max-height:360px;overflow:auto;">${escapeHtml(jsonText)}</pre>`;
+}
+
+function buildCollapsedCodeBlock(codeText, label = '查看代码') {
+    return `<details class="mt-2"><summary class="text-muted small" style="cursor:pointer;user-select:none;">${escapeHtml(label)}</summary><div class="mt-2">${buildJsonBubble(codeText)}</div></details>`;
+}
+
+function isLikelyJsonText(text) {
+    const raw = String(text || '').trim();
+    if (!raw) return false;
+    if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
+        try {
+            JSON.parse(raw);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+    return false;
+}
+
+function renderPlainText(text) {
+    return `<div style="white-space:pre-wrap;word-break:break-word;">${escapeHtml(text)}</div>`;
+}
+
+function renderWorkflowReadyBubble() {
+    return `<div>工作流已生成并通过校验。</div>`;
+}
+
+function renderWorkflowActionButtons() {
+    return `
+        <button type="button" class="btn btn-sm btn-success rounded-pill px-3" onclick="createWorkflow(this)">创建工作流</button>
+    `;
+}
+
+function renderAssistantOutput(rawText) {
+    const raw = String(rawText || '').trim();
+    if (!raw) return '';
+
+    if (isLikelyJsonText(raw)) {
+        return buildCollapsedCodeBlock(raw, '查看工作流');
+    }
+
+    const fenceRegex = /```([a-zA-Z0-9_-]+)?\s*([\s\S]*?)\s*```/g;
+    let html = '';
+    let lastIndex = 0;
+    let match = null;
+
+    while ((match = fenceRegex.exec(raw)) !== null) {
+        const before = raw.slice(lastIndex, match.index).trim();
+        if (before) html += renderPlainText(before);
+        const lang = (match[1] || '').toLowerCase();
+        const code = match[2] || '';
+        if (lang === 'json' || isLikelyJsonText(code)) {
+            html += buildCollapsedCodeBlock(code, '查看工作流');
+        } else {
+            html += buildCollapsedCodeBlock(code, '查看代码');
+        }
+        lastIndex = fenceRegex.lastIndex;
+    }
+
+    const tail = raw.slice(lastIndex).trim();
+    if (tail) html += renderPlainText(tail);
+
+    if (!html) {
+        return renderPlainText(raw);
+    }
+    return html;
+}
+
+function parseWorkflowFromResponse(data) {
+    if (data && data.workflow && typeof data.workflow === 'object') {
+        return data.workflow;
+    }
+    const extracted = extractJsonText(data?.raw_output || '');
+    if (!extracted) return null;
+    try {
+        const parsed = JSON.parse(extracted);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 function setGeneratingState(generating) {
     const btn = document.getElementById('generateBtn');
     const cancelBtn = document.getElementById('cancelGenerateBtn');
     btn.disabled = generating;
-    btn.textContent = generating ? '生成中...' : '发送并生成';
+    btn.textContent = generating ? '加载中，请稍候...' : '发送并生成';
     cancelBtn.disabled = !generating;
 }
 
@@ -158,10 +328,32 @@ function cancelGenerate() {
     }
 }
 
+function parseSseEventBlock(block) {
+    const lines = String(block || '').split('\n');
+    let eventName = 'message';
+    const dataLines = [];
+    for (const line of lines) {
+        if (!line) continue;
+        if (line.startsWith('event:')) {
+            eventName = line.slice(6).trim() || 'message';
+            continue;
+        }
+        if (line.startsWith('data:')) {
+            dataLines.push(line.slice(5).trimStart());
+        }
+    }
+    if (!dataLines.length) return null;
+    const rawData = dataLines.join('\n');
+    try {
+        return {event: eventName, payload: JSON.parse(rawData)};
+    } catch (e) {
+        return {event: eventName, payload: {message: rawData}};
+    }
+}
+
 async function generateWorkflow() {
     hideAlert();
     latestWorkflow = null;
-    document.getElementById('createBtn').disabled = true;
 
     const payload = {
         base_url: document.getElementById('ai_base_url').value.trim(),
@@ -175,40 +367,147 @@ async function generateWorkflow() {
         return;
     }
 
+    const promptEl = document.getElementById('ai_prompt');
     saveAiConfig();
     appendChatMessage('user', escapeHtml(payload.prompt).replace(/\n/g, '<br>'));
+    if (promptEl) {
+        promptEl.value = '';
+        promptEl.focus();
+    }
     const assistantBubble = appendChatMessage(
         'assistant',
-        '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>正在生成工作流，请稍候...'
+        '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>加载中，请稍候...'
     );
 
     generateAbortController = new AbortController();
     setGeneratingState(true);
 
     try {
-        const response = await fetch('{{ url_for("Admin.workflow_ai_generate") }}', {
+        const response = await fetch('{{ url_for("Admin.workflow_ai_generate_stream") }}', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(payload),
             signal: generateAbortController.signal
         });
-        const data = await response.json();
-
-        if (!data.success) {
-            setChatMessageContent(
-                assistantBubble,
-                `生成失败：${escapeHtml(data.message || '未知错误')}`
-            );
+        if (!response.ok) {
+            const text = await response.text();
+            setChatMessageContent(assistantBubble, `请求失败：HTTP ${response.status} ${escapeHtml(text || '')}`);
+            return;
+        }
+        if (!response.body) {
+            setChatMessageContent(assistantBubble, '请求失败：流式响应不可用。');
             return;
         }
 
-        latestWorkflow = data.workflow;
-        document.getElementById('createBtn').disabled = false;
-        const workflowJson = escapeHtml(JSON.stringify(data.workflow, null, 2));
-        setChatMessageContent(
-            assistantBubble,
-            `<pre class="mb-0 p-2 rounded bg-dark text-white" style="max-height:360px;overflow:auto;">${workflowJson}</pre>`
-        );
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let assistantRaw = '';
+        let donePayload = null;
+        let errorMessage = '';
+
+        const handleSseBlock = (block) => {
+            const eventData = parseSseEventBlock(block);
+            if (!eventData) return;
+            const eventName = eventData.event;
+            const payloadObj = eventData.payload || {};
+
+            if (eventName === 'delta') {
+                const text = String(payloadObj.text || '');
+                if (!text) return;
+                assistantRaw += text;
+                setChatMessageContent(assistantBubble, renderAssistantOutput(assistantRaw));
+                return;
+            }
+            if (eventName === 'error') {
+                errorMessage = String(payloadObj.message || errorMessage || '');
+                return;
+            }
+            if (eventName === 'done') {
+                donePayload = payloadObj;
+            }
+        };
+
+        while (true) {
+            const {value, done} = await reader.read();
+            buffer += decoder.decode(value || new Uint8Array(), {stream: !done});
+            buffer = buffer.replace(/\r\n/g, '\n');
+
+            let boundaryIndex = buffer.indexOf('\n\n');
+            while (boundaryIndex >= 0) {
+                const block = buffer.slice(0, boundaryIndex).trim();
+                buffer = buffer.slice(boundaryIndex + 2);
+                if (block) {
+                    handleSseBlock(block);
+                }
+                boundaryIndex = buffer.indexOf('\n\n');
+            }
+
+            if (done) break;
+        }
+
+        if (buffer.trim()) {
+            handleSseBlock(buffer.trim());
+        }
+
+        const data = donePayload;
+        if (!data) {
+            if (assistantRaw.trim()) {
+                setChatMessageContent(assistantBubble, renderAssistantOutput(assistantRaw));
+            } else {
+                setChatMessageContent(assistantBubble, errorMessage ? escapeHtml(errorMessage) : '生成失败：流式响应未完成。');
+            }
+            return;
+        }
+
+        if (!data.success) {
+            const recoveredWorkflow = parseWorkflowFromResponse(data);
+            if (recoveredWorkflow) {
+                let detailHtml = renderPlainText('检测到结构化输出，但未通过服务端校验。');
+                if (data.raw_output) {
+                    detailHtml += `
+                        <details class="mt-2">
+                            <summary class="text-muted" style="cursor:pointer;">查看原始输出</summary>
+                            ${renderAssistantOutput(data.raw_output)}
+                        </details>
+                    `;
+                }
+                setChatMessageContent(assistantBubble, detailHtml);
+                setChatActionButtons(assistantBubble, '');
+                return;
+            }
+
+            if (assistantRaw.trim()) {
+                setChatMessageContent(assistantBubble, renderAssistantOutput(assistantRaw));
+            } else if (data.raw_output) {
+                setChatMessageContent(assistantBubble, renderAssistantOutput(data.raw_output));
+            } else {
+                setChatMessageContent(assistantBubble, `生成失败：${escapeHtml(data.message || errorMessage || '未知错误')}`);
+            }
+            setChatActionButtons(assistantBubble, '');
+            return;
+        }
+
+        latestWorkflow = data.workflow || parseWorkflowFromResponse(data);
+        if (latestWorkflow) {
+            const finalText = String(assistantRaw || data.raw_output || '').trim();
+            if (finalText) {
+                setChatMessageContent(assistantBubble, renderAssistantOutput(finalText));
+            } else {
+                setChatMessageContent(assistantBubble, renderWorkflowReadyBubble());
+            }
+            setChatActionButtons(assistantBubble, renderWorkflowActionButtons());
+            return;
+        }
+
+        if (assistantRaw.trim()) {
+            setChatMessageContent(assistantBubble, renderAssistantOutput(assistantRaw));
+        } else if (data.raw_output) {
+            setChatMessageContent(assistantBubble, renderAssistantOutput(data.raw_output));
+        } else {
+            setChatMessageContent(assistantBubble, '生成完成，但未返回可展示内容。');
+        }
+        setChatActionButtons(assistantBubble, '');
     } catch (e) {
         if (e.name === 'AbortError') {
             setChatMessageContent(assistantBubble, '本次生成已停止。');
@@ -216,21 +515,25 @@ async function generateWorkflow() {
             console.error(e);
             setChatMessageContent(assistantBubble, '请求失败，请检查网络或接口配置。');
         }
+        setChatActionButtons(assistantBubble, '');
     } finally {
         generateAbortController = null;
         setGeneratingState(false);
     }
 }
 
-async function createWorkflow() {
+async function createWorkflow(triggerBtn = null) {
     if (!latestWorkflow) {
         showAlert('danger', '请先生成并通过校验。');
         return;
     }
 
-    const btn = document.getElementById('createBtn');
-    btn.disabled = true;
-    btn.textContent = '创建中...';
+    const btn = (triggerBtn && typeof triggerBtn === 'object') ? triggerBtn : null;
+    const oldText = btn ? btn.textContent : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '创建中...';
+    }
 
     try {
         const response = await fetch('{{ url_for("Admin.workflow_ai_create") }}', {
@@ -241,8 +544,10 @@ async function createWorkflow() {
         const data = await response.json();
         if (!data.success) {
             showAlert('danger', data.message || '创建失败');
-            btn.disabled = false;
-            btn.textContent = '确认创建并去编辑';
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = oldText || '创建工作流';
+            }
             return;
         }
         appendChatMessage('assistant', '工作流已创建，正在跳转到编辑页面...');
@@ -252,14 +557,16 @@ async function createWorkflow() {
     } catch (e) {
         console.error(e);
         showAlert('danger', '创建失败，请稍后重试。');
-        btn.disabled = false;
-        btn.textContent = '确认创建并去编辑';
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = oldText || '创建工作流';
+        }
     }
 }
 
 window.addEventListener('DOMContentLoaded', () => {
     loadAiConfig();
-    appendChatMessage('assistant', '请输入需求并点击“发送并生成”。');
+    renderWelcomeState();
     const promptEl = document.getElementById('ai_prompt');
     if (promptEl) {
         promptEl.addEventListener('keydown', (event) => {

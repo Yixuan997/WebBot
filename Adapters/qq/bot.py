@@ -29,7 +29,7 @@ class QQBot(BaseBot):
         self._api_client = None
 
     def _get_api_client(self):
-        """获取API客户端（延迟加载）"""
+        """获取API客户端"""
         if self._api_client is None:
             from .api_client import get_qq_api_client
             try:

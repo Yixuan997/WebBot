@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from flask import render_template, request, flash, redirect, url_for, jsonify, g
+from flask import render_template, request, flash, redirect, url_for, jsonify, g, Response, stream_with_context
 
 from Core.logging.file_logger import log_info, log_error
 from Core.workflow.registry import NodeRegistry
@@ -194,18 +194,12 @@ def _request_openai_compatible(
     if not base_url or not api_key or not model:
         return False, '缺少 AI 配置（base_url/api_key/model）'
 
-    def _build_url(base: str, suffix: str) -> str:
-        url_base = base.rstrip('/')
-        if url_base.endswith(suffix):
-            return url_base
-        return f"{url_base}{suffix}"
-
     headers = {
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json',
     }
 
-    chat_url = _build_url(base_url, '/chat/completions')
+    chat_url = _build_ai_url(base_url, '/chat/completions')
     payload = {
         'model': model,
         'messages': [
@@ -241,19 +235,7 @@ def _request_openai_compatible(
             return False, f'AI 接口调用失败: HTTP {response.status_code} {response.text[:300]}'
 
         data = response.json()
-        choices = data.get('choices') or []
-        if not choices:
-            return False, 'AI 返回内容为空（choices 为空）'
-        message = choices[0].get('message') or {}
-        content = message.get('content') if isinstance(message, dict) else ''
-        if isinstance(content, list):
-            text_parts = []
-            for part in content:
-                if isinstance(part, dict):
-                    txt = part.get('text')
-                    if isinstance(txt, str) and txt.strip():
-                        text_parts.append(txt.strip())
-            content = "\n".join(text_parts).strip()
+        content = _extract_chat_message_content(data)
         if not content:
             return False, 'AI 返回内容为空（message.content 为空）'
 
@@ -274,6 +256,53 @@ def _request_openai_compatible(
         log_error(0, "AI 接口响应解析异常", "WORKFLOW_AI_RESPONSE_PARSE_EXCEPTION",
                   request_url=base_url, error=str(e), model=model)
         return False, f'AI 接口解析失败: {e}'
+
+
+def _build_ai_url(base: str, suffix: str) -> str:
+    url_base = (base or '').rstrip('/')
+    if url_base.endswith(suffix):
+        return url_base
+    return f"{url_base}{suffix}"
+
+
+def _extract_chat_message_content(data: dict[str, Any]) -> str:
+    choices = data.get('choices') or []
+    if not choices:
+        return ''
+    message = choices[0].get('message') or {}
+    content = message.get('content') if isinstance(message, dict) else ''
+    if isinstance(content, list):
+        text_parts = []
+        for part in content:
+            if isinstance(part, dict):
+                txt = part.get('text')
+                if isinstance(txt, str) and txt.strip():
+                    text_parts.append(txt.strip())
+        return "\n".join(text_parts).strip()
+    return str(content or '').strip()
+
+
+def _extract_chat_delta_text(chunk: dict[str, Any]) -> str:
+    choices = chunk.get('choices') or []
+    if not choices:
+        return ''
+    delta = choices[0].get('delta') or {}
+    content = delta.get('content')
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        text_parts = []
+        for part in content:
+            if isinstance(part, dict):
+                txt = part.get('text')
+                if isinstance(txt, str) and txt:
+                    text_parts.append(txt)
+        return ''.join(text_parts)
+    return ''
+
+
+def _sse_event(event: str, payload: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
 def workflow_list():
@@ -426,6 +455,163 @@ def workflow_ai_generate():
     except Exception as e:
         log_error(0, f"AI 生成工作流失败: {e}", "WORKFLOW_AI_GENERATE_ERROR", error=str(e))
         return jsonify({'success': False, 'message': f'AI 生成失败: {e}'})
+
+
+def workflow_ai_generate_stream():
+    """调用 AI 流式生成工作流（SSE）。"""
+    data = request.get_json(silent=True) or {}
+    base_url = str(data.get('base_url', '')).strip()
+    api_key = str(data.get('api_key', '')).strip()
+    model = str(data.get('model', '')).strip()
+    prompt = str(data.get('prompt', '')).strip()
+
+    @stream_with_context
+    def event_stream():
+        try:
+            if not prompt:
+                msg = '需求描述不能为空'
+                yield _sse_event('error', {'message': msg})
+                yield _sse_event('done', {'success': False, 'message': msg})
+                return
+
+            system_prompt = _load_ai_prompt()
+            if not system_prompt:
+                msg = 'AI 提示词文件不存在或读取失败'
+                yield _sse_event('error', {'message': msg})
+                yield _sse_event('done', {'success': False, 'message': msg})
+                return
+
+            if not base_url or not api_key or not model:
+                msg = '缺少 AI 配置（base_url/api_key/model）'
+                yield _sse_event('error', {'message': msg})
+                yield _sse_event('done', {'success': False, 'message': msg})
+                return
+
+            chat_url = _build_ai_url(base_url, '/chat/completions')
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+            }
+            payload = {
+                'model': model,
+                'stream': True,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': prompt},
+                ],
+            }
+
+            log_info(
+                0,
+                "AI 流式请求开始",
+                "WORKFLOW_AI_STREAM_REQUEST_START",
+                base_url=base_url,
+                request_url=chat_url,
+                model=model,
+                mode='chat_stream'
+            )
+
+            parts: list[str] = []
+            with requests.post(chat_url, headers=headers, json=payload, timeout=(10, 300), stream=True) as response:
+                if response.status_code >= 400:
+                    err_text = response.text[:300]
+                    msg = f'AI 接口调用失败: HTTP {response.status_code} {err_text}'
+                    log_error(
+                        0,
+                        "AI 流式接口返回非成功状态码",
+                        "WORKFLOW_AI_STREAM_HTTP_ERROR",
+                        request_url=chat_url,
+                        status_code=response.status_code,
+                        response_body=response.text[:1200],
+                        model=model
+                    )
+                    yield _sse_event('error', {'message': msg})
+                    yield _sse_event('done', {'success': False, 'message': msg})
+                    return
+
+                content_type = (response.headers.get('Content-Type') or '').lower()
+                if 'text/event-stream' in content_type:
+                    for raw_line in response.iter_lines(decode_unicode=True):
+                        if not raw_line:
+                            continue
+                        line = raw_line.strip()
+                        if not line.startswith('data:'):
+                            continue
+                        data_str = line[5:].strip()
+                        if data_str == '[DONE]':
+                            break
+                        try:
+                            chunk = json.loads(data_str)
+                        except json.JSONDecodeError:
+                            continue
+                        text = _extract_chat_delta_text(chunk)
+                        if text:
+                            parts.append(text)
+                            yield _sse_event('delta', {'text': text})
+                else:
+                    # 某些兼容接口即使传 stream=true 仍返回普通 JSON，这里做兜底兼容
+                    try:
+                        data_json = response.json()
+                        full_text = _extract_chat_message_content(data_json)
+                    except Exception:
+                        full_text = response.text
+                    if full_text:
+                        parts.append(full_text)
+                        yield _sse_event('delta', {'text': full_text})
+
+            ai_result = ''.join(parts).strip()
+            if not ai_result:
+                msg = 'AI 返回内容为空'
+                yield _sse_event('done', {'success': False, 'message': msg, 'raw_output': ''})
+                return
+
+            json_text = _extract_json_block(ai_result)
+            try:
+                workflow_config = json.loads(json_text)
+            except json.JSONDecodeError as e:
+                yield _sse_event('done', {
+                    'success': False,
+                    'message': f'AI 返回不是有效 JSON: {e}',
+                    'raw_output': ai_result
+                })
+                return
+
+            valid, err, normalized = _validate_workflow_ai_config(workflow_config)
+            if not valid:
+                yield _sse_event('done', {
+                    'success': False,
+                    'message': f'结构校验未通过: {err}',
+                    'workflow': workflow_config,
+                    'raw_output': ai_result
+                })
+                return
+
+            yield _sse_event('done', {
+                'success': True,
+                'message': '生成成功，结构校验通过',
+                'workflow': normalized,
+                'raw_output': ai_result
+            })
+        except requests.RequestException as e:
+            msg = f'AI 接口请求失败: {e}'
+            log_error(0, "AI 流式接口请求异常", "WORKFLOW_AI_STREAM_REQUEST_EXCEPTION", error=str(e))
+            yield _sse_event('error', {'message': msg})
+            yield _sse_event('done', {'success': False, 'message': msg})
+        except Exception as e:
+            msg = f'AI 流式生成失败: {e}'
+            log_error(0, "AI 流式生成异常", "WORKFLOW_AI_STREAM_ERROR", error=str(e))
+            yield _sse_event('error', {'message': msg})
+            yield _sse_event('done', {'success': False, 'message': msg})
+
+    return Response(
+        event_stream(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+        }
+    )
 
 
 def workflow_ai_create():

@@ -302,7 +302,7 @@ def admin_edit_bot(bot_id):
 
 
 def admin_bot_detail(bot_id):
-    """机器人详情页 - 使用延迟加载优化性能"""
+    """机器人详情页"""
     bot = Bot.query.get_or_404(bot_id)
 
     # 从机器人管理器获取真实运行数据
