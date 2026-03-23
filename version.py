@@ -3,7 +3,7 @@ QQ机器人管理系统版本信息
 """
 
 # 版本信息
-__version__ = "2.0.8"
+__version__ = "2.0.9"
 __author__ = "Yixuan997"
 __email__ = "93653142@qq.com"
 __description__ = "QQ机器人管理系统"
