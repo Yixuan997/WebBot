@@ -20,6 +20,7 @@ class StartNode(BaseNode):
         {'name': 'event', 'label': 'event - 完整事件对象', 'type': 'object'},
         {'name': 'post_type', 'label': 'post_type - 事件类型 (message/notice/request)', 'type': 'string'},
         {'name': 'message', 'label': 'message - 消息内容(纯文本)', 'type': 'string'},
+        {'name': 'message_cq', 'label': 'message_cq - 消息内容(CQ码/组合消息)', 'type': 'string'},
         {'name': 'message_full', 'label': 'message_full - 完整消息对象', 'type': 'object'},
         {'name': 'message_type', 'label': 'message_type - 消息类型 (text/image/voice)', 'type': 'string'},
         {'name': 'has_image', 'label': 'has_image - 是否包含图片', 'type': 'boolean'},
@@ -67,6 +68,7 @@ class StartNode(BaseNode):
         message_type = "text"
         has_image = False
         has_at = False
+        message_cq = ""
 
         if hasattr(event, 'message') and event.message:
             # 使用extract_plain_text方法提取纯文本
@@ -77,6 +79,7 @@ class StartNode(BaseNode):
             else:
                 # 备用方案:直接转字符串
                 message_text = str(event.message)
+            message_cq = str(event.message)
 
             # 检测消息类型
             if hasattr(event.message, '__iter__'):
@@ -114,9 +117,13 @@ class StartNode(BaseNode):
 
         # 获取原始消息（包含 CQ 码）
         raw_message = getattr(event, 'raw_message', '') or str(getattr(event, 'message', ''))
+        # 某些实现下 raw_message 可能只含纯文本，这里优先保留带 CQ 段的版本
+        if '[CQ:' in message_cq and '[CQ:' not in raw_message:
+            raw_message = message_cq
         
         # 保存到上下文
         context.set_variable('message', message_text)
+        context.set_variable('message_cq', message_cq)  # CQ码/组合消息（适合提取图片等非文本段）
         context.set_variable('raw_message', raw_message)  # 原始消息（包含 CQ 码）
         context.set_variable('message_full', getattr(event, 'message', None))  # 完整消息对象
         context.set_variable('message_type', message_type)
