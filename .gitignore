@@ -56,6 +56,7 @@ BluePrints/docs/docs/plugin-development.md
 *.temp
 *.cache
 update.zip
+/Plugins.zip
 backup-*.zip
 
 # API密钥和证书
