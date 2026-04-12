@@ -222,21 +222,32 @@ def main() -> int:
         changed = 0
         patched_total = 0
         migrated_total = 0
+        trigger_fixed_total = 0
         backup_records: list[dict[str, Any]] = []
 
         for wf in workflows:
             config = wf.get_config() or {}
+            trigger_before = config.get("trigger_type")
+            trigger_fixed = False
+            if trigger_before is None or (
+                isinstance(trigger_before, str) and trigger_before.strip() == ""
+            ):
+                config["trigger_type"] = "message"
+                trigger_fixed = True
+
             old_steps = config.get("workflow", [])
             new_steps, patched_count, migrated_count = migrate_workflow_steps(
                 old_steps,
                 migrate_legacy_vars=not args.links_only,
             )
-            if patched_count <= 0 and migrated_count <= 0:
+            if patched_count <= 0 and migrated_count <= 0 and not trigger_fixed:
                 continue
 
             changed += 1
             patched_total += patched_count
             migrated_total += migrated_count
+            if trigger_fixed:
+                trigger_fixed_total += 1
             backup_records.append(
                 {
                     "id": wf.id,
@@ -244,6 +255,8 @@ def main() -> int:
                     "enabled": wf.enabled,
                     "patched_edges": patched_count,
                     "migrated_refs": migrated_count,
+                    "trigger_type_before": trigger_before,
+                    "trigger_type_after": config.get("trigger_type"),
                     "workflow_before": old_steps,
                 }
             )
@@ -253,18 +266,21 @@ def main() -> int:
                 wf.config = config
                 print(
                     f"[UPDATE] id={wf.id} name={wf.name} "
-                    f"patched_edges={patched_count} migrated_refs={migrated_count}"
+                    f"patched_edges={patched_count} migrated_refs={migrated_count} "
+                    f"trigger_fixed={1 if trigger_fixed else 0}"
                 )
             else:
                 print(
                     f"[DRY-RUN] id={wf.id} name={wf.name} "
-                    f"patched_edges={patched_count} migrated_refs={migrated_count}"
+                    f"patched_edges={patched_count} migrated_refs={migrated_count} "
+                    f"trigger_fixed={1 if trigger_fixed else 0}"
                 )
 
         if args.dry_run:
             print(
                 f"\n完成(预览): total={total}, changed={changed}, "
-                f"patched_edges={patched_total}, migrated_refs={migrated_total}"
+                f"patched_edges={patched_total}, migrated_refs={migrated_total}, "
+                f"trigger_fixed={trigger_fixed_total}"
             )
             return 0
 
@@ -282,6 +298,7 @@ def main() -> int:
                 "changed_workflows": changed,
                 "patched_edges": patched_total,
                 "migrated_refs": migrated_total,
+                "trigger_fixed": trigger_fixed_total,
                 "records": backup_records,
             }
             backup_path.write_text(
@@ -294,7 +311,8 @@ def main() -> int:
         db.session.remove()
         print(
             f"\n迁移完成: total={total}, changed={changed}, "
-            f"patched_edges={patched_total}, migrated_refs={migrated_total}"
+            f"patched_edges={patched_total}, migrated_refs={migrated_total}, "
+            f"trigger_fixed={trigger_fixed_total}"
         )
         return 0
 
