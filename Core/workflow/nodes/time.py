@@ -164,7 +164,7 @@ class TimestampNode(BaseNode):
     name = "获取时间"
     description = "获取当前时间和时间戳"
     category = "time"
-    icon = "📅"
+    iicon = "📅"
 
     inputs = []
     outputs = [
