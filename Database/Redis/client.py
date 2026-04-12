@@ -143,8 +143,8 @@ def init_redis(app):
         # 启动时 Redis 不可用，给出友好提示
         if app:
             app.logger.warning(f"Redis 连接失败: {e}")
-            app.logger.warning("⚠️  系统将在没有 Redis 的情况下运行（部分功能可能受限）")
-            app.logger.info("💡 如需启用 Redis，请安装并启动 Redis 服务，然后重启应用")
+            app.logger.warning("系统将在没有 Redis 的情况下运行（部分功能可能受限）")
+            app.logger.info("如需启用 Redis，请安装并启动 Redis 服务，然后重启应用")
 
 
 def get_redis():

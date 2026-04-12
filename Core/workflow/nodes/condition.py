@@ -91,7 +91,7 @@ class ConditionNode(BaseNode):
             'type': 'textarea',
             'required': False,
             'default': '',
-            'placeholder': 'message|contains|你好\nuser_id|equals|123',
+            'placeholder': 'message|contains|你好\nsender.user_id|equals|123',
             'help': '格式: 变量名|运算符|比较值，每行一个',
             'help_extra': [
                 {'label': '运算符',

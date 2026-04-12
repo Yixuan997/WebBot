@@ -16,6 +16,7 @@ import requests
 from flask import render_template, request, flash, redirect, url_for, jsonify, g, Response, stream_with_context
 
 from Core.logging.file_logger import log_info, log_error
+from Core.protocols import list_protocols
 from Core.workflow.registry import NodeRegistry
 from Models import db, GlobalVariable
 from Models.SQL.Workflow import Workflow
@@ -330,17 +331,23 @@ def workflow_list():
         # 使用智能分页
         page_numbers = adapt_pagination(pagination)
 
+        protocol_options = list_protocols()
+        protocol_name_map = {item['id']: item['name'] for item in protocol_options}
+
         return render_template('admin/workflow/list.html',
                                workflows=workflows,
                                pagination=pagination,
                                page_numbers=page_numbers,
                                search=search,
-                               current_page=page)
+                               current_page=page,
+                               protocol_options=protocol_options,
+                               protocol_name_map=protocol_name_map)
 
     except Exception as e:
         log_error(0, f"获取工作流列表失败: {e}", "WORKFLOW_LIST_ERROR", error=str(e))
         flash('获取工作流列表失败', 'error')
-        return render_template('admin/workflow/list.html', workflows=[], pagination=None)
+        return render_template('admin/workflow/list.html', workflows=[], pagination=None,
+                               protocol_options=list_protocols(), protocol_name_map={})
 
 
 def workflow_ai_page():
@@ -667,7 +674,7 @@ def workflow_create():
     if request.method == 'GET':
         # 显示创建表单，传递机器人列表用于定时触发配置
         bots = Bot.query.filter_by(is_active=True).all()
-        return render_template('admin/workflow/create.html', bots=bots)
+        return render_template('admin/workflow/create.html', bots=bots, protocol_options=list_protocols())
 
     # POST: 处理创建
     try:
@@ -857,9 +864,14 @@ def workflow_detail(workflow_id):
         workflow = Workflow.query.get_or_404(workflow_id)
         config = workflow.get_config()
 
+        protocol_options = list_protocols()
+        protocol_name_map = {item['id']: item['name'] for item in protocol_options}
+
         return render_template('admin/workflow/detail.html',
                                workflow=workflow,
-                               config=config)
+                               config=config,
+                               protocol_options=protocol_options,
+                               protocol_name_map=protocol_name_map)
 
     except Exception as e:
         log_error(0, f"获取工作流详情失败: {e}", "WORKFLOW_DETAIL_ERROR",

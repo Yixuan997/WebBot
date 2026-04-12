@@ -4,6 +4,8 @@
 {% block page_title %}编辑机器人 - {{ bot.name }}{% endblock %}
 
 {% block content %}
+{% set bot_config = bot.get_config() %}
+{% set selected_protocol = bot.protocol %}
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">编辑机器人</h3>
@@ -15,18 +17,20 @@
                     <div class="mb-3">
                         <label class="form-label required">机器人名称</label>
                         <input class="form-control" name="name" placeholder="请输入机器人名称"
-                               required type="text"
-                               value="{{ bot.name }}" {% if is_running %}disabled{% endif %}>
+                               required type="text" value="{{ bot.name }}" {% if is_running %}disabled{% endif %}>
                     </div>
                 </div>
                 <div class="col-lg-6">
                     <div class="mb-3">
                         <label class="form-label required">协议类型</label>
-                        <select class="form-select" id="protocol-select" name="protocol" onchange="onProtocolChange()" required {% if is_running %}disabled{% endif %}>
-                            <option value="qq" {% if bot.protocol == 'qq' %}selected{% endif %}>QQ官方</option>
-                            <option value="onebot" {% if bot.protocol == 'onebot' %}selected{% endif %}>OneBot V11</option>
+                        <select class="form-select" id="protocol-select" name="protocol" onchange="onProtocolChange()"
+                                required {% if is_running %}disabled{% endif %}>
+                            {% for protocol in protocol_options %}
+                            <option value="{{ protocol.id }}" {% if selected_protocol == protocol.id %}selected{% endif %}>
+                                {{ protocol.name }}
+                            </option>
+                            {% endfor %}
                         </select>
-                        <small class="form-hint">选择机器人使用的协议</small>
                     </div>
                 </div>
             </div>
@@ -37,72 +41,52 @@
                           rows="3" {% if is_running %}disabled{% endif %}>{{ bot.description or '' }}</textarea>
             </div>
 
-            <!-- QQ协议字段 -->
-            {% set bot_config = bot.get_config() %}
-            <div class="protocol-fields" id="qq-fields">
+            {% for protocol in protocol_options %}
+            <div class="protocol-fields" id="fields-{{ protocol.id }}" style="display: none;">
                 <div class="row">
-                    <div class="col-lg-6">
+                    {% for field in protocol.config_fields %}
+                    {% set field_value = bot_config.get(field.name, field.default) %}
+                    {% if field.type == 'checkbox' %}
+                    <div class="col-12">
                         <div class="mb-3">
-                            <label class="form-label required">AppID</label>
-                            <input class="form-control" name="app_id" placeholder="请输入QQ机器人的AppID"
-                                   type="text"
-                                   value="{{ bot_config.get('app_id', '') }}" {% if is_running %}disabled{% endif %}>
-                            <small class="form-hint">从QQ开放平台获取</small>
+                            <label class="form-label">{{ field.label }}</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input protocol-input"
+                                       data-protocol="{{ protocol.id }}"
+                                       data-required="{{ 1 if field.required else 0 }}"
+                                       id="field-{{ protocol.id }}-{{ field.name }}"
+                                       name="{{ field.name }}"
+                                       type="checkbox"
+                                       {% if field_value %}checked{% endif %}
+                                       {% if is_running %}disabled{% endif %}>
+                                <label class="form-check-label" for="field-{{ protocol.id }}-{{ field.name }}">
+                                    {{ field.help or '启用此选项' }}
+                                </label>
+                            </div>
                         </div>
                     </div>
+                    {% else %}
                     <div class="col-lg-6">
                         <div class="mb-3">
-                            <label class="form-label required">AppSecret</label>
-                            <input class="form-control" name="app_secret" placeholder="请输入AppSecret"
-                                   type="password"
-                                   value="{{ bot_config.get('app_secret', '') }}" {% if is_running %}disabled{% endif %}>
-                            <small class="form-hint">从QQ开放平台获取</small>
+                            <label class="form-label {% if field.required %}required{% endif %}">{{ field.label }}</label>
+                            <input class="form-control protocol-input"
+                                   data-protocol="{{ protocol.id }}"
+                                   data-required="{{ 1 if field.required else 0 }}"
+                                   name="{{ field.name }}"
+                                   placeholder="{{ field.placeholder or '' }}"
+                                   type="{{ 'number' if field.type == 'number' else ('password' if field.type == 'password' else 'text') }}"
+                                   value="{{ field_value if field_value is not none else '' }}"
+                                   {% if is_running %}readonly{% endif %}>
+                            {% if field.help %}
+                            <small class="form-hint">{{ field.help }}</small>
+                            {% endif %}
                         </div>
                     </div>
+                    {% endif %}
+                    {% endfor %}
                 </div>
             </div>
-
-            <!-- OneBot协议字段 -->
-            <div class="protocol-fields" id="onebot-fields" style="display: none;">
-                <div class="row">
-                    <div class="col-lg-6">
-                        <div class="mb-3">
-                            <label class="form-label required">OneBot地址</label>
-                            <input class="form-control" name="ws_host" placeholder="127.0.0.1"
-                                   type="text"
-                                   value="{{ bot_config.get('ws_host', '127.0.0.1') }}" {% if is_running %}disabled{% endif %}>
-                            <small class="form-hint">OneBot客户端的IP地址</small>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
-                        <div class="mb-3">
-                            <label class="form-label required">OneBot端口</label>
-                            <input class="form-control" name="ws_port" placeholder="5700"
-                                   type="number" min="1" max="65535"
-                                   value="{{ bot_config.get('ws_port', '5700') }}" {% if is_running %}disabled{% endif %}>
-                            <small class="form-hint">OneBot客户端的WS端口（默认5700）</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Access Token (可选)</label>
-                    <input class="form-control" name="access_token" placeholder="请输入Access Token"
-                           type="password"
-                           value="{{ bot_config.get('access_token', '') }}" {% if is_running %}disabled{% endif %}>
-                    <small class="form-hint">如果OneBot客户端设置了Token，在此填写</small>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">自触发</label>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" name="self_trigger" id="self_trigger"
-                               {% if bot_config.get('self_trigger', False) %}checked{% endif %} {% if is_running %}disabled{% endif %}>
-                        <label class="form-check-label" for="self_trigger">
-                            开启自触发
-                        </label>
-                    </div>
-                    <small class="form-hint">开启后，机器人会处理自己发送的消息。关闭后防止死循环（默认关闭）</small>
-                </div>
-            </div>
+            {% endfor %}
 
             <div class="row">
                 <div class="col-lg-6">
@@ -121,22 +105,35 @@
                     <div class="mb-3">
                         <label class="form-label">状态</label>
                         <div class="form-check">
-                            <input class="form-check-input" id="is_active" name="is_active" type="checkbox" {% if bot.is_active %}checked{% endif %} {% if is_running %}disabled{% endif %}>
-                            <label class="form-check-label" for="is_active">
-                                启用机器人
-                            </label>
+                            <input class="form-check-input" id="is_active" name="is_active" type="checkbox"
+                                   {% if bot.is_active %}checked{% endif %} {% if is_running %}disabled{% endif %}>
+                            <label class="form-check-label" for="is_active">启用机器人</label>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {% if bot.protocol == 'qq' and bot_config.get('token') %}
+            {% for protocol in protocol_options %}
+            {% if selected_protocol == protocol.id and protocol.webhook_path %}
             <div class="mb-3">
-                <label class="form-label">Token</label>
-                <input class="form-control" readonly type="text" value="{{ bot_config.get('token', '') }}">
-                <small class="form-hint">系统自动生成的Token，只读</small>
+                <label class="form-label">Webhook地址</label>
+                <div class="input-group">
+                    <input class="form-control" readonly type="text" value="{{ request.url_root }}webhook/{{ protocol.webhook_path }}">
+                    <button class="btn btn-outline-secondary btn-icon"
+                            onclick="navigator.clipboard.writeText('{{ request.url_root }}webhook/{{ protocol.webhook_path }}').then(() => showToast('Webhook地址已复制到剪贴板', 'success'))"
+                            title="复制Webhook地址"
+                            type="button">
+                        <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                             stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                             xmlns="http://www.w3.org/2000/svg">
+                            <rect height="13" rx="2" ry="2" width="13" x="9" y="9"/>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
             {% endif %}
+            {% endfor %}
 
             <div class="mb-3">
                 <label class="form-label">创建时间</label>
@@ -155,41 +152,25 @@
 
 {% block extra_js %}
 <script>
-    // 协议切换函数
     function onProtocolChange() {
         const protocol = document.getElementById('protocol-select').value;
-        const qqFields = document.getElementById('qq-fields');
-        const onebotFields = document.getElementById('onebot-fields');
-        
-        if (protocol === 'qq') {
-            // 显示QQ字段
-            qqFields.style.display = 'block';
-            onebotFields.style.display = 'none';
-            
-            // 设置QQ字段为必填
-            document.querySelector('[name="app_id"]').required = true;
-            document.querySelector('[name="app_secret"]').required = true;
-            
-            // OneBot字段不必填
-            document.querySelector('[name="ws_host"]').required = false;
-            document.querySelector('[name="ws_port"]').required = false;
-        } else if (protocol === 'onebot') {
-            // 显示OneBot字段
-            qqFields.style.display = 'none';
-            onebotFields.style.display = 'block';
-            
-            // QQ字段不必填
-            document.querySelector('[name="app_id"]').required = false;
-            document.querySelector('[name="app_secret"]').required = false;
-            
-            // 设置OneBot字段为必填
-            document.querySelector('[name="ws_host"]').required = true;
-            document.querySelector('[name="ws_port"]').required = true;
+
+        document.querySelectorAll('.protocol-fields').forEach(el => {
+            el.style.display = 'none';
+        });
+        const activeFields = document.getElementById(`fields-${protocol}`);
+        if (activeFields) {
+            activeFields.style.display = 'block';
         }
+
+        document.querySelectorAll('.protocol-input').forEach(el => {
+            const sameProtocol = el.dataset.protocol === protocol;
+            const required = el.dataset.required === '1';
+            el.required = sameProtocol && required;
+        });
     }
-    
-    // 页面加载时初始化
-    document.addEventListener('DOMContentLoaded', function() {
+
+    document.addEventListener('DOMContentLoaded', () => {
         onProtocolChange();
     });
 </script>

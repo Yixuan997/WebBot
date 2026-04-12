@@ -41,14 +41,12 @@
                     <label class="form-label">协议限制</label>
                     <div>
                         {% set protocols = config.get('protocols', []) %}
+                        {% for protocol in protocol_options %}
                         <label class="form-check form-check-inline">
-                            <input class="form-check-input" type="checkbox" name="protocol_qq" value="qq" {% if 'qq' in protocols %}checked{% endif %}>
-                            <span class="form-check-label">QQ官方</span>
+                            <input class="form-check-input protocol-checkbox" type="checkbox" name="protocols[]" value="{{ protocol.id }}" {% if protocol.id in protocols %}checked{% endif %}>
+                            <span class="form-check-label">{{ protocol.name }}</span>
                         </label>
-                        <label class="form-check form-check-inline">
-                            <input class="form-check-input" type="checkbox" name="protocol_onebot" value="onebot" {% if 'onebot' in protocols %}checked{% endif %}>
-                            <span class="form-check-label">OneBot</span>
-                        </label>
+                        {% endfor %}
                         <small class="text-muted ms-2">不选则支持所有协议</small>
                     </div>
                 </div>
@@ -123,10 +121,8 @@
         event.preventDefault();
         const formEl = document.getElementById('basicInfoForm');
         const formData = new FormData(formEl);
-        // 收集协议
-        const protocols = [];
-        if (formData.get('protocol_qq')) protocols.push('qq');
-        if (formData.get('protocol_onebot')) protocols.push('onebot');
+        // 收集协议（动态）
+        const protocols = formData.getAll('protocols[]');
         
         const data = {
             name: formData.get('name'),

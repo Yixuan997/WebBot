@@ -25,6 +25,48 @@ from ...base.bot import BaseBot
 class OneBotAdapter(BaseAdapter):
     """OneBot V11协议适配器（正向WebSocket客户端）"""
 
+    PROTOCOL = "onebot"
+    DISPLAY_NAME = "OneBot V11"
+    STARTUP_ERROR_HINT = "OneBot适配器启动失败，请检查WebSocket配置"
+    SUPPORTED_MESSAGE_TYPES = {"text", "image", "video", "voice"}
+    BOT_CONFIG_FIELDS = [
+        {
+            "name": "ws_host",
+            "label": "OneBot地址",
+            "type": "text",
+            "required": True,
+            "default": "127.0.0.1",
+            "placeholder": "127.0.0.1",
+            "help": "OneBot客户端的IP地址",
+        },
+        {
+            "name": "ws_port",
+            "label": "OneBot端口",
+            "type": "number",
+            "required": True,
+            "default": 5700,
+            "placeholder": "5700",
+            "help": "OneBot客户端的WebSocket端口",
+        },
+        {
+            "name": "access_token",
+            "label": "Access Token",
+            "type": "password",
+            "required": False,
+            "default": "",
+            "placeholder": "可选",
+            "help": "如果OneBot配置了Token，请填写",
+        },
+        {
+            "name": "self_trigger",
+            "label": "处理自发消息",
+            "type": "checkbox",
+            "required": False,
+            "default": False,
+            "help": "开启后会处理机器人自己发出的消息",
+        },
+    ]
+
     def __init__(self, bot_id: int, config: Dict[str, Any]):
         super().__init__(bot_id, config)
 
@@ -89,7 +131,7 @@ class OneBotAdapter(BaseAdapter):
             if self.connected:
                 self.running = True
                 self.start_time = time.time()
-                log_info(self.bot_id, "✅ OneBot适配器启动成功",
+                log_info(self.bot_id, " OneBot适配器启动成功",
                          "ONEBOT_ADAPTER_STARTED", ws_url=self.ws_url)
                 return True
             else:
@@ -134,7 +176,7 @@ class OneBotAdapter(BaseAdapter):
                 log_info(self.bot_id, "OneBot运行统计", "ONEBOT_STATS",
                          uptime=f"{uptime}秒", messages=self.message_count)
 
-            log_info(self.bot_id, "✅ OneBot适配器已停止", "ONEBOT_ADAPTER_STOPPED")
+            log_info(self.bot_id, " OneBot适配器已停止", "ONEBOT_ADAPTER_STOPPED")
             return True
 
         except Exception as e:
@@ -180,7 +222,7 @@ class OneBotAdapter(BaseAdapter):
     def _on_open(self, ws):
         """连接打开回调"""
         self.connected = True
-        log_info(self.bot_id, f"✅ 已连接到OneBot: {self.ws_url}", "ONEBOT_CONNECTED")
+        log_info(self.bot_id, f" 已连接到OneBot: {self.ws_url}", "ONEBOT_CONNECTED")
 
     def _on_message(self, ws, message):
         """收到消息回调"""
@@ -193,7 +235,7 @@ class OneBotAdapter(BaseAdapter):
                 echo = data.get('echo')
                 if echo:
                     self.api_responses[echo] = data
-                log_debug(self.bot_id, f"✅ API响应: {data.get('status', 'ok')}", "ONEBOT_API_RESPONSE")
+                log_debug(self.bot_id, f" API响应: {data.get('status', 'ok')}", "ONEBOT_API_RESPONSE")
                 return
 
             # 记录原始数据的基本信息
@@ -204,18 +246,18 @@ class OneBotAdapter(BaseAdapter):
             if post_type == 'message_sent':
                 if not self.self_trigger:
                     log_debug(self.bot_id,
-                              f"✅ 消息已发送",
+                              f" 消息已发送",
                               "ONEBOT_MESSAGE_SENT",
                               message_id=data.get('message_id'))
                     return
                 else:
                     log_info(self.bot_id,
-                             f"🔄 处理自己发送的消息（自触发已开启）",
+                             f" 处理自己发送的消息（自触发已开启）",
                              "ONEBOT_MESSAGE_SENT_SELF_TRIGGER",
                              message_id=data.get('message_id'))
 
             log_debug(self.bot_id,
-                      f"📨 收到OneBot事件: {post_type}",
+                      f" 收到OneBot事件: {post_type}",
                       "ONEBOT_EVENT_RECEIVED",
                       post_type=post_type,
                       message_type=message_type if post_type == 'message' else None,
@@ -231,10 +273,10 @@ class OneBotAdapter(BaseAdapter):
             if not self.bot:
                 self_id = str(data.get('self_id', 0))
                 self.bot = OneBotBot(self, self_id)
-                log_info(self.bot_id, f"🤖 OneBot实例创建: {self_id} (adapter={id(self)})", "ONEBOT_BOT_CREATED")
+                log_info(self.bot_id, f" OneBot实例创建: {self_id} (adapter={id(self)})", "ONEBOT_BOT_CREATED")
             elif self.bot and id(self.bot.adapter) != id(self):
                 log_error(self.bot_id,
-                          f"⚠️ 检测到多个 adapter 实例！current={id(self)}, bot.adapter={id(self.bot.adapter)}",
+                          f" 检测到多个 adapter 实例！current={id(self)}, bot.adapter={id(self.bot.adapter)}",
                           "ONEBOT_DUPLICATE_ADAPTER")
 
             # 注入bot到event
@@ -251,14 +293,14 @@ class OneBotAdapter(BaseAdapter):
                 # 根据消息类型记录不同的日志
                 if message_type == 'private':
                     log_info(self.bot_id,
-                             f"💬 收到私聊消息",
+                             f" 收到私聊消息",
                              "ONEBOT_PRIVATE_MESSAGE",
                              user_id=user_id,
                              message_id=data.get('message_id'),
                              content_preview=content_preview)
                 elif message_type == 'group':
                     log_info(self.bot_id,
-                             f"👥 收到群聊消息",
+                             f" 收到群聊消息",
                              "ONEBOT_GROUP_MESSAGE",
                              user_id=user_id,
                              group_id=data.get('group_id'),
@@ -279,7 +321,7 @@ class OneBotAdapter(BaseAdapter):
                 )
 
                 if isinstance(event, OneBotMessageEvent):
-                    log_debug(self.bot_id, "✅ 消息处理完成", "ONEBOT_MESSAGE_DONE")
+                    log_debug(self.bot_id, " 消息处理完成", "ONEBOT_MESSAGE_DONE")
 
         except Exception as e:
             log_error(self.bot_id, f"处理消息异常: {e}",
@@ -406,7 +448,7 @@ class OneBotAdapter(BaseAdapter):
                     retcode = response.get('retcode', 0)
 
                     if status == 'ok' or retcode == 0:
-                        log_debug(self.bot_id, f"✅ API调用成功: {api}", "ONEBOT_API_SUCCESS")
+                        log_debug(self.bot_id, f" API调用成功: {api}", "ONEBOT_API_SUCCESS")
                         return response.get('data')
                     else:
                         error_msg = response.get('message', '未知错误')
@@ -451,3 +493,53 @@ class OneBotAdapter(BaseAdapter):
             "connection_type": "websocket"
         })
         return status
+
+    @classmethod
+    def parse_bot_config_from_form(cls, form, existing_config: Optional[dict] = None) -> dict:
+        try:
+            config = super().parse_bot_config_from_form(form, existing_config)
+        except ValueError:
+            raise ValueError("OneBot端口必须是数字")
+        # OneBot 可选字段标准化
+        if not config.get("access_token"):
+            config["access_token"] = None
+        if config.get("ws_port") is None:
+            config["ws_port"] = 5700
+        if not config.get("ws_host"):
+            config["ws_host"] = "127.0.0.1"
+        config["self_trigger"] = bool(config.get("self_trigger"))
+        return config
+
+    @classmethod
+    def validate_bot_config(cls, config: dict) -> tuple[bool, str]:
+        ok, err = super().validate_bot_config(config)
+        if not ok:
+            return ok, err
+        try:
+            int(config.get("ws_port"))
+        except (TypeError, ValueError):
+            return False, "OneBot协议配置项 ws_port 必须是数字"
+        return True, ""
+
+    @classmethod
+    def get_config_summary(cls, config: dict) -> str:
+        ws_host = config.get("ws_host", "")
+        ws_port = config.get("ws_port", "")
+        return f"ws://{ws_host}:{ws_port}"
+
+    def build_text_message(self, content: str):
+        from .message import OneBotMessage
+        return OneBotMessage.text(content)
+
+    def build_image_message(self, image_url_or_file_info: str = "", caption: str = "",
+                            base64_data: str = None, auto_upload: bool = True):
+        from .message import OneBotMessage
+        return OneBotMessage.image(image_url_or_file_info or base64_data or "")
+
+    def build_video_message(self, video_url: str, caption: str = ""):
+        from .message import OneBotMessage
+        return OneBotMessage.video(video_url)
+
+    def build_voice_message(self, voice_url: str):
+        from .message import OneBotMessage
+        return OneBotMessage.record(voice_url)

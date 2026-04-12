@@ -67,6 +67,43 @@ class QQWebhookHandler(BaseWebhookHandler):
         """获取QQ机器人的AppID"""
         return headers.get('X-Bot-Appid')
 
+    def is_verification_request(self, event_data: dict) -> bool:
+        """QQ 回调验证请求：op == 13。"""
+        return event_data.get('op') == 13
+
+    def handle_verification_request(self, event_data: dict, headers: dict):
+        """处理 QQ 回调验证并返回 plain_token + signature。"""
+        try:
+            log_info(0, "QQ 处理回调验证请求", "QQ_WEBHOOK_VERIFICATION_HANDLE")
+
+            payload = event_data.get('d', {})
+            plain_token = payload.get('plain_token')
+            event_ts = payload.get('event_ts')
+
+            if not plain_token or not event_ts:
+                log_error(0, "QQ 回调验证缺少必要参数", "QQ_WEBHOOK_VERIFICATION_MISSING_PARAMS")
+                from flask import jsonify
+                return jsonify({"error": "Missing required parameters"}), 400
+
+            signature = self.generate_verification_signature(event_ts, plain_token)
+            if not signature:
+                log_error(0, "QQ 生成signature失败", "QQ_WEBHOOK_VERIFICATION_SIGNATURE_FAILED")
+                from flask import jsonify
+                return jsonify({"error": "Failed to generate signature"}), 500
+
+            log_info(0, "QQ 回调验证成功", "QQ_WEBHOOK_VERIFICATION_SUCCESS")
+            from flask import jsonify
+            response = {"plain_token": plain_token, "signature": signature}
+            json_response = jsonify(response)
+            json_response.headers['Content-Type'] = 'application/json; charset=utf-8'
+            json_response.status_code = 200
+            return json_response
+
+        except Exception as e:
+            log_error(0, f"QQ 回调验证异常: {e}", "QQ_WEBHOOK_VERIFICATION_ERROR")
+            from flask import jsonify
+            return jsonify({"error": "Verification failed"}), 500
+
     def verify_signature(self, raw_data: bytes, headers: dict, secret: str) -> bool:
         """验证QQ Webhook签名"""
         try:
@@ -195,9 +232,9 @@ class QQWebhookHandler(BaseWebhookHandler):
             # 优先使用缓存查找 (O(1)性能)
             from Core.bot.cache import bot_cache_manager
 
-            bot_id = bot_cache_manager.get_bot_by_app_id(identifier)
+            bot_id = bot_cache_manager.get_bot_by_mapping('qq', identifier)
             if bot_id:
-                log_debug(0, f"✅ 缓存命中找到机器人", "QQ_WEBHOOK_BOT_FOUND_CACHE",
+                log_debug(0, f"缓存命中找到机器人", "QQ_WEBHOOK_BOT_FOUND_CACHE",
                           found_bot_id=bot_id, app_id=identifier)
                 return bot_id
 
@@ -211,7 +248,7 @@ class QQWebhookHandler(BaseWebhookHandler):
                     # 获取机器人配置但不记录日志 (避免重复日志)
                     bot_config = bot_manager._get_bot_config(bot_id, log_success=False)
                     if bot_config:
-                        bot_cache_manager.update_bot_mapping(bot_id, identifier, 'running')
+                        bot_cache_manager.update_bot_mapping(bot_id, 'qq', identifier, 'running')
                         bot_cache_manager.update_bot_config_cache(bot_id, bot_config)
                         log_debug(0, f"已更新缓存映射", "QQ_WEBHOOK_CACHE_UPDATE",
                                   bot_id=bot_id, app_id=identifier)
@@ -221,7 +258,7 @@ class QQWebhookHandler(BaseWebhookHandler):
                 return bot_id
 
             # 完全未找到
-            log_error(0, f"❌ 未找到AppID为 {identifier} 的机器人", "QQ_WEBHOOK_BOT_NOT_FOUND")
+            log_error(0, f"未找到AppID为 {identifier} 的机器人", "QQ_WEBHOOK_BOT_NOT_FOUND")
             return None
 
         except Exception as e:
@@ -280,19 +317,19 @@ class QQWebhookHandler(BaseWebhookHandler):
 
             # 2. 事件去重检查
             if unique_event_id and self._is_duplicate_event(unique_event_id):
-                log_info(bot_id, f"🔄 重复事件: {unique_event_id}", "QQ_DUPLICATE_EVENT", event_id=unique_event_id)
+                log_info(bot_id, f"重复事件: {unique_event_id}", "QQ_DUPLICATE_EVENT", event_id=unique_event_id)
                 return {"status": "duplicate", "message": "Event already processed"}
 
             # 立即记录事件ID
             if unique_event_id:
                 self._record_event(unique_event_id)
-                log_debug(bot_id, f"📝 事件ID已记录: {unique_event_id}", "QQ_EVENT_RECORDED_EARLY",
+                log_debug(bot_id, f"事件ID已记录: {unique_event_id}", "QQ_EVENT_RECORDED_EARLY",
                           event_id=unique_event_id)
 
             # 提取时间戳信息
             timestamp = event_payload.get('timestamp') if event_payload else None
 
-            log_info(bot_id, f"📨 收到QQ事件: {event_type}", "QQ_WEBHOOK_EVENT_HANDLE",
+            log_info(bot_id, f"收到QQ事件: {event_type}", "QQ_WEBHOOK_EVENT_HANDLE",
                      qq_event_type=event_type,
                      op_code=op_code,
                      timestamp=timestamp,
@@ -356,7 +393,7 @@ class QQWebhookHandler(BaseWebhookHandler):
                 result = {"status": "ignored", "message": f"Unhandled event type: {event_type}"}
 
             # 移除原有的延迟记录逻辑，因为已经在前面立即记录了
-            log_debug(bot_id, f"✅ 事件处理完成: {event_type}", "QQ_EVENT_PROCESSED",
+            log_debug(bot_id, f"事件处理完成: {event_type}", "QQ_EVENT_PROCESSED",
                       event_id=unique_event_id, result_status=result.get("status") if result else "none")
 
             return result

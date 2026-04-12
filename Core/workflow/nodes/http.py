@@ -49,7 +49,7 @@ class HttpRequestNode(BaseNode):
             'type': 'text',
             'required': True,
             'placeholder': 'https://api.example.com/data',
-            'help': '请求地址,支持变量如 https://api.com/user/{{user_id}}'
+            'help': '请求地址,支持变量如 https://api.com/user/{{sender.user_id}}'
         },
         {
             'name': 'headers',

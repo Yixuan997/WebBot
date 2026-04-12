@@ -81,14 +81,12 @@
                         <div class="col-md-6">
                             <label class="form-label">协议限制</label>
                             <div>
+                                {% for protocol in protocol_options %}
                                 <label class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="protocol_qq" value="qq">
-                                    <span class="form-check-label">QQ官方</span>
+                                    <input class="form-check-input protocol-checkbox" type="checkbox" name="protocols[]" value="{{ protocol.id }}">
+                                    <span class="form-check-label">{{ protocol.name }}</span>
                                 </label>
-                                <label class="form-check form-check-inline">
-                                    <input class="form-check-input" type="checkbox" name="protocol_onebot" value="onebot">
-                                    <span class="form-check-label">OneBot</span>
-                                </label>
+                                {% endfor %}
                             </div>
                             <small class="form-hint">不选则支持所有协议</small>
                         </div>
@@ -162,10 +160,8 @@ function submitWorkflow(event) {
     const formData = new FormData(event.target);
     const triggerType = formData.get('trigger_type');
     
-    // 收集协议
-    const protocols = [];
-    if (formData.get('protocol_qq')) protocols.push('qq');
-    if (formData.get('protocol_onebot')) protocols.push('onebot');
+    // 收集协议（动态）
+    const protocols = formData.getAll('protocols[]');
     
     const data = new FormData();
     data.append('name', formData.get('name'));

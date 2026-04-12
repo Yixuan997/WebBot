@@ -32,7 +32,6 @@
                 <th>ID</th>
                 <th>机器人名称</th>
                 <th>协议</th>
-                <th>配置信息</th>
                 <th>所有者</th>
                 <th>状态</th>
                 <th>运行状态</th>
@@ -42,27 +41,11 @@
             </thead>
             <tbody>
             {% for bot in bots %}
-            {% set bot_config = bot.get_config() %}
             <tr>
                 <td>{{ bot.id }}</td>
                 <td>{{ bot.name }}</td>
                 <td>
-                    {% if bot.protocol == 'qq' %}
-                    <span class="badge bg-blue-lt">QQ官方</span>
-                    {% elif bot.protocol == 'onebot' %}
-                    <span class="badge bg-purple-lt">OneBot V11</span>
-                    {% else %}
-                    <span class="badge bg-secondary-lt">{{ bot.protocol }}</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if bot.protocol == 'qq' %}
-                    <code>{{ bot_config.get('app_id', 'N/A') }}</code>
-                    {% elif bot.protocol == 'onebot' %}
-                    <small>{{ bot_config.get('ws_host', '0.0.0.0') }}:{{ bot_config.get('ws_port', '8080') }}</small>
-                    {% else %}
-                    <small>-</small>
-                    {% endif %}
+                    <span class="badge bg-blue-lt">{{ protocol_name_map.get(bot.protocol, bot.protocol) }}</span>
                 </td>
                 <td>{{ bot.owner.username if bot.owner else '未知' }}</td>
                 <td>
@@ -112,7 +95,7 @@
             </tr>
             {% else %}
             <tr>
-                <td class="text-center text-muted py-4" colspan="6">
+                <td class="text-center text-muted py-4" colspan="8">
                     <div class="empty">
                         <div class="empty-img"><img alt="" height="128"
                                                     src="/static/illustrations/undraw_printing_invoices_5r4r.svg"></div>

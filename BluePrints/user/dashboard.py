@@ -8,6 +8,7 @@
 
 from flask import render_template, session, redirect, url_for
 
+from Core.protocols import list_protocols
 from Models import User, Bot, System, UserWorkflow
 
 
@@ -45,8 +46,11 @@ def dashboard():
         'workflows_count': workflows_count,
     }
 
+    protocol_name_map = {item['id']: item['name'] for item in list_protocols()}
+
     return render_template('user/dashboard.html',
                            user=user,
                            stats=stats,
                            recent_bots=user_bots[:5],  # 最近的5个机器人
-                           system=system)
+                           system=system,
+                           protocol_name_map=protocol_name_map)

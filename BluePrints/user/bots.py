@@ -8,6 +8,13 @@
 
 from flask import render_template, request, flash, redirect, url_for, session
 
+from Core.protocols import (
+    get_default_protocol_id,
+    list_protocols,
+    parse_protocol_config_from_form,
+    validate_protocol_config,
+    validate_protocol_config_uniqueness,
+)
 from Models import User, Bot, db, System
 
 
@@ -36,7 +43,9 @@ def user_bots():
             bot.real_is_running = bot.is_running
 
     system = System.query.first()
-    return render_template('user/bots/list.html', user=user, bots=bots, system=system)
+    protocol_name_map = {item['id']: item['name'] for item in list_protocols()}
+    return render_template('user/bots/list.html', user=user, bots=bots, system=system,
+                           protocol_name_map=protocol_name_map)
 
 
 def create_bot():
@@ -49,14 +58,12 @@ def create_bot():
 
     if request.method == 'GET':
         system = System.query.first()
-        return render_template('user/bots/create.html', user=user, system=system)
+        return render_template('user/bots/create.html', user=user, system=system, protocol_options=list_protocols())
 
     try:
-        import json
-
         # 获取表单数据
         name = request.form.get('name', '').strip()
-        protocol = request.form.get('protocol', 'qq').strip()
+        protocol = request.form.get('protocol', get_default_protocol_id()).strip()
         description = request.form.get('description', '').strip()
 
         # 验证数据
@@ -64,71 +71,29 @@ def create_bot():
             flash('机器人名称不能为空', 'danger')
             return redirect(url_for('user.create_bot'))
 
-        if protocol == 'qq':
-            # QQ协议
-            app_id = request.form.get('app_id', '').strip()
-            app_secret = request.form.get('app_secret', '').strip()
+        try:
+            config = parse_protocol_config_from_form(protocol, request.form, existing_config={})
+        except Exception as e:
+            flash(str(e), 'danger')
+            return redirect(url_for('user.create_bot'))
 
-            if not app_id:
-                flash('App ID不能为空', 'danger')
-                return redirect(url_for('user.create_bot'))
+        config_ok, config_error = validate_protocol_config(protocol, config)
+        if not config_ok:
+            flash(config_error, 'danger')
+            return redirect(url_for('user.create_bot'))
 
-            if not app_secret:
-                flash('App Secret不能为空', 'danger')
-                return redirect(url_for('user.create_bot'))
-
-            # 检查App ID是否已存在
-            qq_bots = Bot.query.filter_by(protocol='qq').all()
-            for existing_bot in qq_bots:
-                existing_config = existing_bot.get_config()
-                if existing_config.get('app_id') == app_id:
-                    flash('该App ID已被使用', 'danger')
-                    return redirect(url_for('user.create_bot'))
-
-            config = {
-                'app_id': app_id,
-                'app_secret': app_secret,
-                'token': None
-            }
-
-        elif protocol == 'onebot':
-            # OneBot协议
-            ws_host = request.form.get('ws_host', '127.0.0.1').strip()
-            ws_port = request.form.get('ws_port', '5700').strip()
-            access_token = request.form.get('access_token', '').strip()
-            self_trigger = request.form.get('self_trigger') == 'on'
-
-            if not ws_host:
-                flash('OneBot地址不能为空', 'danger')
-                return redirect(url_for('user.create_bot'))
-
-            if not ws_port:
-                flash('OneBot端口不能为空', 'danger')
-                return redirect(url_for('user.create_bot'))
-
-            try:
-                ws_port = int(ws_port)
-            except ValueError:
-                flash('OneBot端口必须是数字', 'danger')
-                return redirect(url_for('user.create_bot'))
-
-            config = {
-                'ws_host': ws_host,
-                'ws_port': ws_port,
-                'access_token': access_token if access_token else None,
-                'self_trigger': self_trigger
-            }
-        else:
-            flash('不支持的协议类型', 'danger')
+        unique_ok, unique_error = validate_protocol_config_uniqueness(protocol, config)
+        if not unique_ok:
+            flash(unique_error, 'danger')
             return redirect(url_for('user.create_bot'))
 
         bot = Bot(
             name=name,
             protocol=protocol,
-            config=json.dumps(config),
             description=description,
             owner_id=user_id
         )
+        bot.set_config(config)
 
         db.session.add(bot)
         db.session.commit()
@@ -167,7 +132,8 @@ def edit_bot(bot_id):
             is_running = bot.is_running
 
         system = System.query.first()
-        return render_template('user/bots/edit.html', user=user, bot=bot, system=system, is_running=is_running)
+        return render_template('user/bots/edit.html', user=user, bot=bot, system=system, is_running=is_running,
+                               protocol_options=list_protocols())
 
     try:
         # 检查机器人是否运行中
@@ -194,49 +160,29 @@ def edit_bot(bot_id):
         bot.description = description
 
         # 根据协议类型更新配置
-        import json
-        config_data = {}
+        existing_config = bot.get_config()
+        try:
+            config_data = parse_protocol_config_from_form(bot.protocol, request.form, existing_config=existing_config)
+        except Exception as e:
+            flash(str(e), 'danger')
+            return redirect(url_for('user.edit_bot', bot_id=bot_id))
 
-        if bot.protocol == 'qq':
-            app_id = request.form.get('app_id', '').strip()
-            app_secret = request.form.get('app_secret', '').strip()
+        config_ok, config_error = validate_protocol_config(bot.protocol, config_data)
+        if not config_ok:
+            flash(config_error, 'danger')
+            return redirect(url_for('user.edit_bot', bot_id=bot_id))
 
-            if not all([app_id, app_secret]):
-                flash('QQ协议需要填写AppID和AppSecret', 'danger')
-                return redirect(url_for('user.edit_bot', bot_id=bot_id))
-
-            # 保留原有token
-            old_config = bot.get_config()
-            old_token = old_config.get('token') if old_config else None
-
-            config_data = {
-                'app_id': app_id,
-                'app_secret': app_secret,
-                'token': old_token
-            }
-        elif bot.protocol == 'onebot':
-            ws_host = request.form.get('ws_host', '').strip()
-            ws_port = request.form.get('ws_port', '').strip()
-            access_token = request.form.get('access_token', '').strip()
-
-            if not all([ws_host, ws_port]):
-                flash('OneBot协议需要填写WebSocket主机和端口', 'danger')
-                return redirect(url_for('user.edit_bot', bot_id=bot_id))
-
-            try:
-                ws_port = int(ws_port)
-            except ValueError:
-                flash('WebSocket端口必须是数字', 'danger')
-                return redirect(url_for('user.edit_bot', bot_id=bot_id))
-
-            config_data = {
-                'ws_host': ws_host,
-                'ws_port': ws_port,
-                'access_token': access_token if access_token else None
-            }
+        unique_ok, unique_error = validate_protocol_config_uniqueness(
+            bot.protocol,
+            config_data,
+            exclude_bot_id=bot.id
+        )
+        if not unique_ok:
+            flash(unique_error, 'danger')
+            return redirect(url_for('user.edit_bot', bot_id=bot_id))
 
         # 更新配置
-        bot.config = json.dumps(config_data, ensure_ascii=False)
+        bot.set_config(config_data)
 
         db.session.commit()
 

@@ -120,7 +120,7 @@ class QQEventProcessor:
             }
 
             # 记录单聊消息事件
-            log_info(bot_id, f"💬 收到单聊消息", "QQ_C2C_MESSAGE_WEBHOOK",
+            log_info(bot_id, f"收到单聊消息", "QQ_C2C_MESSAGE_WEBHOOK",
                      openid=message_data['openid'],
                      content_preview=message_data['content'][:50],
                      timestamp=message_data['timestamp'],
@@ -166,7 +166,7 @@ class QQEventProcessor:
                 'msg_id': payload.get('id')  # 添加原始消息ID用于回复
             }
 
-            log_info(bot_id, f"📢 收到频道消息", "QQ_CHANNEL_MESSAGE_WEBHOOK",
+            log_info(bot_id, f"收到频道消息", "QQ_CHANNEL_MESSAGE_WEBHOOK",
                      channel_id=message_data['channel_id'],
                      guild_id=message_data['guild_id'],
                      content_preview=message_data['content'][:50],
@@ -218,7 +218,7 @@ class QQEventProcessor:
                              author_info.get('id') or
                              author_info.get('openid'))
 
-            log_info(bot_id, f"‍👥 收到群聊@消息", "QQ_GROUP_AT_MESSAGE_WEBHOOK",
+            log_info(bot_id, f"收到群聊@消息", "QQ_GROUP_AT_MESSAGE_WEBHOOK",
                      message_id=message_data['id'],
                      group_openid=message_data['group_openid'],
                      content_preview=message_data['content'][:50],
@@ -263,7 +263,7 @@ class QQEventProcessor:
                 'msg_id': payload.get('id')  # 原始消息ID用于回复
             }
 
-            log_info(bot_id, f"📣 收到公域频道@消息", "QQ_AT_MESSAGE_WEBHOOK",
+            log_info(bot_id, f"收到公域频道@消息", "QQ_AT_MESSAGE_WEBHOOK",
                      channel_id=message_data['channel_id'],
                      guild_id=message_data['guild_id'],
                      content_preview=message_data['content'][:50],
@@ -308,7 +308,7 @@ class QQEventProcessor:
                 'msg_id': payload.get('id')  # 添加原始消息ID用于回复
             }
 
-            log_info(bot_id, f"📩 收到私信消息", "QQ_DIRECT_MESSAGE_WEBHOOK",
+            log_info(bot_id, f"收到私信消息", "QQ_DIRECT_MESSAGE_WEBHOOK",
                      guild_id=message_data['guild_id'],
                      content_preview=message_data['content'][:50],
                      timestamp=message_data['timestamp'],
@@ -336,10 +336,7 @@ class QQEventProcessor:
                 'event_type': event_type  # 事件类型
             }
 
-            # 根据事件类型选择emoji
-            event_emoji = {"GUILD_CREATE": "🏰➕", "GUILD_UPDATE": "🏰🔄", "GUILD_DELETE": "🏰➖"}.get(event_type, "🏰")
-
-            log_info(bot_id, f"{event_emoji} 频道管理事件: {event_type}", "QQ_GUILD_EVENT_WEBHOOK",
+            log_info(bot_id, f"频道管理事件: {event_type}", "QQ_GUILD_EVENT_WEBHOOK",
                      guild_id=guild_info['id'],
                      guild_name=guild_info['name'],
                      event_type=event_type,
@@ -367,10 +364,7 @@ class QQEventProcessor:
                 'event_type': event_type  # 事件类型
             }
 
-            # 根据事件类型选择emoji
-            event_emoji = {"CHANNEL_CREATE": "📺➕", "CHANNEL_UPDATE": "📺🔄", "CHANNEL_DELETE": "📺➖"}.get(event_type, "📺")
-
-            log_info(bot_id, f"{event_emoji} 子频道管理事件: {event_type}", "QQ_CHANNEL_EVENT_WEBHOOK",
+            log_info(bot_id, f"子频道管理事件: {event_type}", "QQ_CHANNEL_EVENT_WEBHOOK",
                      channel_id=channel_info['id'],
                      guild_id=channel_info['guild_id'],
                      channel_name=channel_info['name'],
@@ -398,11 +392,7 @@ class QQEventProcessor:
                 'event_type': event_type  # 事件类型
             }
 
-            # 根据事件类型选择emoji
-            event_emoji = {"GUILD_MEMBER_ADD": "👤➕", "GUILD_MEMBER_UPDATE": "👤🔄", "GUILD_MEMBER_REMOVE": "👤➖"}.get(
-                event_type, "👤")
-
-            log_info(bot_id, f"{event_emoji} 频道成员事件: {event_type}", "QQ_MEMBER_EVENT_WEBHOOK",
+            log_info(bot_id, f"频道成员事件: {event_type}", "QQ_MEMBER_EVENT_WEBHOOK",
                      user_id=member_info['user'].get('id'),
                      guild_id=member_info['guild_id'],
                      nick=member_info['nick'],
@@ -429,8 +419,7 @@ class QQEventProcessor:
             }
 
             action = "添加" if event_type == 'FRIEND_ADD' else "删除"
-            emoji = "👥➕" if event_type == 'FRIEND_ADD' else "👥➖"
-            log_info(bot_id, f"{emoji} 好友{action}事件", "QQ_FRIEND_EVENT_WEBHOOK",
+            log_info(bot_id, f"好友{action}事件", "QQ_FRIEND_EVENT_WEBHOOK",
                      openid=friend_info['openid'],
                      event_type=event_type,
                      timestamp=friend_info['timestamp'])
@@ -456,8 +445,7 @@ class QQEventProcessor:
             }
 
             action = "添加到" if event_type == 'GROUP_ADD_ROBOT' else "移出"
-            emoji = "🤖➕" if event_type == 'GROUP_ADD_ROBOT' else "🤖➖"
-            log_info(bot_id, f"{emoji} 机器人被{action}群聊", "QQ_GROUP_ROBOT_EVENT_WEBHOOK",
+            log_info(bot_id, f"机器人被{action}群聊", "QQ_GROUP_ROBOT_EVENT_WEBHOOK",
                      group_openid=group_info['group_openid'],
                      op_member_openid=group_info['op_member_openid'],
                      event_type=event_type,
@@ -492,9 +480,7 @@ class QQEventProcessor:
                 target = setting_info['group_openid']
 
             action = "开启" if 'RECEIVE' in event_type else "关闭"
-            emoji = "🔔" if 'RECEIVE' in event_type else "🔕"
-
-            log_info(bot_id, f"{emoji} {scope}消息推送{action}", "QQ_MESSAGE_SETTING_EVENT_WEBHOOK",
+            log_info(bot_id, f"{scope}消息推送{action}", "QQ_MESSAGE_SETTING_EVENT_WEBHOOK",
                      target=target,
                      event_type=event_type,
                      timestamp=setting_info['timestamp'])
@@ -523,7 +509,7 @@ class QQEventProcessor:
                 'timestamp': payload.get('timestamp')  # 时间戳
             }
 
-            log_info(bot_id, f"🎮 收到互动事件", "QQ_INTERACTION_EVENT_WEBHOOK",
+            log_info(bot_id, f"收到互动事件", "QQ_INTERACTION_EVENT_WEBHOOK",
                      interaction_id=interaction_info['id'],
                      interaction_type=interaction_info['type'],
                      guild_id=interaction_info['guild_id'],
@@ -553,8 +539,7 @@ class QQEventProcessor:
             }
 
             result = "通过" if event_type == 'MESSAGE_AUDIT_PASS' else "拒绝"
-            emoji = "✅" if event_type == 'MESSAGE_AUDIT_PASS' else "❌"
-            log_info(bot_id, f"{emoji} 消息审核{result}", "QQ_AUDIT_EVENT_WEBHOOK",
+            log_info(bot_id, f"消息审核{result}", "QQ_AUDIT_EVENT_WEBHOOK",
                      message_id=audit_info['message_id'],
                      audit_id=audit_info['audit_id'],
                      audit_time=audit_info['audit_time'],
@@ -576,15 +561,15 @@ class QQEventProcessor:
         try:
             plain_token = payload.get('plain_token')
             if plain_token:
-                log_info(bot_id, "✅ 处理QQ回调地址验证成功", "QQ_WEBHOOK_CALLBACK_VERIFICATION",
+                log_info(bot_id, "处理QQ回调地址验证成功", "QQ_WEBHOOK_CALLBACK_VERIFICATION",
                          plain_token=plain_token[:10] + "...")
 
                 # 根据QQ官方文档，回调验证需要返回plain_token
                 response = {"plain_token": plain_token}
                 return response
             else:
-                log_error(bot_id, "❌ QQ回调验证缺少plain_token", "QQ_WEBHOOK_VERIFICATION_ERROR")
+                log_error(bot_id, "QQ回调验证缺少plain_token", "QQ_WEBHOOK_VERIFICATION_ERROR")
                 return {"error": "Missing plain_token in payload"}
         except Exception as e:
-            log_error(bot_id, f"❌ QQ回调验证异常: {e}", "QQ_WEBHOOK_VERIFICATION_EXCEPTION", error=str(e))
+            log_error(bot_id, f"QQ回调验证异常: {e}", "QQ_WEBHOOK_VERIFICATION_EXCEPTION", error=str(e))
             return {"error": f"Verification failed: {str(e)}"}

@@ -30,7 +30,7 @@ def get_mail_config():
     if not email_config:
         return None
 
-    # 🔧 修复：根据端口自动判断加密方式（与后台测试邮件保持一致）
+    # 修复：根据端口自动判断加密方式（与后台测试邮件保持一致）
     port = email_config.port
     use_ssl = port == 465  # 465端口使用SSL
     use_tls = email_config.use_tls and port != 465  # 587端口使用TLS
@@ -54,12 +54,12 @@ def generate_verification_code(length=6):
 def send_email(to_email, subject, body, html=None):
     """发送邮件的通用方法"""
     try:
-        # 🔧 获取邮件配置
+        # 获取邮件配置
         mail_config = get_mail_config()
         if not mail_config:
             return False, "邮件服务未配置"
 
-        # 🔧 使用临时配置覆盖发送邮件
+        # 使用临时配置覆盖发送邮件
         from flask import current_app
 
         # 保存当前配置

@@ -249,12 +249,7 @@
                                         </span>
                                     <div class="flex-fill">
                                         <div class="font-weight-medium">{{ bot.name }}</div>
-                                        {% set bot_config = bot.get_config() %}
-                                        {% if bot.protocol == 'qq' %}
-                                        <div class="text-muted">QQ | {{ bot_config.get('app_id', 'N/A') }}</div>
-                                        {% elif bot.protocol == 'onebot' %}
-                                        <div class="text-muted">OneBot | {{ bot_config.get('ws_host', 'N/A') }}:{{ bot_config.get('ws_port', 'N/A') }}</div>
-                                        {% endif %}
+                                        <div class="text-muted">{{ protocol_name_map.get(bot.protocol, bot.protocol) }}</div>
                                     </div>
                                 </div>
                             </td>

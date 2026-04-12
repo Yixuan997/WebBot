@@ -5,7 +5,7 @@
 """
 import asyncio
 import time
-from typing import Any
+from typing import Any, Optional
 
 from Core.logging.file_logger import log_info, log_error, log_debug
 from Core.logging.utils import format_exception
@@ -32,12 +32,12 @@ class WorkflowEngine:
         self.workflow_steps = config.get('workflow', []) or []
         self.debug_recorder = None
 
-    def _find_start_index(self) -> int:
-        """优先从 start 节点开始执行，未找到则回退第一个节点。"""
+    def _find_start_index(self) -> Optional[int]:
+        """返回 start 节点索引；未找到时返回 None。"""
         for idx, step in enumerate(self.workflow_steps):
             if step.get('type') == 'start':
                 return idx
-        return 0
+        return None
 
     async def execute(self, event) -> dict[str, Any]:
         """
@@ -98,6 +98,9 @@ class WorkflowEngine:
         """执行所有节点"""
         node_index_map = {step.get('id'): idx for idx, step in enumerate(self.workflow_steps)}
         current_index = self._find_start_index()
+        if current_index is None:
+            log_error(0, f"工作流 {self.name} 缺少 start 节点", "WORKFLOW_START_NODE_MISSING")
+            return
         visited_nodes = set()
         loop_stack = []
 

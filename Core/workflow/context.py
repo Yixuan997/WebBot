@@ -103,7 +103,7 @@ class WorkflowContext:
         渲染模板字符串（支持Jinja2语法）
         
         Args:
-            template_str: 模板字符串，如 "Hello {{user_id}}" 或 "{{global.api_key}}"
+            template_str: 模板字符串，如 "Hello {{sender.user_id}}" 或 "{{global.api_key}}"
             
         Returns:
             str: 渲染后的字符串

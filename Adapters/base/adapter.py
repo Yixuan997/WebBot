@@ -101,7 +101,7 @@ class BaseAdapter(ABC):
         获取适配器名称
         
         Returns:
-            适配器名称，如 "OneBot V11", "QQ Official"
+            适配器名称，如 "OneBot V11", "QQ"
         """
         raise NotImplementedError
 
@@ -163,6 +163,140 @@ class BaseAdapter(ABC):
         """
         return None
 
+    @classmethod
+    def get_protocol_id(cls) -> str:
+        """获取协议标识"""
+        if cls.PROTOCOL:
+            return cls.PROTOCOL
+        return cls.__name__.replace("Adapter", "").lower()
+
+    @classmethod
+    def get_display_name(cls) -> str:
+        """获取协议显示名称"""
+        return cls.DISPLAY_NAME or cls.get_name()
+
+    @classmethod
+    def get_supported_message_types(cls) -> set[str]:
+        """获取支持的消息类型集合"""
+        return set(cls.SUPPORTED_MESSAGE_TYPES or {"text"})
+
+    def supports_message_type(self, message_type: str) -> bool:
+        """当前协议是否支持某种消息类型"""
+        return message_type in self.get_supported_message_types()
+
+    @classmethod
+    def get_webhook_path(cls) -> Optional[str]:
+        """Webhook 路径（不含 /）"""
+        return cls.WEBHOOK_PATH
+
+    @classmethod
+    def get_webhook_handler(cls) -> Optional[str]:
+        """Webhook 处理函数导入路径"""
+        return cls.WEBHOOK_HANDLER
+
+    @classmethod
+    def get_bot_config_fields(cls) -> list[dict[str, Any]]:
+        """机器人配置表单字段定义"""
+        return list(cls.BOT_CONFIG_FIELDS or [])
+
+    @classmethod
+    def get_config_field_label(cls, field_name: str) -> str:
+        """根据字段名获取展示标签"""
+        for field in cls.get_bot_config_fields():
+            if field.get("name") == field_name:
+                return field.get("label") or field_name
+        return field_name
+
+    @classmethod
+    def get_required_config_fields(cls) -> list[str]:
+        """必填配置字段"""
+        required_fields = []
+        for field in cls.get_bot_config_fields():
+            if field.get("required"):
+                required_fields.append(field.get("name"))
+        return required_fields
+
+    @classmethod
+    def parse_bot_config_from_form(cls, form, existing_config: Optional[dict] = None) -> dict:
+        """
+        从表单解析协议配置
+
+        默认规则：
+        - text/password/select -> 字符串
+        - number -> int
+        - checkbox -> bool (key 存在即 True)
+        """
+        config = dict(existing_config or {})
+        for field in cls.get_bot_config_fields():
+            name = field.get("name")
+            if not name:
+                continue
+
+            field_type = field.get("type", "text")
+            default = field.get("default")
+
+            if field_type == "checkbox":
+                config[name] = name in form
+                continue
+
+            raw_value = form.get(name, "")
+            value = str(raw_value).strip()
+            if value == "" and default is not None:
+                value = default
+
+            if field_type == "number":
+                if value == "":
+                    config[name] = None
+                else:
+                    config[name] = int(value)
+            else:
+                config[name] = value if value != "" else None
+
+        return config
+
+    @classmethod
+    def validate_bot_config(cls, config: dict) -> tuple[bool, str]:
+        """验证机器人配置"""
+        for field_name in cls.get_required_config_fields():
+            value = config.get(field_name)
+            if value is None or str(value).strip() == "":
+                return False, f"{cls.get_display_name()} 协议配置缺少必填字段: {field_name}"
+        return True, ""
+
+    @classmethod
+    def get_startup_error_hint(cls) -> str:
+        """启动失败时默认提示"""
+        return cls.STARTUP_ERROR_HINT
+
+    @classmethod
+    def get_unique_config_fields(cls) -> list[str]:
+        """需要保证唯一的配置字段"""
+        return list(cls.UNIQUE_CONFIG_FIELDS or [])
+
+    @classmethod
+    def get_config_summary(cls, config: dict) -> str:
+        """用于日志/页面的简要配置展示"""
+        parts = []
+        for name in cls.get_required_config_fields():
+            value = config.get(name)
+            if value:
+                text = str(value)
+                if len(text) > 10:
+                    text = f"{text[:6]}****"
+                parts.append(f"{name}={text}")
+        return " ".join(parts) if parts else "no required fields"
+
+    def build_message(self, message_type: str, **kwargs: Any):
+        """
+        统一消息构建入口
+
+        子类实现 build_<type>_message 方法。
+        """
+        builder = getattr(self, f"build_{message_type}_message", None)
+        if not builder:
+            raise ValueError(f"协议 '{self.get_protocol_name()}' 未实现消息类型: {message_type}")
+        return builder(**kwargs)
+
     @abstractmethod
     def get_protocol_name(self) -> str:
         """
@@ -186,3 +320,12 @@ class BaseAdapter(ABC):
             "bot_id": self.bot_id,
             "self_id": self.bot.self_id if self.bot else None
         }
+    # 协议元数据（子类可覆盖）
+    PROTOCOL: str = ""
+    DISPLAY_NAME: str = ""
+    WEBHOOK_PATH: Optional[str] = None
+    WEBHOOK_HANDLER: Optional[str] = None  # "module.path.callable_name"
+    STARTUP_ERROR_HINT: str = "适配器启动失败，请检查协议配置与网络连通性"
+    SUPPORTED_MESSAGE_TYPES: set[str] = {"text"}
+    BOT_CONFIG_FIELDS: list[dict[str, Any]] = []
+    UNIQUE_CONFIG_FIELDS: list[str] = []

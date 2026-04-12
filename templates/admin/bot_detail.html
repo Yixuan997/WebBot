@@ -5,6 +5,7 @@
 
 {% block content %}
 {% set bot_config = bot.get_config() %}
+{% set protocol_meta = protocol_map.get(bot.protocol, {}) %}
 <!-- 页面头部信息 -->
 <div class="card mb-4">
     <div class="card-header d-flex flex-column flex-lg-row align-items-start align-items-lg-center gap-3">
@@ -32,35 +33,12 @@
                 <div class="text-muted d-flex flex-wrap gap-2">
                     <span class="me-2">
                         <strong>协议:</strong>
-                        {% if bot.protocol == 'qq' %}
-                        <span class="badge bg-blue-lt">QQ官方</span>
-                        {% elif bot.protocol == 'onebot' %}
-                        <span class="badge bg-purple-lt">OneBot V11</span>
-                        {% else %}
-                        <span class="badge bg-secondary-lt">{{ bot.protocol }}</span>
-                        {% endif %}
+                        <span class="badge bg-blue-lt">{{ protocol_name_map.get(bot.protocol, bot.protocol) }}</span>
                     </span>
-                    {% if bot.protocol == 'qq' %}
                     <span class="me-2">
-                        <strong>AppID:</strong>
-                        <code class="ms-1">{{ bot_config.get('app_id', 'N/A') }}</code>
-                        <button class="btn btn-sm btn-ghost-secondary ms-1"
-                                onclick="copyToClipboard('{{ bot_config.get('app_id', '') }}')" title="复制AppID">
-                            <svg class="icon icon-sm" fill="none" height="16" stroke="currentColor"
-                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
-                                 width="16" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
-                                <rect height="12" rx="2" width="12" x="8" y="8"/>
-                                <path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2"/>
-                            </svg>
-                        </button>
+                        <strong>配置:</strong>
+                        <code class="ms-1">{{ summarize_protocol_config(bot.protocol, bot_config) }}</code>
                     </span>
-                    {% elif bot.protocol == 'onebot' %}
-                    <span class="me-2">
-                        <strong>WebSocket:</strong>
-                        <code class="ms-1">{{ bot_config.get('ws_host', '0.0.0.0') }}:{{ bot_config.get('ws_port', '8080') }}</code>
-                    </span>
-                    {% endif %}
                     <span class="me-2">
                         <strong>所有者:</strong> {{ bot.owner.username if bot.owner else '未知' }}
                     </span>
@@ -206,8 +184,8 @@
     </div>
 </div>
 
-<!-- Webhook配置信息 - 仅对QQ官方协议显示 -->
-{% if bot.protocol == 'qq' %}
+<!-- Webhook配置信息 -->
+{% if protocol_meta.get('webhook_path') %}
 <div class="card mb-4">
     <div class="card-header">
         <h3 class="card-title">
@@ -233,11 +211,11 @@
         <div class="mb-4">
             <label class="form-label">
                 <strong>Webhook回调地址</strong>
-                <span class="text-muted">(复制此地址到QQ开放平台)</span>
+                <span class="text-muted">(复制此地址到平台开发者中心)</span>
             </label>
             <div class="input-group">
                 <input class="form-control" id="webhook-url" readonly
-                       type="text" value="{{ url_for('webhook.qq_webhook', _external=True) }}">
+                       type="text" value="{{ request.url_root }}webhook/{{ protocol_meta.get('webhook_path') }}">
                 <button class="btn btn-outline-secondary" onclick="copyWebhookUrl()" type="button">
                     <svg class="icon" fill="none" height="16" stroke="currentColor" stroke-linecap="round"
                          stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="16"
@@ -255,8 +233,7 @@
         <div class="mb-3">
             <h4>配置步骤</h4>
             <ol class="text-muted">
-                <li class="mb-2">登录 <a class="text-blue" href="https://bot.q.qq.com/open"
-                                         target="_blank">QQ开放平台</a></li>
+                <li class="mb-2">登录对应协议开发者平台（{{ protocol_name_map.get(bot.protocol, bot.protocol) }}）</li>
                 <li class="mb-2">进入机器人管理 → 事件配置</li>
                 <li class="mb-0">将上方地址设置为Webhook回调地址</li>
             </ol>
@@ -322,7 +299,7 @@
     function startBot(botId) {
         console.log('启动机器人按钮被点击，机器人ID:', botId);
 
-        if (confirm('确定要启动这个QQ机器人吗？\n启动后将连接到QQ官方服务器。')) {
+        if (confirm('确定要启动这个机器人吗？')) {
             console.log('用户确认启动机器人');
 
             // 禁用按钮防止重复点击
@@ -397,7 +374,7 @@
     function stopBot(botId) {
         console.log('停止机器人按钮被点击，机器人ID:', botId);
 
-        if (confirm('确定要停止这个QQ机器人吗？\n停止后将断开与QQ服务器的连接。')) {
+        if (confirm('确定要停止这个机器人吗？')) {
             console.log('用户确认停止机器人');
 
             // 禁用按钮防止重复点击

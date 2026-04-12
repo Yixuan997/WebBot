@@ -18,7 +18,7 @@ class BotCacheManager:
 
     def __init__(self):
         # 缓存键前缀设计 - 与插件系统保持一致的命名风格
-        self.mapping_prefix = "bot:mapping:qq:"  # app_id → bot_id 映射
+        self.mapping_prefix = "bot:mapping:"  # protocol:cache_key → bot_id 映射
         self.status_prefix = "bot:status:"  # bot_id → 运行状态
         self.config_prefix = "bot:config:"  # bot_id → 配置缓存
 
@@ -33,9 +33,9 @@ class BotCacheManager:
         # 刷新锁，防止重复刷新
         self._refresh_locks = {}
 
-    def _get_mapping_key(self, app_id: str) -> str:
-        """获取app_id到bot_id的映射键"""
-        return f"{self.mapping_prefix}{app_id}"
+    def _get_mapping_key(self, protocol: str, cache_key: str) -> str:
+        """获取 protocol + cache_key 到 bot_id 的映射键"""
+        return f"{self.mapping_prefix}{protocol}:{cache_key}"
 
     def _get_status_key(self, bot_id: int) -> str:
         """获取机器人状态缓存键"""
@@ -45,13 +45,14 @@ class BotCacheManager:
         """获取机器人配置缓存键"""
         return f"{self.config_prefix}{bot_id}"
 
-    def update_bot_mapping(self, bot_id: int, app_id: str, status: str) -> bool:
+    def update_bot_mapping(self, bot_id: int, protocol: str, cache_key: str, status: str) -> bool:
         """
         更新机器人映射和状态
 
         Args:
             bot_id: 机器人ID
-            app_id: QQ应用ID
+            protocol: 协议标识
+            cache_key: 协议缓存键（如 app_id）
             status: 运行状态 ("running" 或 "stopped")
 
         Returns:
@@ -59,7 +60,7 @@ class BotCacheManager:
         """
         try:
             # 更新映射关系 (永久存储)
-            mapping_key = self._get_mapping_key(app_id)
+            mapping_key = self._get_mapping_key(protocol, cache_key)
             set_value(mapping_key, str(bot_id))
 
             # 更新状态
@@ -67,13 +68,13 @@ class BotCacheManager:
             set_value(status_key, status)
 
             log_debug(bot_id, f"更新机器人缓存映射", "BOT_CACHE_MAPPING_UPDATE",
-                      app_id=app_id, status=status)
+                      protocol=protocol, cache_key=cache_key, status=status)
             return True
 
         except Exception as e:
             # Redis不可用时不应该阻止机器人启动，只记录警告
             log_warn(bot_id, f"更新机器人缓存映射失败(Redis可能不可用): {e}", "BOT_CACHE_MAPPING_UPDATE_WARNING",
-                     app_id=app_id, error=str(e))
+                     protocol=protocol, cache_key=cache_key, error=str(e))
             return True  # 返回True，不阻止机器人启动
 
     def update_bot_config_cache(self, bot_id: int, config: dict) -> bool:
@@ -139,19 +140,20 @@ class BotCacheManager:
 
         return serializable_config
 
-    def get_bot_by_app_id(self, app_id: str) -> int | None:
+    def get_bot_by_mapping(self, protocol: str, cache_key: str) -> int | None:
         """
-        通过app_id查找bot_id (高性能版本)
+        通过协议映射键查找 bot_id (高性能版本)
 
         Args:
-            app_id: QQ应用ID
+            protocol: 协议标识
+            cache_key: 协议缓存键
 
         Returns:
             int: 机器人ID，如果未找到或未运行则返回None
         """
         try:
             # 1. 从Redis查找映射
-            mapping_key = self._get_mapping_key(app_id)
+            mapping_key = self._get_mapping_key(protocol, cache_key)
             bot_id_str = get_value(mapping_key)
 
             if bot_id_str:
@@ -170,26 +172,27 @@ class BotCacheManager:
                         status = status.decode('utf-8')
 
                     if status == "running":
-                        log_debug(0, f"缓存命中: app_id={app_id} → bot_id={bot_id}",
-                                  "BOT_CACHE_HIT", app_id=app_id, found_bot_id=bot_id)
+                        log_debug(0, f"缓存命中: {protocol}:{cache_key} → bot_id={bot_id}",
+                                  "BOT_CACHE_HIT", protocol=protocol, cache_key=cache_key, found_bot_id=bot_id)
                         return bot_id
                     else:
-                        log_debug(0, f"机器人未运行: app_id={app_id}, status={status}",
-                                  "BOT_CACHE_NOT_RUNNING", app_id=app_id, bot_status=status)
+                        log_debug(0, f"机器人未运行: {protocol}:{cache_key}, status={status}",
+                                  "BOT_CACHE_NOT_RUNNING", protocol=protocol, cache_key=cache_key, bot_status=status)
                         return None
 
                 except (ValueError, TypeError) as e:
                     log_warn(0, f"缓存数据格式错误: {e}", "BOT_CACHE_FORMAT_ERROR",
-                             app_id=app_id, error=str(e))
+                             protocol=protocol, cache_key=cache_key, error=str(e))
                     return None
 
             # 3. 缓存未命中
-            log_debug(0, f"缓存未命中: app_id={app_id}", "BOT_CACHE_MISS", app_id=app_id)
+            log_debug(0, f"缓存未命中: {protocol}:{cache_key}", "BOT_CACHE_MISS",
+                      protocol=protocol, cache_key=cache_key)
             return None
 
         except Exception as e:
             log_error(0, f"查找机器人缓存异常: {e}", "BOT_CACHE_LOOKUP_ERROR",
-                      app_id=app_id, error=str(e))
+                      protocol=protocol, cache_key=cache_key, error=str(e))
             return None
 
     def get_bot_config_cached(self, bot_id: int) -> dict | None:
@@ -213,14 +216,15 @@ class BotCacheManager:
 
                     cache_obj = json.loads(cached_data)
 
-                    # 如果是智能缓存格式
-                    if 'data' in cache_obj and 'metadata' in cache_obj:
+                    if isinstance(cache_obj, dict) and 'data' in cache_obj and 'metadata' in cache_obj:
                         return self._handle_smart_cache(bot_id, cache_obj)
-                    else:
-                        # 旧格式，直接返回并升级为智能缓存
-                        log_debug(bot_id, "配置缓存命中(旧格式)", "BOT_CONFIG_CACHE_HIT_OLD")
-                        self._upgrade_to_smart_cache(bot_id, cache_obj)
-                        return cache_obj
+
+                    log_warn(
+                        bot_id,
+                        "配置缓存格式无效，忽略缓存并等待重建",
+                        "BOT_CONFIG_CACHE_INVALID_FORMAT"
+                    )
+                    return None
 
                 except (json.JSONDecodeError, AttributeError) as e:
                     log_warn(bot_id, f"解析配置缓存失败: {e}", "BOT_CONFIG_CACHE_PARSE_ERROR",
@@ -257,8 +261,8 @@ class BotCacheManager:
             return self._load_and_cache_from_database(bot_id)
 
         age = current_time - cached_at
-        refresh_time = self.CONFIG_TTL * self.REFRESH_RATIO  # 3.5分钟
-        max_age_time = self.CONFIG_TTL * self.MAX_AGE_RATIO  # 30分钟
+        refresh_time = self.config_ttl * self.refresh_ratio  # 3.5分钟
+        max_age_time = self.config_ttl * self.max_age_ratio  # 30分钟
 
         # 情况1：太旧了，必须刷新
         if age > max_age_time:
@@ -273,28 +277,6 @@ class BotCacheManager:
         # 返回现有数据
         log_debug(bot_id, f"智能缓存命中", "BOT_CONFIG_SMART_CACHE_HIT")
         return data
-
-    def _upgrade_to_smart_cache(self, bot_id: int, old_config: dict):
-        """
-        将旧格式缓存升级为智能缓存格式
-        
-        Args:
-            bot_id: 机器人id
-            old_config: 旧格式配置字典
-        """
-        try:
-            smart_cache = {
-                "data": old_config,
-                "metadata": {
-                    "cached_at": time.time(),
-                    "refreshing": False
-                }
-            }
-            config_key = self._get_config_key(bot_id)
-            set_value(config_key, json.dumps(smart_cache))
-            log_debug(bot_id, "缓存格式已升级", "CACHE_FORMAT_UPGRADED")
-        except (json.JSONEncodeError, TypeError) as e:
-            log_error(bot_id, f"升级缓存格式失败: {e}", "CACHE_FORMAT_UPGRADE_ERROR", error=str(e))
 
     def _load_and_cache_from_database(self, bot_id: int) -> dict | None:
         """
@@ -314,7 +296,7 @@ class BotCacheManager:
                 bot = Bot.query.get(bot_id)
                 if bot:
                     # 获取协议配置
-                    protocol = getattr(bot, 'protocol', 'qq')
+                    protocol = getattr(bot, 'protocol', None) or ""
                     bot_config_data = bot.get_config()
 
                     config = {
@@ -424,13 +406,14 @@ class BotCacheManager:
                      error=str(e))
             return True  # 返回True，不阻止机器人启动
 
-    def clear_bot_cache(self, bot_id: int, app_id: str = None) -> bool:
+    def clear_bot_cache(self, bot_id: int, protocol: str = None, cache_key: str = None) -> bool:
         """
         清理机器人缓存
         
         Args:
             bot_id: 机器人ID
-            app_id: QQ应用ID (可选，如果提供则同时清理映射)
+            protocol: 协议标识（可选）
+            cache_key: 协议缓存键（可选，如果提供则同时清理映射）
             
         Returns:
             bool: 操作是否成功
@@ -448,22 +431,24 @@ class BotCacheManager:
             if not delete_key(config_key):
                 success = False
 
-            # 如果提供了app_id，清理映射
-            if app_id:
-                mapping_key = self._get_mapping_key(app_id)
+            # 如果提供了映射键，清理协议映射
+            if protocol and cache_key:
+                mapping_key = self._get_mapping_key(protocol, cache_key)
                 if not delete_key(mapping_key):
                     success = False
 
             if success:
-                log_debug(bot_id, f"清理机器人缓存", "BOT_CACHE_CLEAR", app_id=app_id)
+                log_debug(bot_id, f"清理机器人缓存", "BOT_CACHE_CLEAR",
+                          protocol=protocol, cache_key=cache_key)
             else:
-                log_warn(bot_id, f"清理机器人缓存部分失败", "BOT_CACHE_CLEAR_PARTIAL", app_id=app_id)
+                log_warn(bot_id, f"清理机器人缓存部分失败", "BOT_CACHE_CLEAR_PARTIAL",
+                         protocol=protocol, cache_key=cache_key)
 
             return success
 
         except Exception as e:
             log_error(bot_id, f"清理机器人缓存异常: {e}", "BOT_CACHE_CLEAR_ERROR",
-                      app_id=app_id, error=str(e))
+                      protocol=protocol, cache_key=cache_key, error=str(e))
             return False
 
     def batch_sync_from_database(self) -> int:
@@ -486,7 +471,7 @@ class BotCacheManager:
                 for bot in running_bots:
                     try:
                         # 获取协议配置
-                        protocol = getattr(bot, 'protocol', 'qq')
+                        protocol = getattr(bot, 'protocol', None) or ""
                         bot_config_data = bot.get_config()
 
                         # 构建配置字典
@@ -501,10 +486,16 @@ class BotCacheManager:
                             **bot_config_data
                         }
 
-                        # 更新缓存（仅QQ协议需要app_id映射）
-                        app_id = bot_config_data.get('app_id') if protocol == 'qq' else None
-                        if app_id:
-                            self.update_bot_mapping(bot.id, app_id, 'running')
+                        # 更新缓存映射（由适配器声明缓存键字段）
+                        if protocol:
+                            from Adapters import get_adapter_manager
+                            adapter_class = get_adapter_manager().get_adapter_class(protocol)
+                            if adapter_class:
+                                cache_key_field = adapter_class.get_cache_key_field()
+                                if cache_key_field:
+                                    cache_key = bot_config_data.get(cache_key_field)
+                                    if cache_key:
+                                        self.update_bot_mapping(bot.id, protocol, str(cache_key), 'running')
                         self.update_bot_config_cache(bot.id, config)
                         sync_count += 1
                     except Exception:

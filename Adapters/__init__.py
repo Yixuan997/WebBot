@@ -3,6 +3,8 @@
 支持多种协议的统一适配器架构
 """
 
+import importlib
+import pkgutil
 import threading
 from typing import Dict, Any, Optional, List
 
@@ -31,7 +33,7 @@ class AdapterManager:
 
         try:
             from Core.logging.file_logger import log_info
-            log_info(0, f"📝 适配器已注册: {adapter_class.__name__}", "ADAPTER_REGISTERED",
+            log_info(0, f" 适配器已注册: {adapter_class.__name__}", "ADAPTER_REGISTERED",
                      protocol=protocol_name)
         except ImportError:
             pass
@@ -39,6 +41,40 @@ class AdapterManager:
     def get_available_protocols(self) -> List[str]:
         """获取可用的协议列表"""
         return list(self.adapters.keys())
+
+    def get_adapter_class(self, protocol_name: str) -> Optional[type]:
+        """获取协议对应的适配器类"""
+        return self.adapters.get(protocol_name)
+
+    def get_protocol_meta(self, protocol_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        获取协议元数据
+
+        Args:
+            protocol_name: 指定协议，None 表示返回全部
+        """
+        def _meta(adapter_class: type) -> Dict[str, Any]:
+            return {
+                "id": adapter_class.get_protocol_id(),
+                "name": adapter_class.get_display_name(),
+                "message_types": sorted(adapter_class.get_supported_message_types()),
+                "webhook_path": adapter_class.get_webhook_path(),
+                "webhook_handler": adapter_class.get_webhook_handler(),
+                "config_fields": adapter_class.get_bot_config_fields(),
+                "required_fields": adapter_class.get_required_config_fields(),
+                "startup_error_hint": adapter_class.get_startup_error_hint(),
+            }
+
+        if protocol_name:
+            adapter_class = self.adapters.get(protocol_name)
+            if not adapter_class:
+                return {}
+            return _meta(adapter_class)
+
+        result = {}
+        for protocol, adapter_class in self.adapters.items():
+            result[protocol] = _meta(adapter_class)
+        return result
 
     def start_adapter(self, bot_id: int, protocol: str, config: Dict[str, Any],
                       message_handler=None) -> tuple[bool, str]:
@@ -63,7 +99,7 @@ class AdapterManager:
                     # 更新message_handler而不是重启
                     try:
                         from Core.logging.file_logger import log_info
-                        log_info(bot_id, f"⚙️ 为已运行的适配器设置message_handler", "ADAPTER_HANDLER_SET",
+                        log_info(bot_id, f" 为已运行的适配器设置message_handler", "ADAPTER_HANDLER_SET",
                                  adapter_id=id(existing_adapter))
                     except ImportError:
                         pass
@@ -133,25 +169,37 @@ def _load_adapter_modules():
     
     扫描 Adapters 目录，导入所有 adapter.py 模块
     """
-    import os
+    from Core.logging.file_logger import log_debug, log_warn
 
-    adapters_dir = os.path.dirname(os.path.abspath(__file__))
+    _adapter_registry.clear()
+    package_name = __name__
 
-    # QQ适配器
-    try:
-        from .qq.adapter import QQAdapter
-        _adapter_registry['qq'] = QQAdapter
-    except ImportError as e:
-        from Core.logging.file_logger import log_warn
-        log_warn(0, f"无法导入QQ适配器: {e}", "ADAPTER_IMPORT_ERROR")
+    for module_info in pkgutil.iter_modules(__path__):
+        module_name = module_info.name
+        if module_name.startswith("_") or module_name == "base":
+            continue
 
-    # OneBot适配器
-    try:
-        from .onebot.v11.adapter import OneBotAdapter
-        _adapter_registry['onebot'] = OneBotAdapter
-    except ImportError as e:
-        from Core.logging.file_logger import log_warn
-        log_warn(0, f"无法导入OneBot适配器: {e}", "ADAPTER_IMPORT_ERROR")
+        full_module_name = f"{package_name}.{module_name}"
+        try:
+            module = importlib.import_module(full_module_name)
+        except Exception as e:
+            log_warn(0, f"无法导入适配器模块 {full_module_name}: {e}", "ADAPTER_IMPORT_ERROR")
+            continue
+
+        setup = getattr(module, "setup", None)
+        if callable(setup):
+            try:
+                setup(_adapter_registry)
+                log_debug(0, f"适配器模块注册成功: {full_module_name}", "ADAPTER_MODULE_SETUP_OK")
+            except Exception as e:
+                log_warn(0, f"适配器模块 setup 执行失败 {full_module_name}: {e}", "ADAPTER_SETUP_ERROR")
+            continue
+
+        log_warn(
+            0,
+            f"适配器模块缺少 setup()，已跳过注册: {full_module_name}",
+            "ADAPTER_MODULE_SETUP_MISSING",
+        )
 
 
 def _register_adapters_to_instance(manager_instance):
@@ -179,11 +227,11 @@ def _register_adapters_to_instance(manager_instance):
                       error=str(e))
 
     if registered_count > 0:
-        log_info(0, f"✅ 成功注册 {registered_count} 个适配器", "ADAPTERS_REGISTERED",
+        log_info(0, f" 成功注册 {registered_count} 个适配器", "ADAPTERS_REGISTERED",
                  count=registered_count,
                  protocols=list(_adapter_registry.keys()))
     else:
-        log_error(0, "⚠️ 没有成功注册任何适配器", "NO_ADAPTERS_REGISTERED")
+        log_error(0, " 没有成功注册任何适配器", "NO_ADAPTERS_REGISTERED")
 
 
 # 全局适配器管理器

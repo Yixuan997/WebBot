@@ -5,4 +5,10 @@ OneBot 协议适配器模块
 
 from .v11.adapter import OneBotAdapter
 
-__all__ = ['OneBotAdapter']
+
+def setup(registry: dict):
+    """协议注册入口"""
+    registry[OneBotAdapter.get_protocol_id()] = OneBotAdapter
+
+
+__all__ = ['setup', 'OneBotAdapter']

@@ -126,7 +126,7 @@ class QQMessageSegment(BaseMessageSegment):
         "file": (4, "filename"),  # 4=文件
     }
 
-    def to_qq_dict(self) -> dict:
+    def to_api_format(self) -> dict:
         """
         转换为QQ API格式
         
@@ -252,7 +252,7 @@ class QQMessage(BaseMessage[QQMessageSegment]):
 
         # 如果只有一个segment，直接转换
         if len(self) == 1:
-            return self[0].to_qq_dict()
+            return self[0].to_api_format()
 
         # 如果有多个segment，尝试合并文本
         text_parts = []
@@ -261,7 +261,7 @@ class QQMessage(BaseMessage[QQMessageSegment]):
                 text_parts.append(seg.data["text"])
             else:
                 # 遇到非文本segment，返回该segment（QQ不支持混合）
-                return seg.to_qq_dict()
+                return seg.to_api_format()
 
         # 返回合并的文本
         return {
@@ -269,6 +269,3 @@ class QQMessage(BaseMessage[QQMessageSegment]):
             "content": "".join(text_parts)
         }
 
-    def to_qq_dict(self) -> dict:
-        """to_api_format的别名，为了兼容性"""
-        return self.to_api_format()

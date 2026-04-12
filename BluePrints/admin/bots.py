@@ -16,6 +16,14 @@ from sqlalchemy import or_
 
 from Core.bot.manager import BotManager
 from Core.logging.file_logger import log_info, log_error
+from Core.protocols import (
+    get_default_protocol_id,
+    list_protocols,
+    parse_protocol_config_from_form,
+    summarize_protocol_config,
+    validate_protocol_config,
+    validate_protocol_config_uniqueness,
+)
 from Models import Bot, User, db, Workflow
 from Models.Extensions import get_current_time
 from utils.page_utils import adapt_pagination
@@ -107,6 +115,7 @@ def admin_bots():
 
     # 使用智能分页适配器
     page_numbers = adapt_pagination(pagination)
+    protocol_name_map = {item['id']: item['name'] for item in list_protocols()}
 
     return render_template('admin/bots.html',
                            bots=bots_list,
@@ -114,7 +123,8 @@ def admin_bots():
                            page_numbers=page_numbers,
                            current_page=pagination.page,
                            total_pages=pagination.pages,
-                           search=search)
+                           search=search,
+                           protocol_name_map=protocol_name_map)
 
 
 def admin_create_bot():
@@ -124,7 +134,7 @@ def admin_create_bot():
             # 获取通用字段
             name = request.form.get('name')
             description = request.form.get('description', '')
-            protocol = request.form.get('protocol', 'qq')
+            protocol = request.form.get('protocol', get_default_protocol_id())
             owner_id = request.form.get('owner_id')
 
             # 验证基本必填字段
@@ -132,7 +142,8 @@ def admin_create_bot():
                 flash('请填写所有必填字段', 'error')
                 return render_template('admin/create_bot.html',
                                        form_data=request.form,
-                                       users=User.query.all())
+                                       users=User.query.all(),
+                                       protocol_options=list_protocols())
 
             # 验证用户是否存在
             owner = User.query.get(owner_id)
@@ -140,50 +151,34 @@ def admin_create_bot():
                 flash('指定的用户不存在', 'error')
                 return render_template('admin/create_bot.html',
                                        form_data=request.form,
-                                       users=User.query.all())
+                                       users=User.query.all(),
+                                       protocol_options=list_protocols())
 
-            # 根据协议类型读取配置
-            config_data = {}
-            if protocol == 'qq':
-                app_id = request.form.get('app_id')
-                app_secret = request.form.get('app_secret')
+            # 按协议定义解析/校验配置
+            try:
+                config_data = parse_protocol_config_from_form(protocol, request.form, existing_config={})
+            except Exception as e:
+                flash(str(e), 'error')
+                return render_template('admin/create_bot.html',
+                                       form_data=request.form,
+                                       users=User.query.all(),
+                                       protocol_options=list_protocols())
 
-                if not all([app_id, app_secret]):
-                    flash('QQ协议需要填写AppID和AppSecret', 'error')
-                    return render_template('admin/create_bot.html',
-                                           form_data=request.form,
-                                           users=User.query.all())
+            config_ok, config_error = validate_protocol_config(protocol, config_data)
+            if not config_ok:
+                flash(config_error, 'error')
+                return render_template('admin/create_bot.html',
+                                       form_data=request.form,
+                                       users=User.query.all(),
+                                       protocol_options=list_protocols())
 
-                config_data = {
-                    'app_id': app_id,
-                    'app_secret': app_secret,
-                    'token': None  # 连接成功后由QQ返回
-                }
-            elif protocol == 'onebot':
-                ws_host = request.form.get('ws_host', '0.0.0.0')
-                ws_port = request.form.get('ws_port', '8080')
-                access_token = request.form.get('access_token', '')
-
-                if not all([ws_host, ws_port]):
-                    flash('OneBot协议需要填写WebSocket主机和端口', 'error')
-                    return render_template('admin/create_bot.html',
-                                           form_data=request.form,
-                                           users=User.query.all())
-
-                try:
-                    ws_port = int(ws_port)
-                except ValueError:
-                    flash('WebSocket端口必须是数字', 'error')
-                    return render_template('admin/create_bot.html',
-                                           form_data=request.form,
-                                           users=User.query.all())
-
-                config_data = {
-                    'ws_host': ws_host,
-                    'ws_port': ws_port,
-                    'access_token': access_token if access_token else None,
-                    'self_trigger': 'self_trigger' in request.form
-                }
+            unique_ok, unique_error = validate_protocol_config_uniqueness(protocol, config_data)
+            if not unique_ok:
+                flash(unique_error, 'error')
+                return render_template('admin/create_bot.html',
+                                       form_data=request.form,
+                                       users=User.query.all(),
+                                       protocol_options=list_protocols())
 
             # 创建机器人
             bot = Bot(
@@ -209,11 +204,12 @@ def admin_create_bot():
             flash(f'创建机器人失败: {str(e)}', 'error')
             return render_template('admin/create_bot.html',
                                    form_data=request.form,
-                                   users=User.query.all())
+                                   users=User.query.all(),
+                                   protocol_options=list_protocols())
 
     # GET 请求，显示创建表单
     users = User.query.all()
-    return render_template('admin/create_bot.html', users=users)
+    return render_template('admin/create_bot.html', users=users, protocol_options=list_protocols())
 
 
 def admin_edit_bot(bot_id):
@@ -229,58 +225,41 @@ def admin_edit_bot(bot_id):
             if is_running:
                 flash('机器人运行中，请先停止机器人后再修改配置！', 'error')
                 users = User.query.all()
-                return render_template('admin/edit_bot.html', bot=bot, users=users, is_running=is_running)
+                return render_template('admin/edit_bot.html', bot=bot, users=users, is_running=is_running,
+                                       protocol_options=list_protocols())
 
             # 停止状态，允许修改所有配置
+            old_protocol = bot.protocol
             bot.name = request.form.get('name')
             bot.description = request.form.get('description', '')
-            bot.protocol = request.form.get('protocol', 'qq')
+            bot.protocol = request.form.get('protocol', get_default_protocol_id())
             bot.owner_id = request.form.get('owner_id')
             bot.is_active = 'is_active' in request.form
 
-            # 根据协议类型更新配置
-            config_data = {}
-            if bot.protocol == 'qq':
-                app_id = request.form.get('app_id')
-                app_secret = request.form.get('app_secret')
+            # 按协议定义解析/校验配置
+            existing_config = bot.get_config() if old_protocol == bot.protocol else {}
+            try:
+                config_data = parse_protocol_config_from_form(bot.protocol, request.form, existing_config=existing_config)
+            except Exception as e:
+                flash(str(e), 'error')
+                users = User.query.all()
+                return render_template('admin/edit_bot.html', bot=bot, users=users, protocol_options=list_protocols())
 
-                if not all([app_id, app_secret]):
-                    flash('QQ协议需要填写AppID和AppSecret', 'error')
-                    users = User.query.all()
-                    return render_template('admin/edit_bot.html', bot=bot, users=users)
+            config_ok, config_error = validate_protocol_config(bot.protocol, config_data)
+            if not config_ok:
+                flash(config_error, 'error')
+                users = User.query.all()
+                return render_template('admin/edit_bot.html', bot=bot, users=users, protocol_options=list_protocols())
 
-                # 保留原有token（如果存在）
-                old_config = bot.get_config()
-                old_token = old_config.get('token') if old_config else None
-
-                config_data = {
-                    'app_id': app_id,
-                    'app_secret': app_secret,
-                    'token': old_token
-                }
-            elif bot.protocol == 'onebot':
-                ws_host = request.form.get('ws_host', '0.0.0.0')
-                ws_port = request.form.get('ws_port', '8080')
-                access_token = request.form.get('access_token', '')
-
-                if not all([ws_host, ws_port]):
-                    flash('OneBot协议需要填写WebSocket主机和端口', 'error')
-                    users = User.query.all()
-                    return render_template('admin/edit_bot.html', bot=bot, users=users)
-
-                try:
-                    ws_port = int(ws_port)
-                except ValueError:
-                    flash('WebSocket端口必须是数字', 'error')
-                    users = User.query.all()
-                    return render_template('admin/edit_bot.html', bot=bot, users=users)
-
-                config_data = {
-                    'ws_host': ws_host,
-                    'ws_port': ws_port,
-                    'access_token': access_token if access_token else None,
-                    'self_trigger': 'self_trigger' in request.form
-                }
+            unique_ok, unique_error = validate_protocol_config_uniqueness(
+                bot.protocol,
+                config_data,
+                exclude_bot_id=bot.id
+            )
+            if not unique_ok:
+                flash(unique_error, 'error')
+                users = User.query.all()
+                return render_template('admin/edit_bot.html', bot=bot, users=users, protocol_options=list_protocols())
 
             # 设置配置（使用辅助方法，会自动同步到旧字段）
             bot.set_config(config_data)
@@ -298,7 +277,8 @@ def admin_edit_bot(bot_id):
     is_running = bot_id in bot_manager.list_running_bots()
 
     users = User.query.all()
-    return render_template('admin/edit_bot.html', bot=bot, users=users, is_running=is_running)
+    return render_template('admin/edit_bot.html', bot=bot, users=users, is_running=is_running,
+                           protocol_options=list_protocols())
 
 
 def admin_bot_detail(bot_id):
@@ -356,9 +336,16 @@ def admin_bot_detail(bot_id):
 
     # 日志将通过 AJAX 异步加载
 
+    protocol_options = list_protocols()
+    protocol_name_map = {item['id']: item['name'] for item in protocol_options}
+    protocol_map = {item['id']: item for item in protocol_options}
+
     return render_template('admin/bot_detail.html',
                            bot=bot,
-                           runtime_data=runtime_data)
+                           runtime_data=runtime_data,
+                           protocol_name_map=protocol_name_map,
+                           protocol_map=protocol_map,
+                           summarize_protocol_config=summarize_protocol_config)
 
 
 def admin_delete_bot(bot_id):

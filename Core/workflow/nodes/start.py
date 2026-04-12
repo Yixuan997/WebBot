@@ -31,7 +31,7 @@ class StartNode(BaseNode):
         {'name': 'group_id', 'label': 'group_id - 群ID (仅群聊)', 'type': 'string'},
         {'name': 'message_id', 'label': 'message_id - 消息ID', 'type': 'string'},
         {'name': 'is_group', 'label': 'is_group - 是否群聊', 'type': 'boolean'},
-        {'name': 'protocol', 'label': 'protocol - 协议类型 (qq/onebot)', 'type': 'string'},
+        {'name': 'protocol', 'label': 'protocol - 协议类型', 'type': 'string'},
         {'name': 'bot_id', 'label': 'bot_id - 机器人QQ号', 'type': 'string'},
     ]
 
@@ -130,15 +130,13 @@ class StartNode(BaseNode):
         context.set_variable('has_image', has_image)
         context.set_variable('has_at', has_at)
 
-        # 发送者信息（同时支持旧格式 user_id 和新格式 sender.user_id）
-        context.set_variable('user_id', str(user_id))  # 兼容旧版
+        # 发送者信息（仅保留新格式）
         context.set_variable('sender.user_id', str(user_id))
         context.set_variable('sender.nickname', sender_name)
         if sender_obj:
             context.set_variable('sender', sender_obj)  # 完整sender对象
 
         context.set_variable('group_id', str(group_id))
-        context.set_variable('sender_name', sender_name)  # 兼容旧版
         context.set_variable('message_id', str(message_id))
         context.set_variable('is_group', is_group)
         context.set_variable('protocol', protocol)  # 协议类型
@@ -148,9 +146,9 @@ class StartNode(BaseNode):
             'success': True,
             'extracted_fields': {
                 'message': message_text,
-                'user_id': user_id,
+                'sender.user_id': user_id,
                 'group_id': group_id,
-                'sender_name': sender_name,
+                'sender.nickname': sender_name,
                 'is_group': is_group,
             }
         }

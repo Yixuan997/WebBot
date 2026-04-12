@@ -207,51 +207,17 @@ class BaseWebhookHandler(ABC):
 
     def is_verification_request(self, event_data: dict) -> bool:
         """检查是否是回调验证请求"""
-        # 默认实现：检查op码是否为13（QQ的验证请求）
-        return event_data.get('op') == 13
+        # 默认中性实现：不识别验证请求，由协议子类自行实现
+        return False
 
     def handle_verification_request(self, event_data: dict, headers: dict):
-        """处理回调验证请求 - 按照QQ官方要求生成signature"""
-        try:
-            log_info(0, f"{self.protocol_name} 处理回调验证请求",
-                     f"{self.protocol_name.upper()}_WEBHOOK_VERIFICATION_HANDLE")
-
-            payload = event_data.get('d', {})
-            plain_token = payload.get('plain_token')
-            event_ts = payload.get('event_ts')
-
-            if plain_token and event_ts:
-                # 生成signature（按照QQ官方要求）
-                signature = self.generate_verification_signature(event_ts, plain_token)
-
-                if signature:
-                    log_info(0, f"{self.protocol_name} 回调验证成功",
-                             f"{self.protocol_name.upper()}_WEBHOOK_VERIFICATION_SUCCESS")
-
-                    # 按照QQ官方要求的响应格式
-                    response = {
-                        "plain_token": plain_token,
-                        "signature": signature
-                    }
-
-                    json_response = jsonify(response)
-                    json_response.headers['Content-Type'] = 'application/json; charset=utf-8'
-                    json_response.status_code = 200
-
-                    return json_response
-                else:
-                    log_error(0, f"{self.protocol_name} 生成signature失败",
-                              f"{self.protocol_name.upper()}_WEBHOOK_VERIFICATION_SIGNATURE_FAILED")
-                    return jsonify({"error": "Failed to generate signature"}), 500
-            else:
-                log_error(0, f"{self.protocol_name} 回调验证缺少必要参数",
-                          f"{self.protocol_name.upper()}_WEBHOOK_VERIFICATION_MISSING_PARAMS")
-                return jsonify({"error": "Missing required parameters"}), 400
-
-        except Exception as e:
-            log_error(0, f"{self.protocol_name} 回调验证异常: {e}",
-                      f"{self.protocol_name.upper()}_WEBHOOK_VERIFICATION_ERROR")
-            return jsonify({"error": "Verification failed"}), 500
+        """默认中性实现：协议未实现验证处理时返回 400。"""
+        log_error(
+            0,
+            f"{self.protocol_name} 未实现验证请求处理逻辑",
+            f"{self.protocol_name.upper()}_WEBHOOK_VERIFICATION_NOT_IMPLEMENTED",
+        )
+        return jsonify({"error": "Verification handler not implemented"}), 400
 
     def get_bot_manager(self):
         """获取机器人管理器实例 - 使用全局单例"""

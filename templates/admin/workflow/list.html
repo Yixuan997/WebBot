@@ -123,11 +123,7 @@
                 <td>
                     {% if config.get('protocols') %}
                     {% for protocol in config.get('protocols', []) %}
-                    {% if protocol == 'qq' %}
-                    <span class="badge bg-blue-lt me-1">QQ</span>
-                    {% elif protocol == 'onebot' %}
-                    <span class="badge bg-purple-lt me-1">OneBot</span>
-                    {% endif %}
+                    <span class="badge bg-blue-lt me-1">{{ protocol_name_map.get(protocol, protocol) }}</span>
                     {% endfor %}
                     {% else %}
                     <span class="badge bg-secondary-lt">全部</span>

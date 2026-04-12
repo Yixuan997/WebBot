@@ -17,7 +17,7 @@ class Bot(db.Model):
     description = db.Column(db.Text, comment='机器人描述')
 
     # 协议配置
-    protocol = db.Column(db.String(20), nullable=False, default='qq', comment='协议类型 (qq/onebot/telegram...)')
+    protocol = db.Column(db.String(20), nullable=False, comment='协议类型（由已注册适配器决定）')
     config = db.Column(db.Text, nullable=False, comment='协议特定配置 (JSON格式)')
 
     is_active = db.Column(db.Boolean, default=True, nullable=False, comment='是否激活')

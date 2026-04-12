@@ -21,17 +21,6 @@ class SendMessageNode(BaseNode):
     ]
     outputs = []  # 发送消息不产生输出变量
 
-    # 协议支持表
-    PROTOCOL_SUPPORT = {
-        'text': ['qq', 'onebot'],
-        'image': ['qq', 'onebot'],
-        'video': ['qq', 'onebot'],
-        'voice': ['qq', 'onebot'],
-        'file': ['qq'],  # OneBot 需用自定义端点 upload_group_file
-        'markdown': ['qq'],
-        'ark': ['qq']
-    }
-
     config_schema = [
         {
             'name': 'message_type',
@@ -40,13 +29,13 @@ class SendMessageNode(BaseNode):
             'required': True,
             'default': 'text',
             'options': [
-                {'value': 'text', 'label': '文本 ✅ 所有协议'},
-                {'value': 'image', 'label': '图片 ✅ 所有协议'},
-                {'value': 'video', 'label': '视频 ✅ 所有协议'},
-                {'value': 'voice', 'label': '语音 ✅ 所有协议'},
-                {'value': 'file', 'label': '文件 ⚠️ 仅QQ官方'},
-                {'value': 'markdown', 'label': 'Markdown/按钮 ⚠️ 仅QQ官方'},
-                {'value': 'ark', 'label': 'ARK模板 ⚠️ 仅QQ官方'}
+                {'value': 'text', 'label': '文本'},
+                {'value': 'image', 'label': '图片'},
+                {'value': 'video', 'label': '视频'},
+                {'value': 'voice', 'label': '语音'},
+                {'value': 'file', 'label': '文件'},
+                {'value': 'markdown', 'label': 'Markdown/按钮'},
+                {'value': 'ark', 'label': 'ARK模板'}
             ]
         },
         {
@@ -54,7 +43,7 @@ class SendMessageNode(BaseNode):
             'label': '消息内容',
             'type': 'textarea',
             'required': True,
-            'placeholder': '支持变量：{{variable}}\\n支持内置变量：{{user_id}}, {{message}}, {{protocol}}',
+            'placeholder': '支持变量：{{variable}}\\n支持内置变量：{{sender.user_id}}, {{message}}, {{protocol}}',
             'rows': 5
         },
         {
@@ -108,10 +97,11 @@ class SendMessageNode(BaseNode):
     async def _execute(self, context):
         """执行发送消息"""
         msg_type = self.config['message_type']
-        protocol = context.event.bot.adapter.get_protocol_name()
+        adapter = context.event.bot.adapter
+        protocol = adapter.get_protocol_name()
 
         # 1. 检查协议是否支持
-        if protocol not in self.PROTOCOL_SUPPORT.get(msg_type, []):
+        if not adapter.supports_message_type(msg_type):
             if self.config.get('skip_if_unsupported', False):
                 # 跳过此步骤
                 return None

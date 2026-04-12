@@ -51,13 +51,13 @@ class SchedulerService:
             }
         )
         self._scheduler.start()
-        log_info(0, "✅ 定时调度器已启动", "SCHEDULER_STARTED")
+        log_info(0, "定时调度器已启动", "SCHEDULER_STARTED")
 
     def stop(self):
         """停止调度器"""
         if self._scheduler and self._scheduler.running:
             self._scheduler.shutdown(wait=False)
-            log_info(0, "🛑 定时调度器已停止", "SCHEDULER_STOPPED")
+            log_info(0, "定时调度器已停止", "SCHEDULER_STOPPED")
 
     def add_workflow_job(self, workflow_id: int, config: Dict[str, Any]) -> bool:
         """
@@ -112,7 +112,7 @@ class SchedulerService:
             
             # 生成调度描述
             schedule_desc = self._get_schedule_description(schedule_config)
-            log_info(0, f"✅ 添加定时任务: {config.get('name', workflow_id)} ({schedule_desc})",
+            log_info(0, f"添加定时任务: {config.get('name', workflow_id)} ({schedule_desc})",
                      "SCHEDULER_JOB_ADDED",
                      workflow_id=workflow_id, schedule=schedule_desc)
             return True
@@ -270,7 +270,7 @@ class SchedulerService:
         
         with app_context():
             try:
-                log_info(0, f"⏰ 开始执行定时工作流: {config.get('name', workflow_id)}",
+                log_info(0, f"开始执行定时工作流: {config.get('name', workflow_id)}",
                          "SCHEDULED_WORKFLOW_START", workflow_id=workflow_id)
                 # 在新的事件循环中执行异步任务
                 asyncio.run(self._async_execute_workflow(workflow_id, config))
@@ -358,7 +358,7 @@ class SchedulerService:
                 handled_count += 1
         
         if handled_count > 0:
-            log_info(0, f"✅ 定时工作流执行完成: {config.get('name')} ({handled_count}/{len(active_bots)} bot)",
+            log_info(0, f"定时工作流执行完成: {config.get('name')} ({handled_count}/{len(active_bots)} bot)",
                      "SCHEDULED_WORKFLOW_DONE", workflow_id=workflow_id, handled=handled_count)
         else:
             log_debug(0, f"定时工作流未产生处理结果: {config.get('name')}",

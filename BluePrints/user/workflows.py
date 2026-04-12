@@ -10,6 +10,7 @@
 
 from flask import render_template, flash, redirect, url_for, session, request
 
+from Core.protocols import list_protocols
 from Models import User, System, Workflow, UserWorkflow, db
 from utils.page_utils import adapt_pagination
 
@@ -56,6 +57,7 @@ def user_workflows():
         page_numbers = adapt_pagination(pagination)
 
         system = System.query.first()
+        protocol_name_map = {item['id']: item['name'] for item in list_protocols()}
         return render_template('user/workflows/list.html',
                                user=user,
                                workflows=workflows,
@@ -63,7 +65,8 @@ def user_workflows():
                                page_numbers=page_numbers,
                                current_page=page,
                                search=search,
-                               system=system)
+                               system=system,
+                               protocol_name_map=protocol_name_map)
 
     except Exception as e:
         flash(f'获取工作流列表失败: {str(e)}', 'danger')
@@ -73,7 +76,8 @@ def user_workflows():
                                pagination=None,
                                current_page=1,
                                search='',
-                               system=System.query.first())
+                               system=System.query.first(),
+                               protocol_name_map={})
 
 
 def toggle_workflow_subscription(workflow_id):

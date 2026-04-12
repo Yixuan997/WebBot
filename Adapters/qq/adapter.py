@@ -61,7 +61,7 @@ class QQAdapter(BaseAdapter):
                          "QQ_BOT_INFO")
 
             self.running = True
-            log_info(self.bot_id, "✅ QQ适配器启动成功", "QQ_ADAPTER_STARTED")
+            log_info(self.bot_id, "QQ适配器启动成功", "QQ_ADAPTER_STARTED")
             return True
 
         except Exception as e:
@@ -75,7 +75,7 @@ class QQAdapter(BaseAdapter):
         try:
             log_info(self.bot_id, "停止QQ适配器", "QQ_ADAPTER_STOP")
             self.running = False
-            log_info(self.bot_id, "✅ QQ适配器已停止", "QQ_ADAPTER_STOPPED")
+            log_info(self.bot_id, "QQ适配器已停止", "QQ_ADAPTER_STOPPED")
             return True
         except Exception as e:
             log_error(self.bot_id, f"QQ适配器停止失败: {e}",
@@ -129,7 +129,7 @@ class QQAdapter(BaseAdapter):
     @classmethod
     def get_name(cls) -> str:
         """适配器名称"""
-        return "QQ Official"
+        return "QQ"
 
     def get_protocol_name(self) -> str:
         """协议名称"""
@@ -153,3 +153,80 @@ class QQAdapter(BaseAdapter):
             "connection_type": "webhook"
         })
         return status
+
+    @classmethod
+    def get_config_summary(cls, config: dict) -> str:
+        app_id = str(config.get("app_id", "") or "")
+        safe_app_id = app_id[:8] + "****" if len(app_id) > 8 else app_id
+        return f"app_id={safe_app_id}"
+
+    def build_text_message(self, content: str):
+        from .message import QQMessage
+        return QQMessage.text(content)
+
+    def build_image_message(self, image_url_or_file_info: str = "", caption: str = "",
+                            base64_data: str = None, auto_upload: bool = True):
+        from .message import QQMessage, QQMessageSegment
+        return QQMessage([QQMessageSegment.image(
+            url=image_url_or_file_info,
+            caption=caption,
+            base64_data=base64_data
+        )])
+
+    def build_video_message(self, video_url: str, caption: str = ""):
+        from .message import QQMessage
+        return QQMessage.video(video_url, caption)
+
+    def build_voice_message(self, voice_url: str):
+        from .message import QQMessage
+        return QQMessage.voice(voice_url)
+
+    def build_file_message(self, file_url: str, filename: str = ""):
+        from .message import QQMessage
+        return QQMessage.file(file_url, filename)
+
+    def build_markdown_message(self, content: str, template_id: str = "", keyboard_id: str = ""):
+        from .message import QQMessage, QQMessageSegment
+        if template_id:
+            return QQMessage([QQMessageSegment.markdown_template(template_id, content, keyboard_id)])
+        return QQMessage([QQMessageSegment.markdown(content)])
+
+    def build_keyboard_message(self, content: str, keyboard_id: str):
+        from .message import QQMessage, QQMessageSegment
+        return QQMessage([QQMessageSegment.keyboard(content, keyboard_id)])
+
+    def build_ark_message(self, content: str, template_id: int = 24):
+        import json
+        from .message import QQMessage, QQMessageSegment
+        try:
+            kv = json.loads(content)
+            if not isinstance(kv, list):
+                raise ValueError("ARK内容必须是JSON数组格式")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"ARK内容JSON解析失败: {e}")
+        return QQMessage([QQMessageSegment.ark(template_id, kv)])
+    PROTOCOL = "qq"
+    DISPLAY_NAME = "QQ"
+    WEBHOOK_PATH = "qq"
+    WEBHOOK_HANDLER = "BluePrints.webhook.qq.handle_qq_webhook"
+    STARTUP_ERROR_HINT = "QQ API连接验证失败，请检查AppID/AppSecret和IP白名单设置"
+    SUPPORTED_MESSAGE_TYPES = {"text", "image", "video", "voice", "file", "markdown", "ark"}
+    UNIQUE_CONFIG_FIELDS = ["app_id"]
+    BOT_CONFIG_FIELDS = [
+        {
+            "name": "app_id",
+            "label": "App ID",
+            "type": "text",
+            "required": True,
+            "placeholder": "请输入QQ机器人App ID",
+            "help": "在QQ开放平台获取",
+        },
+        {
+            "name": "app_secret",
+            "label": "App Secret",
+            "type": "password",
+            "required": True,
+            "placeholder": "请输入QQ机器人App Secret",
+            "help": "用于Webhook签名验证和API鉴权",
+        },
+    ]

@@ -29,13 +29,18 @@ class BotManager:
             bot_config = self._get_bot_config(bot_id)
             if not bot_config:
                 return {"success": False, "message": "机器人配置不存在"}
-            protocol = bot_config.get('protocol', 'qq')
-            if protocol == 'qq':
-                if not bot_config.get('app_id') or not bot_config.get('app_secret'):
-                    return {"success": False, "message": "QQ协议配置缺少AppID或AppSecret"}
-            elif protocol == 'onebot':
-                if not bot_config.get('ws_host') or not bot_config.get('ws_port'):
-                    return {"success": False, "message": "OneBot协议配置缺少WebSocket主机或端口"}
+            protocol = bot_config.get('protocol')
+            if not protocol:
+                return {"success": False, "message": "机器人配置缺少协议类型"}
+
+            adapter_manager = get_adapter_manager()
+            adapter_class = adapter_manager.get_adapter_class(protocol)
+            if not adapter_class:
+                return {"success": False, "message": f"不支持的协议类型: {protocol}"}
+
+            config_ok, config_error = adapter_class.validate_bot_config(bot_config)
+            if not config_ok:
+                return {"success": False, "message": config_error}
 
             log_info(bot_id, f"开始启动机器人: {bot_config['name']}", "BOT_START_BEGIN")
             from flask import current_app
@@ -46,7 +51,6 @@ class BotManager:
                 from app import app
 
             with app.app_context():
-                adapter_manager = get_adapter_manager()
                 success, error_message = adapter_manager.start_adapter(
                     bot_id=bot_id,
                     protocol=protocol,
@@ -74,18 +78,13 @@ class BotManager:
                 self._update_bot_status_in_db(bot_id, 'running')
                 self._update_bot_cache(bot_id, bot_config, 'running')
 
-                log_info(bot_id, f"🎉 机器人 {bot_config['name']} 已启用消息处理", "BOT_WEBHOOK_ENABLED",
+                log_info(bot_id, f" 机器人 {bot_config['name']} 已启用消息处理", "BOT_WEBHOOK_ENABLED",
                          protocol=protocol, config_info=self._get_log_safe_config(bot_config, protocol))
 
                 return {"success": True, "message": "机器人已启用，可接收Webhook消息"}
             else:
                 if not error_message or error_message.strip() == "":
-                    if protocol == 'qq':
-                        error_message = "QQ API连接验证失败，请检查AppID和AppSecret以及IP白名单设置"
-                    elif protocol == 'onebot':
-                        error_message = "OneBot适配器启动失败，请检查WebSocket配置"
-                    else:
-                        error_message = f"协议 '{protocol}' 适配器启动失败"
+                    error_message = adapter_class.get_startup_error_hint()
 
                 return {"success": False, "message": error_message}
 
@@ -184,7 +183,7 @@ class BotManager:
                 self._update_bot_status_in_db(bot_id, 'stopped')
                 self._update_bot_cache_status(bot_id, 'stopped')
 
-                log_info(bot_id, f"🛑 机器人已禁用消息处理", "BOT_WEBHOOK_DISABLED")
+                log_info(bot_id, f" 机器人已禁用消息处理", "BOT_WEBHOOK_DISABLED")
 
                 return {"success": True, "message": "机器人已禁用，不再处理Webhook消息"}
             else:
@@ -234,7 +233,7 @@ class BotManager:
 
             status = {
                 'is_running': adapter_status.get('running', False),
-                'protocol': adapter_status.get('protocol', 'qq'),
+                'protocol': adapter_status.get('protocol', ''),
                 'bot_name': adapter_status.get('bot_name', '未知'),
                 'app_id': adapter_status.get('app_id', ''),
                 'message_count': adapter_status.get('message_count', 0),
@@ -285,15 +284,11 @@ class BotManager:
 
     def _get_log_safe_config(self, config, protocol):
         """获取日志安全的配置信息（隐藏敏感信息）"""
-        if protocol == 'qq':
-            app_id = config.get('app_id', '')
-            return f"app_id={app_id[:8] + '****' if len(app_id) > 8 else app_id}"
-        elif protocol == 'onebot':
-            ws_host = config.get('ws_host', '')
-            ws_port = config.get('ws_port', '')
-            has_token = bool(config.get('access_token'))
-            return f"ws://{ws_host}:{ws_port} (access_token={'yes' if has_token else 'no'})"
-        return "unknown protocol"
+        adapter_manager = get_adapter_manager()
+        adapter_class = adapter_manager.get_adapter_class(protocol)
+        if not adapter_class:
+            return "unknown protocol"
+        return adapter_class.get_config_summary(config or {})
 
     def _get_bot_config(self, bot_id, log_success=True):
         """获取机器人配置 - 支持控制日志记录"""
@@ -312,7 +307,7 @@ class BotManager:
                     bot = Bot.query.get(bot_id)
                     if bot:
                         # 获取协议和配置
-                        protocol = getattr(bot, 'protocol', 'qq')
+                        protocol = getattr(bot, 'protocol', None) or ""
                         bot_config_data = bot.get_config()  # 使用辅助方法获取配置
 
                         # 构建config字典，合并协议特定配置
@@ -400,7 +395,11 @@ class BotManager:
     def _update_bot_cache(self, bot_id: int, bot_config: dict, status: str):
         """更新机器人缓存 - 统一缓存管理接口"""
         try:
-            protocol = bot_config.get('protocol', 'qq')
+            protocol = bot_config.get('protocol')
+            if not protocol:
+                log_warn(bot_id, "机器人配置缺少协议，跳过缓存映射更新", "BOT_CACHE_PROTOCOL_MISSING")
+                bot_cache_manager.update_bot_config_cache(bot_id, bot_config)
+                return
 
             # 从适配器类获取缓存键字段名
             adapter_manager = get_adapter_manager()
@@ -413,9 +412,9 @@ class BotManager:
                 if cache_key_field:
                     cache_key = bot_config.get(cache_key_field)
                     if cache_key:
-                        bot_cache_manager.update_bot_mapping(bot_id, cache_key, status)
+                        bot_cache_manager.update_bot_mapping(bot_id, protocol, str(cache_key), status)
                         log_debug(bot_id, f"机器人缓存映射已更新", "BOT_CACHE_MAPPING_UPDATED",
-                                  cache_key=cache_key, status=status)
+                                  protocol=protocol, cache_key=cache_key, status=status)
 
             # 所有协议都更新配置缓存
             bot_cache_manager.update_bot_config_cache(bot_id, bot_config)
@@ -436,11 +435,33 @@ class BotManager:
             log_warn(bot_id, f"更新机器人状态缓存失败(Redis可能不可用): {e}", "BOT_CACHE_STATUS_UPDATE_WARNING",
                      error=str(e))
 
-    def _clear_bot_cache(self, bot_id: int, app_id: str = None):
+    @staticmethod
+    def _extract_protocol_cache_key(protocol: str, bot_config: dict | None) -> str | None:
+        """根据协议配置提取缓存映射键值"""
+        if not protocol or not bot_config:
+            return None
+        try:
+            adapter_manager = get_adapter_manager()
+            adapter_class = adapter_manager.get_adapter_class(protocol)
+            if not adapter_class:
+                return None
+            cache_key_field = adapter_class.get_cache_key_field()
+            if not cache_key_field:
+                return None
+            cache_key = bot_config.get(cache_key_field)
+            if cache_key is None:
+                return None
+            cache_key = str(cache_key).strip()
+            return cache_key or None
+        except Exception:
+            return None
+
+    def _clear_bot_cache(self, bot_id: int, protocol: str = None, cache_key: str = None):
         """清理机器人缓存"""
         try:
-            bot_cache_manager.clear_bot_cache(bot_id, app_id)
-            log_debug(bot_id, f"机器人缓存已清理", "BOT_CACHE_CLEARED", app_id=app_id)
+            bot_cache_manager.clear_bot_cache(bot_id, protocol=protocol, cache_key=cache_key)
+            log_debug(bot_id, f"机器人缓存已清理", "BOT_CACHE_CLEARED",
+                      protocol=protocol, cache_key=cache_key)
         except Exception as e:
             # Redis不可用时不应该阻止机器人操作，只记录警告
             log_warn(bot_id, f"清理机器人缓存失败(Redis可能不可用): {e}", "BOT_CACHE_CLEAR_WARNING", error=str(e))
@@ -475,18 +496,18 @@ class BotManager:
                                      bot_name=bot.name, protocol=protocol)
 
                             # 检查机器人配置完整性
-                            config_valid = False
-                            if protocol == 'qq':
-                                config_valid = bool(bot_config.get('app_id') and bot_config.get('app_secret'))
-                            elif protocol == 'onebot':
-                                config_valid = bool(bot_config.get('ws_host') and bot_config.get('ws_port'))
+                            adapter_manager = get_adapter_manager()
+                            adapter_class = adapter_manager.get_adapter_class(protocol)
+                            config_valid, config_error = (False, f"不支持的协议类型: {protocol}")
+                            if adapter_class:
+                                config_valid, config_error = adapter_class.validate_bot_config(bot_config)
 
                             if not config_valid:
                                 failed_count += 1
                                 bot.is_running = False
                                 bot.updated_at = cls._get_current_time_static()
-                                log_error(bot.id, f"❌ 机器人 {bot.name} 配置不完整，跳过自动启动",
-                                          "BOT_AUTO_START_CONFIG_INCOMPLETE", bot_name=bot.name)
+                                log_error(bot.id, f" 机器人 {bot.name} 配置无效，跳过自动启动: {config_error}",
+                                          "BOT_AUTO_START_CONFIG_INCOMPLETE", bot_name=bot.name, error=config_error)
                                 continue
 
                             # 尝试启动机器人
@@ -494,12 +515,12 @@ class BotManager:
 
                             if result['success']:
                                 success_count += 1
-                                log_info(bot.id, f"✅ 机器人 {bot.name} 自动启动成功", "BOT_AUTO_START_SUCCESS",
+                                log_info(bot.id, f" 机器人 {bot.name} 自动启动成功", "BOT_AUTO_START_SUCCESS",
                                          bot_name=bot.name)
                             elif "已在运行" in result.get('message', ''):
                                 # 机器人已在运行，这也算成功恢复
                                 success_count += 1
-                                log_info(bot.id, f"✅ 机器人 {bot.name} 已在运行，无需启动",
+                                log_info(bot.id, f" 机器人 {bot.name} 已在运行，无需启动",
                                          "BOT_AUTO_START_ALREADY_RUNNING",
                                          bot_name=bot.name)
                             else:
@@ -510,13 +531,13 @@ class BotManager:
 
                                 # 清理缓存
                                 try:
-                                    app_id = bot_config.get('app_id') if protocol == 'qq' else None
-                                    bot_cache_manager.clear_bot_cache(bot.id, app_id)
+                                    cache_key = cls._extract_protocol_cache_key(protocol, bot_config)
+                                    bot_cache_manager.clear_bot_cache(bot.id, protocol=protocol, cache_key=cache_key)
                                 except Exception:
                                     pass  # 缓存清理失败不影响主流程
 
                                 log_error(bot.id,
-                                          f"❌ 机器人 {bot.name} 自动启动失败: {result.get('message', '未知错误')}",
+                                          f" 机器人 {bot.name} 自动启动失败: {result.get('message', '未知错误')}",
                                           "BOT_AUTO_START_FAILED", bot_name=bot.name,
                                           error=result.get('message', '未知错误'))
 
@@ -529,12 +550,13 @@ class BotManager:
                             # 清理缓存
                             try:
                                 bot_config = bot.get_config()
-                                app_id = bot_config.get('app_id') if bot.protocol == 'qq' else None
-                                bot_cache_manager.clear_bot_cache(bot.id, app_id)
+                                protocol = bot.protocol
+                                cache_key = cls._extract_protocol_cache_key(protocol, bot_config)
+                                bot_cache_manager.clear_bot_cache(bot.id, protocol=protocol, cache_key=cache_key)
                             except Exception:
                                 pass  # 缓存清理失败不影响主流程
 
-                            log_error(bot.id, f"❌ 机器人 {bot.name} 自动启动异常: {e}", "BOT_AUTO_START_EXCEPTION",
+                            log_error(bot.id, f" 机器人 {bot.name} 自动启动异常: {e}", "BOT_AUTO_START_EXCEPTION",
                                       bot_name=bot.name, error=str(e))
                             # 记录详细的异常堆栈
                             import traceback
@@ -565,20 +587,20 @@ class BotManager:
                                         log_debug(bot.id, f"适配器状态验证通过", "STARTUP_ADAPTER_VERIFIED",
                                                   running=adapter_status.get('running', False))
                                     else:
-                                        log_warn(bot.id, f"⚠️ 机器人 {bot.name} 自动恢复后适配器状态异常，尝试重新启动",
+                                        log_warn(bot.id, f" 机器人 {bot.name} 自动恢复后适配器状态异常，尝试重新启动",
                                                  "STARTUP_ADAPTER_MISSING", bot_name=bot.name)
                                         # 尝试重新启动这个机器人
                                         try:
                                             restart_result = bot_manager.restart_bot(bot.id)
                                             if restart_result['success']:
-                                                log_info(bot.id, f"✅ 机器人 {bot.name} 重新启动成功",
+                                                log_info(bot.id, f" 机器人 {bot.name} 重新启动成功",
                                                          "STARTUP_ADAPTER_RESTART_SUCCESS", bot_name=bot.name)
                                             else:
                                                 log_error(bot.id,
-                                                          f"❌ 机器人 {bot.name} 重新启动失败: {restart_result.get('message')}",
+                                                          f" 机器人 {bot.name} 重新启动失败: {restart_result.get('message')}",
                                                           "STARTUP_ADAPTER_RESTART_FAILED", bot_name=bot.name)
                                         except Exception as restart_error:
-                                            log_error(bot.id, f"❌ 机器人 {bot.name} 重新启动异常: {restart_error}",
+                                            log_error(bot.id, f" 机器人 {bot.name} 重新启动异常: {restart_error}",
                                                       "STARTUP_ADAPTER_RESTART_ERROR", bot_name=bot.name,
                                                       error=str(restart_error))
 
@@ -588,13 +610,13 @@ class BotManager:
                         except Exception as verify_error:
                             log_warn(0, f"适配器状态验证失败: {verify_error}", "STARTUP_ADAPTER_VERIFICATION_ERROR")
 
-                    log_info(0, f"🎉 启动时自动恢复完成 - 成功: {success_count}, 失败: {failed_count}",
+                    log_info(0, f" 启动时自动恢复完成 - 成功: {success_count}, 失败: {failed_count}",
                              "STARTUP_AUTO_RECOVERY_COMPLETE", success_count=success_count, failed_count=failed_count)
                 else:
-                    log_info(0, "✅ 启动时检查完成，没有需要恢复的机器人", "STARTUP_NO_RECOVERY_NEEDED")
+                    log_info(0, " 启动时检查完成，没有需要恢复的机器人", "STARTUP_NO_RECOVERY_NEEDED")
 
         except Exception as e:
-            log_error(0, f"❌ 启动时自动恢复失败: {e}", "STARTUP_AUTO_RECOVERY_ERROR", error=str(e))
+            log_error(0, f" 启动时自动恢复失败: {e}", "STARTUP_AUTO_RECOVERY_ERROR", error=str(e))
             # 即使恢复失败也不应该阻止应用启动
 
     @classmethod
@@ -626,15 +648,15 @@ class BotManager:
 
                     # 提交数据库更改
                     db.session.commit()
-                    log_info(0, f"✅ 强制重置完成，共重置{reset_count}个机器人", "FORCE_RESET_COMPLETE",
+                    log_info(0, f" 强制重置完成，共重置{reset_count}个机器人", "FORCE_RESET_COMPLETE",
                              reset_count=reset_count)
                     return True
                 else:
-                    log_info(0, "✅ 没有需要重置的机器人", "FORCE_RESET_NO_NEED")
+                    log_info(0, " 没有需要重置的机器人", "FORCE_RESET_NO_NEED")
                     return True
 
         except Exception as e:
-            log_error(0, f"❌ 强制重置失败: {e}", "FORCE_RESET_ERROR", error=str(e))
+            log_error(0, f" 强制重置失败: {e}", "FORCE_RESET_ERROR", error=str(e))
             return False
 
     @staticmethod

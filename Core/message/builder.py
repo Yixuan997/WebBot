@@ -52,7 +52,7 @@ class MessageBuilder:
     消息构建器 - 按照 NoneBot2 设计理念
     
     根据 event 自动返回对应协议的 Message 对象
-    如果没有 event，返回通用字典格式（向后兼容）
+    必须在事件上下文中调用
     """
 
     # 线程局部变量，存储当前 event
@@ -85,16 +85,8 @@ class MessageBuilder:
         if not event or not hasattr(event, 'bot'):
             raise RuntimeError("必须在事件上下文中调用 MessageBuilder")
 
-        protocol = event.bot.adapter.get_protocol_name()
-
-        if protocol == 'onebot':
-            from Adapters.onebot.v11.message import OneBotMessage
-            return OneBotMessage.text(content)
-        elif protocol == 'qq':
-            from Adapters.qq.message import QQMessage
-            return QQMessage.text(content)
-        else:
-            raise ValueError(f"不支持的协议: {protocol}")
+        adapter = event.bot.adapter
+        return adapter.build_message('text', content=content)
 
     @classmethod
     def image(cls, image_url_or_file_info: str = "", caption: str = "", auto_upload: bool = True,
@@ -117,22 +109,14 @@ class MessageBuilder:
         if not event or not hasattr(event, 'bot'):
             raise RuntimeError("必须在事件上下文中调用 MessageBuilder")
 
-        protocol = event.bot.adapter.get_protocol_name()
-
-        if protocol == 'onebot':
-            from Adapters.onebot.v11.message import OneBotMessage
-            # OneBot 支持直接传入 URL 或 base64
-            return OneBotMessage.image(image_url_or_file_info or base64_data)
-        elif protocol == 'qq':
-            from Adapters.qq.message import QQMessage, QQMessageSegment
-            # QQ 协议：支持 URL 或 base64 上传
-            return QQMessage([QQMessageSegment.image(
-                url=image_url_or_file_info,
-                caption=caption,
-                base64_data=base64_data
-            )])
-        else:
-            raise ValueError(f"不支持的协议: {protocol}")
+        adapter = event.bot.adapter
+        return adapter.build_message(
+            'image',
+            image_url_or_file_info=image_url_or_file_info,
+            caption=caption,
+            auto_upload=auto_upload,
+            base64_data=base64_data
+        )
 
     @classmethod
     def video(cls, video_url: str, caption: str = "", event: 'BaseEvent' = None) -> 'BaseMessage':
@@ -152,16 +136,8 @@ class MessageBuilder:
         if not event or not hasattr(event, 'bot'):
             raise RuntimeError("必须在事件上下文中调用 MessageBuilder")
 
-        protocol = event.bot.adapter.get_protocol_name()
-
-        if protocol == 'onebot':
-            from Adapters.onebot.v11.message import OneBotMessage
-            return OneBotMessage.video(video_url)
-        elif protocol == 'qq':
-            from Adapters.qq.message import QQMessage
-            return QQMessage.video(video_url, caption)
-        else:
-            raise ValueError(f"不支持的协议: {protocol}")
+        adapter = event.bot.adapter
+        return adapter.build_message('video', video_url=video_url, caption=caption)
 
     @classmethod
     def voice(cls, voice_url: str, event: 'BaseEvent' = None) -> 'BaseMessage':
@@ -180,16 +156,8 @@ class MessageBuilder:
         if not event or not hasattr(event, 'bot'):
             raise RuntimeError("必须在事件上下文中调用 MessageBuilder")
 
-        protocol = event.bot.adapter.get_protocol_name()
-
-        if protocol == 'onebot':
-            from Adapters.onebot.v11.message import OneBotMessage
-            return OneBotMessage.record(voice_url)
-        elif protocol == 'qq':
-            from Adapters.qq.message import QQMessage
-            return QQMessage.voice(voice_url)
-        else:
-            raise ValueError(f"不支持的协议: {protocol}")
+        adapter = event.bot.adapter
+        return adapter.build_message('voice', voice_url=voice_url)
 
     @classmethod
     def file(cls, file_url: str, filename: str = "", event: 'BaseEvent' = None) -> 'BaseMessage':
@@ -209,17 +177,11 @@ class MessageBuilder:
         if not event or not hasattr(event, 'bot'):
             raise RuntimeError("必须在事件上下文中调用 MessageBuilder")
 
-        protocol = event.bot.adapter.get_protocol_name()
-
-        if protocol == 'onebot':
-            # OneBot 不直接支持文件发送，回退为文本
-            from Adapters.onebot.v11.message import OneBotMessage
-            return OneBotMessage.text(f"[文件] {filename or file_url}")
-        elif protocol == 'qq':
-            from Adapters.qq.message import QQMessage
-            return QQMessage.file(file_url, filename)
-        else:
-            raise ValueError(f"不支持的协议: {protocol}")
+        adapter = event.bot.adapter
+        if adapter.supports_message_type('file'):
+            return adapter.build_message('file', file_url=file_url, filename=filename)
+        # 协议不支持文件时统一降级为文本提示
+        return adapter.build_message('text', content=f"[文件] {filename or file_url}")
 
     @classmethod
     def markdown(cls, content: str, template_id: str = "", keyboard_id: str = "",
@@ -248,18 +210,11 @@ class MessageBuilder:
         if not event or not hasattr(event, 'bot'):
             raise RuntimeError("必须在事件上下文中调用 MessageBuilder")
 
-        protocol = event.bot.adapter.get_protocol_name()
-
-        if protocol == 'qq':
-            from Adapters.qq.message import QQMessage, QQMessageSegment
-            if template_id:
-                # 模板Markdown模式
-                return QQMessage([QQMessageSegment.markdown_template(template_id, content, keyboard_id)])
-            else:
-                # 原生Markdown模式（仅频道）
-                return QQMessage([QQMessageSegment.markdown(content)])
-        else:
+        adapter = event.bot.adapter
+        if not adapter.supports_message_type('markdown'):
+            protocol = adapter.get_protocol_name()
             raise ValueError(f"协议 '{protocol}' 不支持 Markdown 消息，请使用 text() 方法")
+        return adapter.build_message('markdown', content=content, template_id=template_id, keyboard_id=keyboard_id)
 
     @classmethod
     def keyboard(cls, content: str, keyboard_id: str, event: 'BaseEvent' = None) -> 'BaseMessage':
@@ -282,12 +237,11 @@ class MessageBuilder:
         if not event or not hasattr(event, 'bot'):
             raise RuntimeError("必须在事件上下文中调用 MessageBuilder")
 
-        protocol = event.bot.adapter.get_protocol_name()
-
-        if protocol == 'qq':
-            from Adapters.qq.message import QQMessage, QQMessageSegment
-            return QQMessage([QQMessageSegment.keyboard(content, keyboard_id)])
-        else:
+        adapter = event.bot.adapter
+        try:
+            return adapter.build_message('keyboard', content=content, keyboard_id=keyboard_id)
+        except ValueError:
+            protocol = adapter.get_protocol_name()
             raise ValueError(f"协议 '{protocol}' 不支持按钮消息")
 
     @classmethod
@@ -306,23 +260,13 @@ class MessageBuilder:
         Raises:
             ValueError: 如果当前协议不支持 ARK
         """
-        import json
         event = event or cls._current_event
 
         if not event or not hasattr(event, 'bot'):
             raise RuntimeError("必须在事件上下文中调用 MessageBuilder")
 
-        protocol = event.bot.adapter.get_protocol_name()
-
-        if protocol == 'qq':
-            from Adapters.qq.message import QQMessage, QQMessageSegment
-            # 解析 JSON 格式的 kv 参数
-            try:
-                kv = json.loads(content)
-                if not isinstance(kv, list):
-                    raise ValueError("ARK内容必须是JSON数组格式")
-            except json.JSONDecodeError as e:
-                raise ValueError(f"ARK内容JSON解析失败: {e}")
-            return QQMessage([QQMessageSegment.ark(template_id, kv)])
-        else:
+        adapter = event.bot.adapter
+        if not adapter.supports_message_type('ark'):
+            protocol = adapter.get_protocol_name()
             raise ValueError(f"协议 '{protocol}' 不支持 ARK 消息")
+        return adapter.build_message('ark', content=content, template_id=template_id)
