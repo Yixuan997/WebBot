@@ -169,7 +169,7 @@ def _load_adapter_modules():
     
     扫描 Adapters 目录，导入所有 adapter.py 模块
     """
-    from Core.logging.file_logger import log_debug, log_warn
+    from Core.logging.file_logger import log_warn
 
     _adapter_registry.clear()
     package_name = __name__
@@ -190,7 +190,6 @@ def _load_adapter_modules():
         if callable(setup):
             try:
                 setup(_adapter_registry)
-                log_debug(0, f"适配器模块注册成功: {full_module_name}", "ADAPTER_MODULE_SETUP_OK")
             except Exception as e:
                 log_warn(0, f"适配器模块 setup 执行失败 {full_module_name}: {e}", "ADAPTER_SETUP_ERROR")
             continue
@@ -204,15 +203,10 @@ def _load_adapter_modules():
 
 def _register_adapters_to_instance(manager_instance):
     """将所有已注册的适配器添加到管理器实例"""
-    from Core.logging.file_logger import log_info, log_error, log_debug
-
-    log_debug(0, "开始注册适配器", "ADAPTER_REGISTER_START")
+    from Core.logging.file_logger import log_info, log_error
 
     # 加载适配器模块
     _load_adapter_modules()
-
-    log_debug(0, f"适配器模块加载完成，注册表: {list(_adapter_registry.keys())}",
-              "ADAPTER_MODULES_LOADED")
 
     # 注册到管理器
     registered_count = 0
@@ -220,8 +214,6 @@ def _register_adapters_to_instance(manager_instance):
         try:
             manager_instance.register_adapter(protocol_name, adapter_class)
             registered_count += 1
-            log_debug(0, f"适配器注册成功: {protocol_name} -> {adapter_class.__name__}",
-                      "ADAPTER_REGISTERED_SUCCESS")
         except Exception as e:
             log_error(0, f"注册适配器失败: {protocol_name}", "ADAPTER_REGISTER_ERROR",
                       error=str(e))

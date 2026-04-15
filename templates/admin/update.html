@@ -219,11 +219,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="col">
                                     <h5 class="card-title mb-0">
                                         ${release.name || release.tag_name}
-                                        ${release.prerelease (c) '<span class="badge bg-yellow-lt ms-2">预发布</span>' : ''}
+                                        ${release.prerelease ? '<span class="badge bg-yellow-lt ms-2">预发布</span>' : ''}
                                     </h5>
                                     <div class="text-muted">
                                         发布时间: ${release.published_at.substring(0, 10)}
-                                        ${release.author (c) '· 发布者: ' + release.author.login : ''}
+                                        ${release.author ? '· 发布者: ' + (release.author.login || '') : ''}
                                     </div>
                                 </div>
                                 <div class="col-auto">

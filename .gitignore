@@ -87,3 +87,4 @@ gunicorn.pid
 # 系统文件
 Thumbs.db
 desktop.ini
+instance/install.lock

@@ -66,7 +66,7 @@ class KookBot(BaseBot):
         timeout = aiohttp.ClientTimeout(total=20)
 
         try:
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
                 async with session.request(
                     method=method,
                     url=url,

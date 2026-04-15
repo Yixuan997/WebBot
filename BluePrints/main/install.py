@@ -13,6 +13,7 @@ from pathlib import Path
 
 from flask import current_app, render_template, request, redirect
 
+from Core.utils.install_state import has_install_lock, write_install_lock
 from http_json import success_api, fail_api, table_api
 
 # 常量定义
@@ -68,8 +69,16 @@ def is_installed() -> bool:
     通过判断数据库表是否存在来判断是否已经安装
     SQLAlchemy 初始化时会自动创建空文件，所以需要检查表是否存在
     """
+    # 优先锁文件（单机快速路径）
+    if has_install_lock(current_app):
+        return True
+
+    # 回退数据库检查（兼容升级后尚未生成锁文件）
     from config import config
-    return config.ensure_database_exists(current_app)
+    db_installed = config.ensure_database_exists(current_app)
+    if db_installed and (not write_install_lock(current_app)):
+        current_app.logger.warning("[INSTALL_LOCK_WRITE_FAILED] 检测到已安装但写入锁文件失败")
+    return db_installed
 
 
 def install_index():
@@ -252,6 +261,9 @@ def run_install():
             db.session.add(User(**DEFAULT_ADMIN_CONFIG))
 
         db.session.commit()
+
+        if not write_install_lock(current_app):
+            current_app.logger.warning("[INSTALL_LOCK_WRITE_FAILED] 安装完成后写入锁文件失败")
 
         return success_api("数据库初始化完成！")
     except Exception as e:

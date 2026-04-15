@@ -17,6 +17,7 @@ from flask_session import Session
 from werkzeug.exceptions import HTTPException
 
 from Core.tools.browser import browser
+from Core.utils.install_state import has_install_lock, write_install_lock
 from Database import init_redis
 # 导入模型
 from Models import db, User, System
@@ -76,11 +77,21 @@ def register_middleware(app: Flask) -> None:
             g.is_installed = False  # 标记为未安装状态
             return None
 
-        # 检查数据库是否存在
+        # 锁文件存在则视为已安装（单机快速路径）
+        if has_install_lock(app):
+            g.is_installed = True
+            return None
+
+        # 回退数据库检查（兼容升级后尚未生成锁文件的场景）
         from config import config
-        if not config.ensure_database_exists(app):
+        db_installed = config.ensure_database_exists(app)
+        if not db_installed:
             g.is_installed = False
             return redirect('/install')
+
+        # 自动补写锁文件，后续请求走锁文件快速路径
+        if not write_install_lock(app):
+            app.logger.warning("[INSTALL_LOCK_WRITE_FAILED] 无法写入安装锁文件，后续将继续回退数据库检查")
 
         g.is_installed = True
         return None

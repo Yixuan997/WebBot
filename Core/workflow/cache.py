@@ -32,6 +32,20 @@ class WorkflowCache:
             self._lock = threading.RLock()
             log_info(0, "工作流缓存管理器初始化", "WORKFLOW_CACHE_INIT")
 
+    def _build_cached_workflow(self, workflow) -> Dict[str, Any]:
+        """构建缓存项（含预编译引擎）"""
+        config = workflow.get_config()
+        trigger_type = config.get('trigger_type', 'message')
+        return {
+            'id': workflow.id,
+            'name': workflow.name,
+            'priority': workflow.priority,
+            'config': config,
+            'enabled': workflow.enabled,
+            'trigger_type': trigger_type,
+            'engine': self._precompile_engine(workflow.id, workflow.name, config),
+        }
+
     def reload(self) -> int:
         """
         从数据库重新加载工作流到缓存
@@ -57,19 +71,10 @@ class WorkflowCache:
                     # 加载工作流并预编译引擎
                     type_counter = Counter()
                     for workflow in workflows:
-                        config = workflow.get_config()
-                        trigger_type = config.get('trigger_type', 'message')
+                        cached_workflow = self._build_cached_workflow(workflow)
+                        trigger_type = cached_workflow['trigger_type']
                         type_counter[trigger_type] += 1
-                        
-                        self._workflows.append({
-                            'id': workflow.id,
-                            'name': workflow.name,
-                            'priority': workflow.priority,
-                            'config': config,
-                            'enabled': workflow.enabled,
-                            'trigger_type': trigger_type,
-                            'engine': self._precompile_engine(workflow.id, workflow.name, config),
-                        })
+                        self._workflows.append(cached_workflow)
 
                     log_info(0, f"工作流缓存已重载: {len(self._workflows)} 个工作流 "
                              f"(消息: {type_counter['message']}, 定时: {type_counter['schedule']}, "
@@ -77,22 +82,69 @@ class WorkflowCache:
                              "WORKFLOW_CACHE_RELOAD",
                              count=len(self._workflows), **{f'{k}_count': v for k, v in type_counter.items()})
                     
-                    # 同步更新定时调度器
-                    self._sync_scheduler()
-
                     return len(self._workflows)
 
             except Exception as e:
                 log_error(0, f"重载工作流缓存失败: {e}", "WORKFLOW_CACHE_RELOAD_ERROR", error=str(e))
                 return 0
-    
-    def _sync_scheduler(self):
-        """同步定时调度器"""
-        try:
-            from Core.scheduler import scheduler_service
-            scheduler_service.reload_scheduled_workflows()
-        except Exception as e:
-            log_error(0, f"同步定时调度器失败: {e}", "WORKFLOW_CACHE_SYNC_SCHEDULER_ERROR", error=str(e))
+
+    def upsert_by_id(self, workflow_id: int) -> Optional[Dict[str, Any]]:
+        """
+        按 ID 增量刷新单个工作流缓存
+
+        Args:
+            workflow_id: 工作流 ID
+
+        Returns:
+            Optional[Dict[str, Any]]: 缓存项；若工作流不存在或未启用，返回 None
+        """
+        from Core.utils.context import app_context
+
+        with self._lock:
+            try:
+                with app_context():
+                    from Models.SQL.Workflow import Workflow
+
+                    workflow = Workflow.query.get(workflow_id)
+
+                    # 先移除旧缓存，再按当前状态决定是否回填
+                    self._workflows = [w for w in self._workflows if w['id'] != workflow_id]
+
+                    if not workflow or not workflow.enabled:
+                        log_debug(0, "增量刷新工作流缓存：工作流不存在或未启用",
+                                  "WORKFLOW_CACHE_UPSERT_SKIPPED", workflow_id=workflow_id)
+                        return None
+
+                    cached_workflow = self._build_cached_workflow(workflow)
+                    self._workflows.append(cached_workflow)
+                    self._workflows.sort(key=lambda item: item.get('priority', 100))
+
+                    log_debug(0, "增量刷新工作流缓存成功", "WORKFLOW_CACHE_UPSERT_OK",
+                              workflow_id=workflow_id, trigger_type=cached_workflow.get('trigger_type'))
+                    return cached_workflow
+            except Exception as e:
+                log_error(0, f"增量刷新工作流缓存失败: {e}",
+                          "WORKFLOW_CACHE_UPSERT_ERROR", workflow_id=workflow_id, error=str(e))
+                return None
+
+    def remove_by_id(self, workflow_id: int) -> bool:
+        """
+        按 ID 从缓存移除工作流
+
+        Args:
+            workflow_id: 工作流 ID
+
+        Returns:
+            bool: 是否有缓存项被移除
+        """
+        with self._lock:
+            before_count = len(self._workflows)
+            self._workflows = [w for w in self._workflows if w['id'] != workflow_id]
+            removed = len(self._workflows) < before_count
+            if removed:
+                log_debug(0, "已从缓存移除工作流", "WORKFLOW_CACHE_REMOVE_BY_ID",
+                          workflow_id=workflow_id)
+            return removed
 
     def _precompile_engine(self, workflow_id: int, workflow_name: str, config: Dict[str, Any]):
         """

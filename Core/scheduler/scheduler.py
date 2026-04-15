@@ -59,6 +59,10 @@ class SchedulerService:
             self._scheduler.shutdown(wait=False)
             log_info(0, "定时调度器已停止", "SCHEDULER_STOPPED")
 
+    def is_running(self) -> bool:
+        """调度器是否处于运行状态"""
+        return bool(self._scheduler and self._scheduler.running)
+
     def add_workflow_job(self, workflow_id: int, config: Dict[str, Any]) -> bool:
         """
         添加定时工作流任务
@@ -364,43 +368,49 @@ class SchedulerService:
             log_debug(0, f"定时工作流未产生处理结果: {config.get('name')}",
                       "SCHEDULED_WORKFLOW_NO_RESPONSE", workflow_id=workflow_id)
 
-    def reload_scheduled_workflows(self, app=None):
+    def sync_scheduled_workflows_from_cache(self, workflows: List[Dict[str, Any]]) -> int:
         """
-        重新加载所有定时工作流
-        
+        从工作流缓存同步定时任务
+
         Args:
-            app: Flask 应用实例（已废弃，使用全局上下文管理器）
+            workflows: 工作流缓存列表
+
+        Returns:
+            int: 成功同步的定时任务数量
         """
-        from Core.utils.context import app_context
-        
-        try:
-            with app_context():
-                from Models.SQL.Workflow import Workflow
-
-                # 查询所有启用的定时工作流
-                workflows = Workflow.query.filter_by(enabled=True).all()
-
-                # 清除所有现有任务
-                for wf_id in list(self._jobs.keys()):
-                    self.remove_workflow_job(wf_id)
-
-                # 添加定时工作流
-                scheduled_count = 0
-                for workflow in workflows:
-                    config = workflow.get_config()
-                    trigger_type = config.get('trigger_type', 'message')
-                    
-                    if trigger_type == 'schedule':
-                        if self.add_workflow_job(workflow.id, config):
-                            scheduled_count += 1
-
-                log_info(0, f"定时工作流重载完成: {scheduled_count} 个任务",
-                         "SCHEDULER_RELOAD_DONE", count=scheduled_count)
-                return scheduled_count
-
-        except Exception as e:
-            log_error(0, f"重载定时工作流失败: {e}", "SCHEDULER_RELOAD_ERROR", error=str(e))
+        if not self.is_running():
+            log_warn(0, "调度器未运行，跳过缓存同步", "SCHEDULER_SYNC_SKIPPED")
             return 0
+
+        # 先清空现有任务映射（避免逐条 remove 产生噪音日志）
+        for workflow_id, job_id in list(self._jobs.items()):
+            try:
+                self._scheduler.remove_job(job_id)
+            except Exception:
+                pass
+        self._jobs.clear()
+
+        scheduled_count = 0
+        for workflow_item in workflows or []:
+            if not workflow_item.get('enabled', True):
+                continue
+
+            workflow_id = workflow_item.get('id')
+            config = dict(workflow_item.get('config') or {})
+            trigger_type = workflow_item.get('trigger_type', config.get('trigger_type', 'message'))
+
+            if trigger_type != 'schedule':
+                continue
+
+            if workflow_item.get('name') and 'name' not in config:
+                config['name'] = workflow_item['name']
+
+            if self.add_workflow_job(workflow_id, config):
+                scheduled_count += 1
+
+        log_info(0, f"定时任务缓存同步完成: {scheduled_count} 个任务",
+                 "SCHEDULER_SYNC_FROM_CACHE_DONE", count=scheduled_count)
+        return scheduled_count
 
     def get_jobs_info(self) -> List[Dict[str, Any]]:
         """

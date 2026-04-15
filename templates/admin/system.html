@@ -48,6 +48,30 @@
                        value="{{ settings.cop or 'Copyright © 2024 QQ机器人管理平台 All rights reserved.' }}">
                 <small class="form-hint">显示在网站底部的版权信息</small>
             </div>
+            <hr>
+            <div class="mb-3">
+                <label class="form-label">全局网络代理</label>
+                <label class="form-check">
+                    <input class="form-check-input" name="proxy_enabled" type="checkbox"
+                           {% if proxy_settings.enabled %}checked{% endif %}>
+                    <span class="form-check-label">启用全局出站代理</span>
+                </label>
+                <small class="form-hint">开启后系统的对外请求将走代理（HTTP/HTTPS/ALL_PROXY）</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">代理地址</label>
+                <input class="form-control" name="proxy_url" type="text"
+                       placeholder="socks5://user:pass@host:port 或 http://host:port"
+                       value="{{ proxy_settings.proxy_url or '' }}">
+                <small class="form-hint">支持 socks5/http/https 协议，仅影响出站请求</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">直连白名单 (NO_PROXY)</label>
+                <input class="form-control" name="proxy_no_proxy" type="text"
+                       placeholder="127.0.0.1,localhost,.example.com"
+                       value="{{ proxy_settings.no_proxy or '' }}">
+                <small class="form-hint">多个值用英文逗号分隔，匹配地址将不走代理</small>
+            </div>
             <div class="form-footer">
                 <button class="btn btn-primary" type="submit">保存设置</button>
             </div>

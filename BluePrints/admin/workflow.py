@@ -10,7 +10,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import requests
 from flask import render_template, request, flash, redirect, url_for, jsonify, g, Response, stream_with_context
@@ -26,12 +26,36 @@ from utils.page_utils import adapt_pagination
 AI_EDGE_FIELDS = ('next_node', 'true_branch', 'false_branch', 'loop_body')
 
 
-def _clear_workflow_cache():
-    """清除并重载工作流缓存"""
+def _clear_workflow_cache(workflow_id: Optional[int] = None, remove: bool = False):
+    """刷新工作流缓存（支持全量与单条增量）"""
     try:
         from Core.workflow.cache import workflow_cache
-        from flask import current_app
-        workflow_cache.reload()
+        from Core.scheduler import scheduler_service
+
+        # 全量重载（手动重载入口使用）
+        if workflow_id is None:
+            workflow_cache.reload()
+            if scheduler_service.is_running():
+                scheduler_service.sync_scheduled_workflows_from_cache(workflow_cache.get_all_workflows())
+            return
+
+        # 单条删除（缓存 + 调度器）
+        if remove:
+            workflow_cache.remove_by_id(workflow_id)
+            if scheduler_service.is_running():
+                scheduler_service.remove_workflow_job(workflow_id)
+            return
+
+        # 单条更新（缓存 + 调度器）
+        workflow_item = workflow_cache.upsert_by_id(workflow_id)
+        if scheduler_service.is_running():
+            if workflow_item and workflow_item.get('trigger_type') == 'schedule':
+                schedule_config = dict(workflow_item.get('config') or {})
+                if workflow_item.get('name') and 'name' not in schedule_config:
+                    schedule_config['name'] = workflow_item['name']
+                scheduler_service.update_workflow_job(workflow_id, schedule_config)
+            else:
+                scheduler_service.remove_workflow_job(workflow_id)
     except Exception as e:
         log_error(0, f"重载工作流缓存失败: {e}", "WORKFLOW_CACHE_RELOAD_ERROR", error=str(e))
 
@@ -650,7 +674,7 @@ def workflow_ai_create():
             enabled=False,
             priority=100
         )
-        _clear_workflow_cache()
+        _clear_workflow_cache(created.id)
 
         return jsonify({
             'success': True,
@@ -748,7 +772,7 @@ def workflow_create():
         log_info(0, f"创建工作流: {name}", "WORKFLOW_CREATE",
                  workflow_id=workflow.id, creator_id=creator_id, trigger_type=trigger_type)
 
-        _clear_workflow_cache()
+        _clear_workflow_cache(workflow.id)
 
         flash(f'工作流 {name} 创建成功', 'success')
         return redirect(url_for('Admin.workflow_edit', workflow_id=workflow.id))
@@ -800,7 +824,7 @@ def workflow_edit(workflow_id):
         log_info(0, f"更新工作流节点: {workflow.name}", "WORKFLOW_UPDATE_NODES", 
                  workflow_id=workflow_id)
 
-        _clear_workflow_cache()
+        _clear_workflow_cache(workflow_id)
 
         flash('工作流节点更新成功', 'success')
         return redirect(url_for('Admin.workflow_detail', workflow_id=workflow_id))
@@ -823,7 +847,7 @@ def workflow_delete(workflow_id):
 
         log_info(0, f"删除工作流: {workflow_name}", "WORKFLOW_DELETE", workflow_id=workflow_id)
 
-        _clear_workflow_cache()
+        _clear_workflow_cache(workflow_id, remove=True)
 
         flash(f'工作流 {workflow_name} 删除成功', 'success')
 
@@ -846,7 +870,7 @@ def workflow_toggle(workflow_id):
         log_info(0, f"{status}工作流: {workflow.name}", "WORKFLOW_TOGGLE",
                  workflow_id=workflow_id, enabled=workflow.enabled)
 
-        _clear_workflow_cache()
+        _clear_workflow_cache(workflow_id)
 
         flash(f'工作流 {workflow.name} 已{status}', 'success')
 
@@ -933,7 +957,7 @@ def workflow_update_basic(workflow_id):
         log_info(0, f"更新工作流基本信息: {name}", "WORKFLOW_UPDATE_BASIC",
                  workflow_id=workflow_id)
         
-        _clear_workflow_cache()
+        _clear_workflow_cache(workflow_id)
         
         flash('基本信息保存成功', 'success')
         return redirect(url_for('Admin.workflow_detail', workflow_id=workflow_id))
@@ -980,18 +1004,24 @@ def workflow_reload_cache():
     """手动重载工作流缓存"""
     try:
         from Core.workflow.cache import workflow_cache
-        from flask import current_app
+        from Core.scheduler import scheduler_service
 
         count = workflow_cache.reload()
+        scheduled_count = 0
+        if scheduler_service.is_running():
+            scheduled_count = scheduler_service.sync_scheduled_workflows_from_cache(
+                workflow_cache.get_all_workflows()
+            )
 
-        log_info(0, f"手动重载工作流缓存", "WORKFLOW_CACHE_MANUAL_RELOAD", count=count)
+        log_info(0, f"手动重载工作流缓存", "WORKFLOW_CACHE_MANUAL_RELOAD",
+                 count=count, scheduled_count=scheduled_count)
 
         # 获取缓存统计信息
         stats = workflow_cache.get_stats()
 
         return jsonify({
             'success': True,
-            'message': f'缓存已重载，共 {count} 个工作流',
+            'message': f'缓存已重载，共 {count} 个工作流，{scheduled_count} 个定时任务已同步',
             'stats': stats
         })
 
@@ -1158,7 +1188,7 @@ def workflow_import():
                  workflow_id=workflow.id, original_name=original_name, 
                  copied_files=copied_files, blocked_files=blocked_files)
 
-        _clear_workflow_cache()
+        _clear_workflow_cache(workflow.id)
 
         renamed = name != original_name
         message = '工作流导入成功'

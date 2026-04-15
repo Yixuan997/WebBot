@@ -145,7 +145,7 @@ class HttpRequestNode(BaseNode):
         try:
             timeout_obj = aiohttp.ClientTimeout(total=timeout)
             
-            async with aiohttp.ClientSession(timeout=timeout_obj) as session:
+            async with aiohttp.ClientSession(timeout=timeout_obj, trust_env=True) as session:
                 kwargs = {
                     'method': method,
                     'url': url,
