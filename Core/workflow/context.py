@@ -6,7 +6,7 @@
 import json
 from typing import Any
 
-from jinja2 import Environment
+from jinja2 import ChainableUndefined, Environment
 
 
 class MessageAPI:
@@ -108,10 +108,17 @@ class WorkflowContext:
         Returns:
             str: 渲染后的字符串
         """
+        if template_str is None:
+            return ""
+
+        if not isinstance(template_str, str):
+            template_str = str(template_str)
+
         try:
             from Core.workflow.globals import global_variables
             
-            env = Environment()
+            # 使用 ChainableUndefined，避免缺失变量导致整段模板渲染失败
+            env = Environment(undefined=ChainableUndefined)
             # 添加 json_safe 过滤器：转义字符串中的特殊字符，使其可以安全嵌入 JSON
             env.filters['json_safe'] = lambda s: json.dumps(str(s), ensure_ascii=False)[1:-1] if s else ''
             template = env.from_string(template_str)

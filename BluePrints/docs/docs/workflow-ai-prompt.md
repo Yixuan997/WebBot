@@ -22,7 +22,7 @@
 **字段说明**：
 - `name`: 工作流名称
 - `description`: 描述（可为空）
-- `protocols`: 限制协议，空数组表示支持所有协议，可选值：`["qq"]`, `["onebot"]`
+- `protocols`: 限制协议，空数组表示支持所有协议，可选值：`["qq"]`, `["onebot"]`, `["kook"]`
 - `trigger_type`: 触发类型
   - `message`: 消息触发（默认）- 收到消息时根据关键词触发
   - `schedule`: 定时触发 - 按设定的时间自动执行
@@ -41,9 +41,10 @@
 **执行路径规则（重要）**：
 - 当前引擎按**显式跳转字段**执行：`next_node / true_branch / false_branch / loop_body`
 - 不再按数组“下一个节点”自动兜底
-- 除 `end` 节点外，每个节点都必须配置明确下一跳；未配置将无法通过结构校验
+- 除 `end` 节点外，每个节点都应配置明确执行路径；未配置时通常会在运行时终止
 - `start` 节点必须配置 `next_node`
 - `condition` 节点必须同时配置 `true_branch` 和 `false_branch`（不得留空）
+- `keyword_trigger` 建议配置 `next_node`，未匹配会自动中断当前工作流
 - `foreach` 节点必须配置 `loop_body` 和 `next_node`
 
 ## 可用内置变量
@@ -64,8 +65,8 @@
 | group_id | string | 群ID（仅群聊） |
 | message_id | string | 消息ID |
 | is_group | boolean | 是否群聊 |
-| protocol | string | 协议类型：qq/onebot |
-| bot_id | string | 机器人QQ号 |
+| protocol | string | 协议类型：qq/onebot/kook |
+| bot_id | string | 机器人ID |
 | raw_data | object | 消息原始数据（包含回复信息等） |
 
 **raw_data 常用嵌套访问**：
@@ -92,7 +93,7 @@
 - `allow_continue`: boolean - 是否允许后续工作流继续处理（默认 true）
 
 ### 3. keyword_trigger - 关键词触发
-检查消息是否匹配关键词，**必须显式配置 true/false 分支**。
+检查消息是否匹配关键词。匹配成功可通过 `next_node` 继续，未匹配会自动中断当前工作流。
 
 ```json
 {
@@ -101,8 +102,7 @@
   "config": {
     "keywords": "关键词1\n关键词2\n关键词3",
     "match_type": "contains",
-    "true_branch": "node_2",
-    "false_branch": "end"
+    "next_node": "node_2"
   }
 }
 ```
@@ -113,8 +113,7 @@
   - `contains`: 包含（默认）
   - `equals`: 完全匹配
   - `starts_with`: 开头匹配
-- `true_branch`: string - 匹配成功后跳转节点ID（必填）
-- `false_branch`: string - 匹配失败后跳转节点ID（必填，建议指向 `end`）
+- `next_node`: string - 匹配成功后跳转节点ID（建议填写）
 
 输出变量：
 - `matched`: boolean - 是否匹配
@@ -147,9 +146,9 @@
   "config": {
     "mode": "advanced",
     "logic_type": "AND",
-    "conditions": "sender.user_id|equals|93653142\nis_group|equals|True",
+    "conditions": "{{sender.user_id}}|equals|93653142\n{{is_group}}|equals|True",
     "true_branch": "node_2",
-    "false_branch": ""
+    "false_branch": "node_3"
   }
 }
 ```
@@ -171,7 +170,7 @@
   - `regex`: 正则匹配
 - `compare_value`: string - 比较值（简单模式）
 - `logic_type`: string - 逻辑类型（高级模式）：`AND` 或 `OR`
-- `conditions`: string - 条件列表（高级模式），每行格式：`变量名|运算符|比较值`，变量名支持点号访问如 `response_json.code|equals|200`
+- `conditions`: string - 条件列表（高级模式），每行格式：`变量名|运算符|比较值`。建议变量名使用模板语法，如 `{{response_json.code}}|equals|200`
 - `true_branch`: string - 满足条件跳转的节点ID（必填）
 - `false_branch`: string - 不满足条件跳转的节点ID（必填，不允许留空）
 - `stop_after_branch`: boolean - 在循环中执行分支后是否停止当前迭代（默认 false，设为 true 可避免执行两个分支）
@@ -302,7 +301,7 @@
   "id": "node_1",
   "type": "string_operation",
   "config": {
-    "input": "{{message}}",
+    "input": "message",
     "operation": "regex_extract",
     "param1": "https://v\\.douyin\\.com/[^\\s]+",
     "param2": "",
@@ -313,7 +312,7 @@
 ```
 
 配置项：
-- `input`: string - 输入字符串，支持模板
+- `input`: string - 输入变量名（如 `message`、`douyin_text`）
 - `operation`: string - 操作类型
   - `trim`: 去除首尾空格
   - `upper`: 转大写
@@ -494,13 +493,12 @@
 ```
 
 配置项：
-- `target_protocol`: string - 目标协议（可选）：`qq` 或 `onebot`
+- `target_protocol`: string - 目标协议（可选）：`qq` / `onebot` / `kook`（以系统当前已注册协议为准）
 - `next_node`: string - 执行后跳转到的节点ID（必填）
 
 输出变量：
 - `protocol`: string - 协议名称
-- `is_qq`: boolean - 是否QQ官方
-- `is_onebot`: boolean - 是否OneBot
+- `is_{protocol}`: boolean - 是否为对应协议（如 `is_qq`、`is_onebot`、`is_kook`）
 
 ### 17. comment - 注释节点
 添加注释说明，不执行任何操作。
@@ -602,7 +600,7 @@
   "allow_continue": false,
   "workflow": [
     {"id": "start", "type": "start", "config": {"next_node": "node_1"}},
-    {"id": "node_1", "type": "keyword_trigger", "config": {"keywords": "你好\nhello\nhi", "match_type": "contains", "true_branch": "node_2", "false_branch": "end"}},
+    {"id": "node_1", "type": "keyword_trigger", "config": {"keywords": "你好\nhello\nhi", "match_type": "contains", "next_node": "node_2"}},
     {"id": "node_2", "type": "send_message", "config": {"message_type": "text", "content": "你好，{{sender.nickname}}！有什么可以帮你的吗？", "skip_if_unsupported": false, "next_node": "end"}},
     {"id": "end", "type": "end", "config": {"allow_continue": false}}
   ]
@@ -620,7 +618,7 @@
   "allow_continue": false,
   "workflow": [
     {"id": "start", "type": "start", "config": {"next_node": "node_1"}},
-    {"id": "node_1", "type": "keyword_trigger", "config": {"keywords": "/admin", "match_type": "starts_with", "true_branch": "node_2", "false_branch": "end"}},
+    {"id": "node_1", "type": "keyword_trigger", "config": {"keywords": "/admin", "match_type": "starts_with", "next_node": "node_2"}},
     {"id": "node_2", "type": "condition", "config": {"mode": "simple", "variable_name": "sender.user_id", "condition_type": "equals", "compare_value": "93653142", "true_branch": "node_3", "false_branch": "node_4"}},
     {"id": "node_3", "type": "send_message", "config": {"message_type": "text", "content": "管理员你好！", "skip_if_unsupported": false, "next_node": "end"}},
     {"id": "node_4", "type": "send_message", "config": {"message_type": "text", "content": "你没有权限使用此命令", "skip_if_unsupported": false, "next_node": "end"}},
@@ -640,7 +638,7 @@
   "allow_continue": false,
   "workflow": [
     {"id": "start", "type": "start", "config": {"next_node": "node_1"}},
-    {"id": "node_1", "type": "keyword_trigger", "config": {"keywords": "天气\nweather", "match_type": "contains", "true_branch": "node_2", "false_branch": "end"}},
+    {"id": "node_1", "type": "keyword_trigger", "config": {"keywords": "天气\nweather", "match_type": "contains", "next_node": "node_2"}},
     {"id": "node_2", "type": "http_request", "config": {"method": "GET", "url": "https://api.example.com/weather?city=北京", "headers": "", "body": "", "timeout": "10", "response_type": "json", "next_node": "node_3"}},
     {"id": "node_3", "type": "json_extract", "config": {"json_source": "response_json", "extract_path": "data.temperature", "save_to": "temp", "default_value": "未知", "next_node": "node_4"}},
     {"id": "node_4", "type": "send_message", "config": {"message_type": "text", "content": "当前温度：{{temp}}°C", "skip_if_unsupported": false, "next_node": "end"}},
@@ -660,7 +658,7 @@
   "allow_continue": false,
   "workflow": [
     {"id": "start", "type": "start", "config": {"next_node": "node_1"}},
-    {"id": "node_1", "type": "keyword_trigger", "config": {"keywords": "我的信息\nmyinfo", "match_type": "equals", "true_branch": "node_2", "false_branch": "end"}},
+    {"id": "node_1", "type": "keyword_trigger", "config": {"keywords": "我的信息\nmyinfo", "match_type": "equals", "next_node": "node_2"}},
     {"id": "node_2", "type": "html_render", "config": {"template_path": "message_info.html", "template_data": "{}", "width": "450", "height": "", "next_node": "node_3"}},
     {"id": "node_3", "type": "send_message", "config": {"message_type": "image", "content": "base64://{{image_base64}}", "skip_if_unsupported": false, "next_node": "end"}},
     {"id": "end", "type": "end", "config": {"allow_continue": false}}
@@ -693,7 +691,8 @@
 ```
 
 **定时工作流说明**：
-- 定时工作流没有消息上下文，`message`、`user_id`、`group_id` 等变量为空
+- 定时工作流没有真实聊天消息，`message` 通常为形如 `[定时任务: 工作流名]` 的占位文本
+- `user_id`、`group_id` 通常为空
 - 需要在工作流节点中明确指定发送目标（如使用 `endpoint` 节点指定 group_id）
 - 支持 cron 表达式或固定间隔两种调度方式
 
@@ -772,7 +771,7 @@
   "allow_continue": false,
   "workflow": [
     {"id": "start", "type": "start", "config": {"next_node": "node_1"}},
-    {"id": "node_1", "type": "keyword_trigger", "config": {"keywords": "签到", "match_type": "equals", "true_branch": "node_2", "false_branch": "end"}},
+    {"id": "node_1", "type": "keyword_trigger", "config": {"keywords": "签到", "match_type": "equals", "next_node": "node_2"}},
     {"id": "node_2", "type": "data_storage", "config": {"storage_name": "checkin", "operation": "get", "key": "{{user_id}}", "default_value": "0", "save_to": "count", "next_node": "node_3"}},
     {"id": "node_3", "type": "set_variable", "config": {"variable_name": "new_count", "variable_value": "{{count|int + 1}}", "next_node": "node_4"}},
     {"id": "node_4", "type": "data_storage", "config": {"storage_name": "checkin", "operation": "set", "key": "{{user_id}}", "value": "{{new_count}}", "next_node": "node_5"}},
@@ -795,9 +794,9 @@
 4. **JSON字符串中的引号需要转义**
 5. **布尔值在 JSON 模板数据中使用小写**：true/false
 6. **关键词用换行符分隔**：`关键词1\n关键词2`
-7. **显式跳转执行（强制）**：除 `end` 外必须显式配置下一跳（`next_node/true_branch/false_branch/loop_body`）
+7. **显式跳转执行（强制）**：除 `end` 外必须显式配置执行路径（如 `next_node` / `true_branch+false_branch` / `loop_body`）
 8. **禁止旧格式**：严禁输出仅依赖数组顺序的“无连线配置”节点
-9. **start/condition/foreach 强约束**：`start.next_node` 必填，`condition.true_branch + false_branch` 必填，`foreach.loop_body + next_node` 必填
+9. **start/condition/foreach/keyword_trigger 约束**：`start.next_node` 必填，`condition.true_branch + false_branch` 必填，`foreach.loop_body + next_node` 必填，`keyword_trigger` 建议填写 `next_node`
 10. **定时工作流需在节点中指定发送目标**
 11. **循环中的条件节点应设置 `stop_after_branch: true`**，避免执行两个分支
 

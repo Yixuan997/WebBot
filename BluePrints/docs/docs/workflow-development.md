@@ -38,7 +38,7 @@
 ✅ **可视化流程** - 流程一目了然，易于维护  
 ✅ **灵活扩展** - 支持Python代码片段自定义逻辑  
 ✅ **高性能** - 智能缓存和索引，快速匹配消息  
-✅ **多协议支持** - 同时支持QQ官方和OneBot协议
+✅ **多协议支持** - 同时支持QQ官方、OneBot、KOOK协议
 
 ## 🏗️ 工作流架构
 
@@ -106,7 +106,7 @@ sequenceDiagram
 工作流系统采用**智能内存缓存**，避免每次消息都查询数据库：
 
 - **启动加载** - 应用启动时加载所有工作流到内存
-- **智能索引** - 根据触发类型建立索引（关键词O(1)、正则O(k)）
+- **智能索引** - 根据触发类型建立缓存索引，减少匹配开销
 - **自动刷新** - 编辑工作流时自动更新缓存
 - **手动刷新** - 支持手动刷新缓存接口
 
@@ -161,13 +161,14 @@ sequenceDiagram
 定时触发的工作流，开始节点会提供以下变量：
 
 ```python
-trigger_type      # "schedule"（定时触发）
-scheduled_time    # 计划执行时间
-user_id           # 订阅用户ID（逐个执行）
-protocol          # 用户所属协议
+message           # 形如 "[定时任务: 工作流名]"
+user_id           # 通常为空
+group_id          # 通常为空
+protocol          # 当前执行 bot 的协议
+bot_id            # 当前执行 bot 的 ID
 ```
 
-**注意**：定时工作流会为每个订阅用户分别执行一次，每次执行时 `user_id` 为当前用户。
+**注意**：定时工作流会对“订阅该工作流且在线”的 bot 分别执行一次，不会自动注入订阅用户的 `user_id`。
 
 ## 🚀 快速开始
 
@@ -238,8 +239,8 @@ sender            # 完整sender对象
 group_id          # 群ID（仅群聊）
 message_id        # 消息ID
 is_group          # 是否群聊
-protocol          # 协议类型（qq/onebot）
-bot_id            # 机器人QQ号
+protocol          # 协议类型（qq/onebot/kook）
+bot_id            # 机器人ID
 event             # 完整事件对象
 raw_data          # 消息原始数据（包含回复信息等）
 ```
@@ -271,6 +272,7 @@ raw_data.message[0].type       # 第一个消息段类型
   - `contains`: 包含（默认）
   - `equals`: 完全匹配
   - `starts_with`: 开头匹配
+- `next_node`: 匹配成功后跳转节点ID（建议填写）
 
 **输出变量**：
 - `matched`: 是否匹配 (boolean)
@@ -282,7 +284,8 @@ raw_data.message[0].type       # 第一个消息段类型
   "type": "keyword_trigger",
   "config": {
     "keywords": "天气\nweather\n查天气",
-    "match_type": "contains"
+    "match_type": "contains",
+    "next_node": "node_2"
   }
 }
 ```
@@ -307,13 +310,13 @@ raw_data.message[0].type       # 第一个消息段类型
   - `is_not_empty`: 不为空
   - `regex`: 正则匹配
 - `compare_value`: 比较值（`regex` 时为正则表达式）
-- `true_branch`: 满足条件跳转的节点ID（建议填写）
-- `false_branch`: 不满足条件跳转的节点ID（留空则中断）
+- `true_branch`: 满足条件跳转的节点ID（必填）
+- `false_branch`: 不满足条件跳转的节点ID（必填）
 
 **高级模式配置项**：
 - `mode`: `advanced`
 - `logic_type`: `AND` 或 `OR`
-- `conditions`: 条件列表，每行格式：`变量名|运算符|比较值`
+- `conditions`: 条件列表，每行格式：`变量名|运算符|比较值`。建议变量名使用模板语法，如 `{{response_json.code}}|equals|200`
 
 **输出变量**：
 - `result`: 判断结果 (boolean)
@@ -397,7 +400,7 @@ raw_data.message[0].type       # 第一个消息段类型
 **功能**：对字符串进行处理操作
 
 **配置项**：
-- `input`: 输入字符串，支持模板
+- `input`: 输入变量名（如 `message`、`douyin_text`）
 - `operation`: 操作类型
   - `trim`: 去除首尾空格
   - `upper`: 转大写
@@ -419,7 +422,7 @@ raw_data.message[0].type       # 第一个消息段类型
 {
   "type": "string_operation",
   "config": {
-    "input": "{{message}}",
+    "input": "message",
     "operation": "regex_extract",
     "param1": "https://v\\.douyin\\.com/[^\\s]+",
     "save_to": "douyin_url"
@@ -913,7 +916,8 @@ else:
 
 - **QQ官方协议** (`qq`)
 - **OneBot协议** (`onebot`)
-- **不限制**：留空或同时勾选两者
+- **KOOK协议** (`kook`)
+- **不限制**：留空或同时勾选全部协议
 
 配置位置：工作流详情页 → 允许的协议
 
@@ -924,7 +928,7 @@ else:
 user_id       # 用户ID
 workflow_id   # 工作流ID
 enabled       # 是否启用
-created_at    # 订阅时间
+subscribed_at # 订阅时间
 ```
 
 ## 🎨 最佳实践
@@ -959,20 +963,26 @@ created_at    # 订阅时间
 
 ```json
 {
-  "keywords": ["天气", "weather", "/weather"],
-  "match_mode": "contains"
+  "keywords": "天气\nweather\n/weather",
+  "match_type": "contains",
+  "next_node": "node_2"
 }
 ```
 
-**优势**：O(1)快速匹配，性能最佳
+**优势**：配置简单、命中快，适合固定口令类场景
 
-#### 使用正则触发
+#### 使用正则条件判断
 
-适合场景：复杂的模式匹配
+适合场景：消息格式复杂，需要提取结构化内容
 
 ```json
 {
-  "pattern": "^查询\\s+(.+)\\s+的(.+)$"
+  "mode": "simple",
+  "variable_name": "message",
+  "condition_type": "regex",
+  "compare_value": "^查询\\s+(.+)\\s+的(.+)$",
+  "true_branch": "node_2",
+  "false_branch": "end"
 }
 ```
 
@@ -1164,8 +1174,8 @@ def save_state(user_id, state):
 
 **A:** 工作流系统性能优异：
 
-- **关键词匹配**：O(1)，HashMap快速查找
-- **正则匹配**：O(k)，k为正则工作流数量
+- **关键词匹配**：缓存索引命中后快速执行
+- **复杂条件匹配**：按配置逐条判断，建议只在需要时使用
 - **内存占用**：200个工作流约5MB
 - **缓存预编译**：正则表达式提前编译
 
@@ -1176,6 +1186,7 @@ def save_state(user_id, state):
 - [传统插件开发文档](./plugin-development.md) - 了解插件系统
 - [QQ官方API文档](https://bot.q.qq.com/wiki/) - QQ机器人API
 - [OneBot文档](https://11.onebot.dev/) - OneBot协议标准
+- [KOOK开发者文档](https://developer.kookapp.cn/) - KOOK机器人开发文档
 
 ### 示例工作流
 

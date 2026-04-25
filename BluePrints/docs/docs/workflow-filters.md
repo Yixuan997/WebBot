@@ -244,10 +244,11 @@ https://api.example.com/search?keyword={{keyword|urlencode}}&page=1
 | 过滤器 | 说明 | 例子 |
 |--------|------|------|
 | join | 连接成字符串 | `{{x\|join(', ')}}` |
-| split | 分割成列表 | `{{x\|split(',')}}` |
 | sort | 排序 | `{{x\|sort}}` |
 | unique | 去重 | `{{x\|unique}}` |
 | random | 随机选一个 | `{{x\|random}}` |
+
+> 说明：模板环境没有内置 `split` 过滤器。需要分割字符串时，建议使用 `string_operation` 节点的 `split` 操作。
 
 ### 特殊处理
 | 过滤器 | 说明 | 例子 |
