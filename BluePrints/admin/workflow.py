@@ -817,7 +817,6 @@ def workflow_edit(workflow_id):
         config = workflow.get_config()
         config['allow_continue'] = allow_continue
         config['workflow'] = workflow_nodes
-        config['protocols'] = workflow_config.get('protocols', config.get('protocols', []))
 
         workflow.update_config(config)
 

@@ -1897,9 +1897,8 @@ function submitWorkflow(event) {
         return;
     }
     
-    // 构建工作流节点配置（保留原有 protocols）
+    // 构建工作流节点配置
     const workflowConfig = {
-        protocols: existingProtocols,
         workflow: nodes
     };
     
