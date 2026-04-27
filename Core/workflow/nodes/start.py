@@ -124,21 +124,6 @@ class StartNode(BaseNode):
         if '[CQ:' in message_cq and '[CQ:' not in raw_message:
             raw_message = message_cq
 
-        # 调试输出：定位消息前后空白来自哪一层
-        raw_data = getattr(event, 'raw_data', {}) or {}
-        raw_data_content = raw_data.get('content') if isinstance(raw_data, dict) else None
-        raw_data_raw_content = raw_data.get('raw_content') if isinstance(raw_data, dict) else None
-        print(
-            "[WF_DEBUG_START_MESSAGE] "
-            f"protocol={protocol!r} "
-            f"message_text={message_text!r} "
-            f"message_cq={message_cq!r} "
-            f"raw_message={raw_message!r} "
-            f"raw_data.content={raw_data_content!r} "
-            f"raw_data.raw_content={raw_data_raw_content!r}",
-            flush=True
-        )
-
         # 保存到上下文
         context.set_variable('message', message_text)
         context.set_variable('message_cq', message_cq)  # CQ码/组合消息（适合提取图片等非文本段）
