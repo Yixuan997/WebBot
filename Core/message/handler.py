@@ -91,9 +91,7 @@ class MessageHandler:
             if not workflows:
                 return
 
-            message_handled = False
-
-            # 创建所有工作流的任务，使用 dict 映射 task -> workflow_data
+            # 创建所有工作流任务，使用 dict 映射 task -> workflow_data
             task_to_workflow = {}
             for workflow_data in workflows:
                 # 在当前事件循环中创建异步任务
@@ -127,7 +125,13 @@ class MessageHandler:
                                 if isinstance(response, BaseMessage):
                                     await self._async_send_response(event, response)
 
-                            message_handled = True
+                            # 命中且不允许继续时，取消剩余工作流任务并收敛
+                            if not result.get('continue', True) and pending:
+                                for p in pending:
+                                    p.cancel()
+                                await asyncio.gather(*pending, return_exceptions=True)
+                                pending = set()
+                                break
 
                     except Exception as e:
                         log_error(bot_id, f"工作流 {workflow_name} 执行异常: {e}",

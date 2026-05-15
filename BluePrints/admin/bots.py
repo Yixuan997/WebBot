@@ -265,6 +265,26 @@ def admin_edit_bot(bot_id):
             bot.set_config(config_data)
 
             db.session.commit()
+            db.session.refresh(bot)
+
+            # 配置保存后，立即刷新缓存，避免启动时读取到旧配置
+            try:
+                from Core.bot.cache import bot_cache_manager
+                fresh_config = {
+                    'id': bot.id,
+                    'name': bot.name,
+                    'protocol': bot.protocol,
+                    'description': getattr(bot, 'description', ''),
+                    'status': 'running' if getattr(bot, 'is_running', False) else 'inactive',
+                    'created_at': getattr(bot, 'created_at', None),
+                    'updated_at': getattr(bot, 'updated_at', None),
+                    **bot.get_config()
+                }
+                bot_cache_manager.update_bot_config_cache(bot_id, fresh_config)
+            except Exception:
+                # 缓存刷新失败不应阻断保存
+                pass
+
             flash(f'机器人 {bot.name} 更新成功！', 'success')
             return redirect(url_for('Admin.admin_bots'))
 

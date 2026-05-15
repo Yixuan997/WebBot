@@ -346,50 +346,49 @@ class QQWebhookHandler(BaseWebhookHandler):
                 log_warn(bot_id, "回调验证请求到达了QQ处理器，应该在基类中处理", "QQ_WEBHOOK_VERIFICATION_UNEXPECTED")
                 return self.event_processor.handle_callback_verification(bot_id, event_payload)
 
-            # 路由事件到事件处理器并处理结果
-            result = None
+            # 路由事件到事件处理器并处理结果（使用映射表避免 if/elif 漏判）
+            payload_handlers = {
+                # 消息事件
+                'GROUP_MESSAGE_CREATE': self.event_processor.handle_group_at_message,  # 群聊消息（非@）
+                'GROUP_AT_MESSAGE_CREATE': self.event_processor.handle_group_at_message,  # 群聊@消息
+                'C2C_MESSAGE_CREATE': self.event_processor.handle_c2c_message,  # 单聊消息
+                'MESSAGE_CREATE': self.event_processor.handle_channel_message,  # 频道消息
+                'AT_MESSAGE_CREATE': self.event_processor.handle_at_message,  # 公域频道@消息
+                'DIRECT_MESSAGE_CREATE': self.event_processor.handle_direct_message,  # 私信消息
+                # 其他事件
+                'INTERACTION_CREATE': self.event_processor.handle_interaction_event,  # 互动事件
+            }
+            typed_handlers = {
+                # 频道管理事件
+                'GUILD_CREATE': self.event_processor.handle_guild_event,
+                'GUILD_UPDATE': self.event_processor.handle_guild_event,
+                'GUILD_DELETE': self.event_processor.handle_guild_event,
+                'CHANNEL_CREATE': self.event_processor.handle_channel_event,
+                'CHANNEL_UPDATE': self.event_processor.handle_channel_event,
+                'CHANNEL_DELETE': self.event_processor.handle_channel_event,
+                # 成员管理事件
+                'GUILD_MEMBER_ADD': self.event_processor.handle_member_event,
+                'GUILD_MEMBER_UPDATE': self.event_processor.handle_member_event,
+                'GUILD_MEMBER_REMOVE': self.event_processor.handle_member_event,
+                # 好友和群聊管理事件
+                'FRIEND_ADD': self.event_processor.handle_friend_event,
+                'FRIEND_DEL': self.event_processor.handle_friend_event,
+                'GROUP_ADD_ROBOT': self.event_processor.handle_group_robot_event,
+                'GROUP_DEL_ROBOT': self.event_processor.handle_group_robot_event,
+                # 消息推送开关事件
+                'C2C_MSG_REJECT': self.event_processor.handle_message_setting_event,
+                'C2C_MSG_RECEIVE': self.event_processor.handle_message_setting_event,
+                'GROUP_MSG_REJECT': self.event_processor.handle_message_setting_event,
+                'GROUP_MSG_RECEIVE': self.event_processor.handle_message_setting_event,
+                # 消息审核事件
+                'MESSAGE_AUDIT_PASS': self.event_processor.handle_audit_event,
+                'MESSAGE_AUDIT_REJECT': self.event_processor.handle_audit_event,
+            }
 
-            # 消息事件
-            if event_type == 'GROUP_MESSAGE_CREATE':  # 群聊消息（非@）
-                result = self.event_processor.handle_group_at_message(bot_id, event_payload, bot_manager)
-            if event_type == 'GROUP_AT_MESSAGE_CREATE':  # 群聊@消息
-                result = self.event_processor.handle_group_at_message(bot_id, event_payload, bot_manager)
-            elif event_type == 'C2C_MESSAGE_CREATE':  # 单聊消息
-                result = self.event_processor.handle_c2c_message(bot_id, event_payload, bot_manager)
-            elif event_type == 'MESSAGE_CREATE':  # 频道消息
-                result = self.event_processor.handle_channel_message(bot_id, event_payload, bot_manager)
-            elif event_type == 'AT_MESSAGE_CREATE':  # 公域频道@消息
-                result = self.event_processor.handle_at_message(bot_id, event_payload, bot_manager)
-            elif event_type == 'DIRECT_MESSAGE_CREATE':  # 私信消息
-                result = self.event_processor.handle_direct_message(bot_id, event_payload, bot_manager)
-
-            # 频道管理事件
-            elif event_type in ['GUILD_CREATE', 'GUILD_UPDATE', 'GUILD_DELETE']:
-                result = self.event_processor.handle_guild_event(bot_id, event_type, event_payload, bot_manager)
-            elif event_type in ['CHANNEL_CREATE', 'CHANNEL_UPDATE', 'CHANNEL_DELETE']:
-                result = self.event_processor.handle_channel_event(bot_id, event_type, event_payload, bot_manager)
-
-            # 成员管理事件
-            elif event_type in ['GUILD_MEMBER_ADD', 'GUILD_MEMBER_UPDATE', 'GUILD_MEMBER_REMOVE']:
-                result = self.event_processor.handle_member_event(bot_id, event_type, event_payload, bot_manager)
-
-            # 好友和群聊管理事件
-            elif event_type in ['FRIEND_ADD', 'FRIEND_DEL']:
-                result = self.event_processor.handle_friend_event(bot_id, event_type, event_payload, bot_manager)
-            elif event_type in ['GROUP_ADD_ROBOT', 'GROUP_DEL_ROBOT']:
-                result = self.event_processor.handle_group_robot_event(bot_id, event_type, event_payload, bot_manager)
-
-            # 消息推送开关事件
-            elif event_type in ['C2C_MSG_REJECT', 'C2C_MSG_RECEIVE', 'GROUP_MSG_REJECT', 'GROUP_MSG_RECEIVE']:
-                result = self.event_processor.handle_message_setting_event(bot_id, event_type, event_payload,
-                                                                           bot_manager)
-
-            # 其他事件
-            elif event_type == 'INTERACTION_CREATE':  # 互动事件
-                result = self.event_processor.handle_interaction_event(bot_id, event_payload, bot_manager)
-            elif event_type in ['MESSAGE_AUDIT_PASS', 'MESSAGE_AUDIT_REJECT']:  # 消息审核事件
-                result = self.event_processor.handle_audit_event(bot_id, event_type, event_payload, bot_manager)
-
+            if event_type in payload_handlers:
+                result = payload_handlers[event_type](bot_id, event_payload, bot_manager)
+            elif event_type in typed_handlers:
+                result = typed_handlers[event_type](bot_id, event_type, event_payload, bot_manager)
             else:
                 log_info(bot_id, f"未处理的QQ事件类型: {event_type}", "QQ_WEBHOOK_UNHANDLED_EVENT")
                 result = {"status": "ignored", "message": f"Unhandled event type: {event_type}"}
