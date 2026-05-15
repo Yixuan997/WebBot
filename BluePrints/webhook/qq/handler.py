@@ -350,6 +350,8 @@ class QQWebhookHandler(BaseWebhookHandler):
             result = None
 
             # 消息事件
+            if event_type == 'GROUP_MESSAGE_CREATE':  # 群聊消息（非@）
+                result = self.event_processor.handle_group_at_message(bot_id, event_payload, bot_manager)
             if event_type == 'GROUP_AT_MESSAGE_CREATE':  # 群聊@消息
                 result = self.event_processor.handle_group_at_message(bot_id, event_payload, bot_manager)
             elif event_type == 'C2C_MESSAGE_CREATE':  # 单聊消息
