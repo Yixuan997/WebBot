@@ -292,6 +292,7 @@ let selectedNodeId = null;
 let autoLayoutMode = true;
 let floatingLinkNodeId = null;
 let floatingHideTimer = null;
+let mobileFitViewTimer = null;
 const EDGE_FIELDS = ['next_node', 'true_branch', 'false_branch', 'loop_body'];
 const availableNodeByType = new Map((availableNodes || []).map(n => [n.type, n]));
 
@@ -529,7 +530,8 @@ function escapeNodeHtml(text) {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function registerWorkflowCardNode(LFCore) {
@@ -1051,7 +1053,22 @@ function initLogicFlow() {
         });
     }
 
+    // 移动端在屏幕旋转/尺寸变化后重新适配视口，避免仅显示网格
+    window.addEventListener('resize', scheduleMobileFitView);
+
     initFloatingQuickLinkButton();
+}
+
+function isMobileViewport() {
+    return window.matchMedia('(max-width: 991.98px)').matches;
+}
+
+function scheduleMobileFitView() {
+    if (!isMobileViewport() || !lf) return;
+    if (mobileFitViewTimer) clearTimeout(mobileFitViewTimer);
+    mobileFitViewTimer = setTimeout(() => {
+        if (lf) lf.fitView(24, 24);
+    }, 120);
 }
 
 function hideFloatingQuickLinkButton() {
@@ -1343,6 +1360,12 @@ function selectNodeType(nodeIndex, sourceNodeId = '') {
 function renderNodes() {
     if (lf) {
         lf.render(buildLogicFlowData());
+        // 移动端首次渲染后自动缩放到可见节点范围
+        if (isMobileViewport()) {
+            requestAnimationFrame(() => {
+                if (lf) lf.fitView(24, 24);
+            });
+        }
     }
     updateWorkflowStats();
     if (selectedNodeId) {
@@ -1366,148 +1389,145 @@ function zoomFit() {
     if (lf) lf.fitView(40, 40);
 }
 
-function editNode(index) {
-    const node = nodes[index];
-    const nodeTemplate = availableNodes.find(n => n.type === node.type);
-    
-    const fieldsHtml = (nodeTemplate.config_schema || []).map(field => {
-        const value = node.config[field.name] !== undefined ? node.config[field.name] : (field.default || '');
-        let inputHtml = '';
-        
-        // 确定字段的显示类名（用于条件节点的模式切换）
-        let fieldClass = 'mb-3';
-        let dataMode = ''; // 用于标识字段所属模式
-        let dataShowIf = ''; // 用于 show_if 条件显示
-        
-        // 处理 show_if 条件
-        if (field.show_if) {
-            dataShowIf = `data-show-if='${JSON.stringify(field.show_if)}'`;
+function getFieldDisplayMeta(field, nodeType) {
+    let fieldClass = 'mb-3';
+    let dataMode = '';
+    let dataShowIf = '';
+
+    if (field.show_if) {
+        dataShowIf = `data-show-if='${escapeHtml(JSON.stringify(field.show_if))}'`;
+    }
+
+    if (nodeType === 'condition') {
+        if (['variable_name', 'condition_type', 'compare_value'].includes(field.name)) {
+            dataMode = 'data-condition-mode="simple"';
+        } else if (['logic_type', 'conditions'].includes(field.name)) {
+            dataMode = 'data-condition-mode="advanced"';
         }
-        
-        if (node.type === 'condition') {
-            // 简单模式专属字段
-            if (['variable_name', 'condition_type', 'compare_value'].includes(field.name)) {
-                dataMode = 'data-condition-mode="simple"';
-            }
-            // 高级模式专属字段
-            else if (['logic_type', 'conditions'].includes(field.name)) {
-                dataMode = 'data-condition-mode="advanced"';
-            }
-            // mode 和跳转字段是共用的，不需要标记
-        }
-        
-        // === 下拉框逻辑 (包含跳转) ===
-        if (field.type === 'select') {
-            if (['true_branch', 'false_branch', 'next_node', 'loop_body'].includes(field.name)) {
-                // 跳转字段 -> 节点列表
-                const nodeOptions = nodes.map((n, idx) => {
-                    if (n.id === node.id || n.type === 'start') return ''; // 过滤自身和Start
-                    // 显示节点名称 + 关键配置摘要 + ID，避免同类型节点难以区分
-                    return `<option value="${n.id}" ${value === n.id ? 'selected' : ''}>${escapeNodeHtml(getNodeSelectLabel(n))}</option>`;
-                }).join('');
-                
-                const defaultLabel = field.name === 'loop_body' ? '请选择循环体节点' : '不跳转(终止流程)';
-                inputHtml = `<select class="form-select" id="field_${field.name}"><option value="">${defaultLabel}</option>${nodeOptions}</select>`;
-            } else if (field.name === 'snippet_name') {
-                // 代码片段
-                inputHtml = `<select class="form-select" id="field_${field.name}" onchange="showSnippetMetadata(this.value)"><option value="">加载中...</option></select>
-                             <div id="snippet_metadata_info" class="mt-3 p-3 bg-light rounded" style="display: none;">
-                                 <div class="row g-2">
-                                     <div class="col-12"><strong>文件:</strong> <span id="snippet_filename">-</span></div>
-                                     <div class="col-12"><strong>简介:</strong> <span id="snippet_description">-</span></div>
-                                     <div class="col-6"><strong>作者:</strong> <span id="snippet_author">-</span></div>
-                                     <div class="col-6"><strong>版本:</strong> <span id="snippet_version">-</span></div>
-                                 </div>
-                             </div>`;
-                setTimeout(() => loadSnippets(field.name, value), 100);
-            } else {
-                // 普通下拉框
-                const options = (field.options || []).map(opt => 
-                    `<option value="${opt.value}" ${value === opt.value ? 'selected' : ''}>${opt.label}</option>`
-                ).join('');
-                // 添加 onchange 事件
-                let onChange = '';
-                if (node.type === 'condition' && field.name === 'mode') {
-                    onChange = 'onchange="toggleConditionMode(this.value)"';
-                } else {
-                    // 通用：下拉框变化时更新 show_if 字段
-                    onChange = `onchange="updateShowIfFields({${field.name}: this.value})"`;
-                }
-                inputHtml = `<select class="form-select" id="field_${field.name}" ${onChange}>${options}</select>`;
-            }
-        } else if (field.type === 'variable_select') {
-            // 变量选择器 (纯下拉框)
-            const variables = [];
-            
-            // 遍历当前节点之前的节点，收集输出变量
-            for (let i = 0; i < index; i++) {
-                const prevNode = nodes[i];
-                const prevTemplate = availableNodes.find(n => n.type === prevNode.type);
-                
-                // 1. 收集节点定义的 outputs
-                if (prevTemplate && prevTemplate.outputs) {
-                    prevTemplate.outputs.forEach(out => {
-                        variables.push({name: out.name, label: `${prevTemplate.name} → ${out.label}`, source: prevNode.id});
-                    });
-                }
-                
-                // 2. 收集节点 config.save_to 自定义保存的变量
-                if (prevNode.config && prevNode.config.save_to) {
-                    const saveTo = prevNode.config.save_to;
-                    // 避免重复添加
-                    if (!variables.find(v => v.name === saveTo)) {
-                        variables.push({name: saveTo, label: `${prevTemplate ? prevTemplate.name : prevNode.type} → ${saveTo}`, source: prevNode.id});
-                    }
-                }
-            }
-            
-            // 生成 Select 选项
-            const optionsHtml = variables.map(v => {
-                return '<option value="' + v.name + '" ' + (value === v.name ? 'selected' : '') + '>' + v.label + '</option>';
-            }).join('');
-            
-            // 添加默认空选项
-            const finalOptions = `<option value="">请选择变量...</option>` + optionsHtml;
-            
-            inputHtml = `<select class="form-select" id="field_${field.name}">${finalOptions}</select>`;
-        } else if (field.type === 'textarea') {
-            inputHtml = `<textarea class="form-control" id="field_${field.name}" rows="3">${value}</textarea>`;
-        } else if (field.type === 'checkbox') {
-            inputHtml = `
-                <label class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="field_${field.name}" ${value ? 'checked' : ''}>
-                </label>`;
-        } else {
-            inputHtml = `<input type="text" class="form-control" id="field_${field.name}" value="${value}" placeholder="${field.placeholder || ''}">`;
-        }
-        
-        // 渲染 help_extra 为标签
-        let helpExtraHtml = '';
-        if (field.help_extra && field.help_extra.length > 0) {
-            helpExtraHtml = field.help_extra.map(extra => {
-                const badges = extra.values.map(v => `<span class="badge bg-secondary-lt me-1 mb-1">${v}</span>`).join('');
-                return `<div class="mt-2"><small class="text-muted">${extra.label}:</small><div class="mt-1">${badges}</div></div>`;
-            }).join('');
-        }
-        
-        return `
-            <div class="${fieldClass}" ${dataMode} ${dataShowIf}>
-                <label class="form-label ${field.required ? 'required' : ''}">${field.label}</label>
-                ${inputHtml}
-                ${field.help ? `<small class="form-hint">${field.help}</small>` : ''}
-                ${helpExtraHtml}
-            </div>
-        `;
+    }
+
+    return { fieldClass, dataMode, dataShowIf };
+}
+
+function buildJumpSelectOptions(node, value) {
+    return nodes.map(n => {
+        if (n.id === node.id || n.type === 'start') return '';
+        return `<option value="${escapeNodeHtml(n.id)}" ${value === n.id ? 'selected' : ''}>${escapeNodeHtml(getNodeSelectLabel(n))}</option>`;
     }).join('');
-    
-    // Modal
-    const modal = document.createElement('div');
-    modal.innerHTML = `
+}
+
+function buildVariableSelectOptions(index, value) {
+    const variables = [];
+
+    for (let i = 0; i < index; i++) {
+        const prevNode = nodes[i];
+        const prevTemplate = availableNodes.find(n => n.type === prevNode.type);
+
+        if (prevTemplate && prevTemplate.outputs) {
+            prevTemplate.outputs.forEach(out => {
+                variables.push({name: out.name, label: `${prevTemplate.name} → ${out.label}`, source: prevNode.id});
+            });
+        }
+
+        if (prevNode.config && prevNode.config.save_to) {
+            const saveTo = prevNode.config.save_to;
+            if (!variables.find(v => v.name === saveTo)) {
+                variables.push({name: saveTo, label: `${prevTemplate ? prevTemplate.name : prevNode.type} → ${saveTo}`, source: prevNode.id});
+            }
+        }
+    }
+
+    return variables.map(v => (
+        '<option value="' + escapeNodeHtml(v.name) + '" ' + (value === v.name ? 'selected' : '') + '>' + escapeNodeHtml(v.label) + '</option>'
+    )).join('');
+}
+
+function buildFieldInputHtml(node, field, value, escapedValue, index) {
+    if (field.type === 'select') {
+        if (['true_branch', 'false_branch', 'next_node', 'loop_body'].includes(field.name)) {
+            const nodeOptions = buildJumpSelectOptions(node, value);
+            const defaultLabel = field.name === 'loop_body' ? '请选择循环体节点' : '不跳转(终止流程)';
+            return `<select class="form-select" id="field_${field.name}"><option value="">${defaultLabel}</option>${nodeOptions}</select>`;
+        }
+
+        if (field.name === 'snippet_name') {
+            setTimeout(() => loadSnippets(field.name, value), 100);
+            return `<select class="form-select" id="field_${field.name}" onchange="showSnippetMetadata(this.value)"><option value="">加载中...</option></select>
+                     <div id="snippet_metadata_info" class="mt-3 p-3 bg-light rounded" style="display: none;">
+                         <div class="row g-2">
+                             <div class="col-12"><strong>文件:</strong> <span id="snippet_filename">-</span></div>
+                             <div class="col-12"><strong>简介:</strong> <span id="snippet_description">-</span></div>
+                             <div class="col-6"><strong>作者:</strong> <span id="snippet_author">-</span></div>
+                             <div class="col-6"><strong>版本:</strong> <span id="snippet_version">-</span></div>
+                         </div>
+                     </div>`;
+        }
+
+        const options = (field.options || []).map(opt =>
+            `<option value="${escapeNodeHtml(opt.value)}" ${value === opt.value ? 'selected' : ''}>${escapeNodeHtml(opt.label)}</option>`
+        ).join('');
+        let onChange = '';
+        if (node.type === 'condition' && field.name === 'mode') {
+            onChange = 'onchange="toggleConditionMode(this.value)"';
+        } else {
+            onChange = `onchange="updateShowIfFields({${field.name}: this.value})"`;
+        }
+        return `<select class="form-select" id="field_${field.name}" ${onChange}>${options}</select>`;
+    }
+
+    if (field.type === 'variable_select') {
+        const optionsHtml = buildVariableSelectOptions(index, value);
+        const finalOptions = `<option value="">请选择变量...</option>${optionsHtml}`;
+        return `<select class="form-select" id="field_${field.name}">${finalOptions}</select>`;
+    }
+
+    if (field.type === 'textarea') {
+        return `<textarea class="form-control" id="field_${field.name}" rows="3">${escapedValue}</textarea>`;
+    }
+
+    if (field.type === 'checkbox') {
+        return `
+            <label class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="field_${field.name}" ${value ? 'checked' : ''}>
+            </label>`;
+    }
+
+    return `<input type="text" class="form-control" id="field_${field.name}" value="${escapedValue}" placeholder="${escapeHtml(field.placeholder || '')}">`;
+}
+
+function buildFieldHelpExtraHtml(field) {
+    if (!field.help_extra || field.help_extra.length === 0) return '';
+    return field.help_extra.map(extra => {
+        const badges = extra.values.map(v => `<span class="badge bg-secondary-lt me-1 mb-1">${escapeHtml(v)}</span>`).join('');
+        return `<div class="mt-2"><small class="text-muted">${escapeHtml(extra.label)}:</small><div class="mt-1">${badges}</div></div>`;
+    }).join('');
+}
+
+function buildFieldBlockHtml(node, field, index) {
+    const value = node.config[field.name] !== undefined ? node.config[field.name] : (field.default || '');
+    const valueText = value === undefined || value === null ? '' : String(value);
+    const escapedValue = escapeHtml(valueText);
+    const { fieldClass, dataMode, dataShowIf } = getFieldDisplayMeta(field, node.type);
+    const inputHtml = buildFieldInputHtml(node, field, value, escapedValue, index);
+    const helpExtraHtml = buildFieldHelpExtraHtml(field);
+
+    return `
+        <div class="${fieldClass}" ${dataMode} ${dataShowIf}>
+            <label class="form-label ${field.required ? 'required' : ''}">${escapeHtml(field.label)}</label>
+            ${inputHtml}
+            ${field.help ? `<small class="form-hint">${escapeHtml(field.help)}</small>` : ''}
+            ${helpExtraHtml}
+        </div>
+    `;
+}
+
+function buildEditNodeModalHtml(nodeTemplateName, fieldsHtml, index) {
+    return `
         <div class="modal modal-blur fade show" style="display: block;" tabindex="-1">
             <div class="modal-dialog modal-dialog-centered modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">编辑节点: ${nodeTemplate.name}</h5>
+                        <h5 class="modal-title">编辑节点: ${escapeHtml(nodeTemplateName)}</h5>
                         <button type="button" class="btn-close js-modal-close"></button>
                     </div>
                     <div class="modal-body">${fieldsHtml}</div>
@@ -1520,6 +1540,14 @@ function editNode(index) {
         </div>
         <div class="modal-backdrop fade show"></div>
     `;
+}
+
+function editNode(index) {
+    const node = nodes[index];
+    const nodeTemplate = availableNodes.find(n => n.type === node.type);
+    const fieldsHtml = (nodeTemplate.config_schema || []).map(field => buildFieldBlockHtml(node, field, index)).join('');
+    const modal = document.createElement('div');
+    modal.innerHTML = buildEditNodeModalHtml(nodeTemplate.name, fieldsHtml, index);
     document.body.appendChild(modal);
     modal.querySelectorAll('.js-modal-close').forEach(el => {
         el.addEventListener('click', () => closeModalContainer(el));
