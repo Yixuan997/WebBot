@@ -185,6 +185,7 @@ class MessageBuilder:
 
     @classmethod
     def markdown(cls, content: str, template_id: str = "", keyboard_id: str = "",
+                 keyboard_content: str = "",
                  event: 'BaseEvent' = None) -> 'BaseMessage':
         """
         构建 Markdown消息
@@ -197,6 +198,7 @@ class MessageBuilder:
             content: Markdown格式的内容，模板模式下使用 {{key}} 占位符
             template_id: 模板ID（群/私聊必填，频道可留空）
             keyboard_id: 按钮模板ID（可选，不为空则发送按钮）
+            keyboard_content: 自定义按钮JSON字符串（可选，填写后优先于keyboard_id）
             event: 事件对象（可选）
 
         Returns:
@@ -214,7 +216,13 @@ class MessageBuilder:
         if not adapter.supports_message_type('markdown'):
             protocol = adapter.get_protocol_name()
             raise ValueError(f"协议 '{protocol}' 不支持 Markdown 消息，请使用 text() 方法")
-        return adapter.build_message('markdown', content=content, template_id=template_id, keyboard_id=keyboard_id)
+        return adapter.build_message(
+            'markdown',
+            content=content,
+            template_id=template_id,
+            keyboard_id=keyboard_id,
+            keyboard_content=keyboard_content
+        )
 
     @classmethod
     def keyboard(cls, content: str, keyboard_id: str, event: 'BaseEvent' = None) -> 'BaseMessage':

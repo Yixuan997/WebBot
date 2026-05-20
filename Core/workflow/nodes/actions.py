@@ -67,6 +67,17 @@ class SendMessageNode(BaseNode):
             'show_if': {'message_type': 'markdown'}
         },
         {
+            'name': 'keyboard_content',
+            'label': '自定义按钮JSON',
+            'type': 'textarea',
+            'required': False,
+            'default': '',
+            'rows': 8,
+            'placeholder': '{"rows":[{"buttons":[{"id":"1","render_data":{"label":"按钮1","visited_label":"已点击"},"action":{"type":2,"data":"/搜索"}}]}],"bot_appid":123123123}',
+            'help': 'QQ Markdown 可选：自定义 keyboard.content JSON。填写后优先于按钮ID发送。',
+            'show_if': {'message_type': 'markdown'}
+        },
+        {
             'name': 'ark_template_id',
             'label': 'ARK模板ID',
             'type': 'text',
@@ -131,8 +142,14 @@ class SendMessageNode(BaseNode):
                 case 'markdown':
                     template_id = self.config.get('markdown_template_id', '').strip()
                     keyboard_id = self.config.get('keyboard_id', '').strip()
-                    message = MessageBuilder.markdown(content, template_id=template_id, keyboard_id=keyboard_id,
-                                                      event=event)
+                    keyboard_content = self.config.get('keyboard_content', '').strip()
+                    message = MessageBuilder.markdown(
+                        content,
+                        template_id=template_id,
+                        keyboard_id=keyboard_id,
+                        keyboard_content=keyboard_content,
+                        event=event
+                    )
                 case 'ark':
                     ark_template_id = int(self.config.get('ark_template_id', '24'))
                     message = MessageBuilder.ark(content, template_id=ark_template_id, event=event)

@@ -40,7 +40,7 @@
                     <td style="white-space: nowrap;">{{ var.updated_at.strftime('%Y-%m-%d %H:%M') if var.updated_at else '-' }}</td>
                     <td>
                         <div class="btn-actions">
-                            <button class="btn btn-action" onclick="showEditModal({{ var.id }})" title="编辑">
+                            <button class="btn btn-action" onclick="showEditModal({{ var.id }})" data-bs-toggle="modal" data-bs-target="#varModal" title="编辑">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/><path d="M16 5l3 3"/></svg>
                             </button>
                             <button class="btn btn-action" onclick="deleteVar({{ var.id }}, '{{ var.key }}')" title="删除">
@@ -130,10 +130,6 @@ function showEditModal(id) {
                 document.getElementById('varKey').value = v.key;
                 document.getElementById('varValue').value = v.value;
                 document.getElementById('varDescription').value = v.description || '';
-                // 手动打开 modal
-                const modal = document.getElementById('varModal');
-                const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
-                bsModal.show();
             } else {
                 showToast(data.message || '获取变量失败', 'danger');
             }

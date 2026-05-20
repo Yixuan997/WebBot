@@ -73,7 +73,8 @@ class QQMessageSegment(BaseMessageSegment):
         return cls("markdown", {"content": content})
 
     @classmethod
-    def markdown_template(cls, template_id: str, content: str, keyboard_id: str = "") -> "QQMessageSegment":
+    def markdown_template(cls, template_id: str, content: str, keyboard_id: str = "",
+                          keyboard_content: str = "") -> "QQMessageSegment":
         """
         构造模板Markdown消息段（群/私聊支持）
         
@@ -81,11 +82,13 @@ class QQMessageSegment(BaseMessageSegment):
             template_id: 在QQ开放平台申请的模板ID
             content: Markdown内容，JSON格式的参数
             keyboard_id: 按钮模板ID（可选，不为空则发送按钮）
+            keyboard_content: 自定义按钮JSON（可选，填写后优先于keyboard_id）
         """
         return cls("markdown_template", {
             "template_id": template_id,
             "content": content,
-            "keyboard_id": keyboard_id
+            "keyboard_id": keyboard_id,
+            "keyboard_content": keyboard_content
         })
 
     @classmethod
@@ -169,6 +172,7 @@ class QQMessageSegment(BaseMessageSegment):
             content = self.data["content"]
             template_id = self.data["template_id"]
             keyboard_id = self.data.get("keyboard_id", "")
+            keyboard_content = self.data.get("keyboard_content", "")
 
             params = []
 
@@ -195,8 +199,17 @@ class QQMessageSegment(BaseMessageSegment):
                 }
             }
 
-            # 如果有按钮ID，添加keyboard字段
-            if keyboard_id:
+            # 自定义按钮优先，其次按钮模板ID
+            if keyboard_content:
+                try:
+                    custom_keyboard = json.loads(keyboard_content)
+                    if isinstance(custom_keyboard, dict):
+                        result["keyboard"] = {"content": custom_keyboard}
+                except (json.JSONDecodeError, TypeError):
+                    # 自定义按钮JSON格式不正确时，回退到keyboard_id
+                    if keyboard_id:
+                        result["keyboard"] = {"id": keyboard_id}
+            elif keyboard_id:
                 result["keyboard"] = {"id": keyboard_id}
 
             return result

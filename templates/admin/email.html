@@ -56,7 +56,7 @@
             <div class="form-footer">
                 <button class="btn btn-primary" type="submit">保存设置</button>
                 {% if email_config %}
-                <button class="btn btn-success ms-2" onclick="showTestEmailModal()" type="button">测试邮件发送</button>
+                <button class="btn btn-success ms-2" data-bs-target="#testEmailModal" data-bs-toggle="modal" type="button">测试邮件发送</button>
                 {% endif %}
             </div>
         </form>
@@ -131,10 +131,4 @@
     </div>
 </div>
 
-<script>
-    function showTestEmailModal() {
-        const modal = new bootstrap.Modal(document.getElementById('testEmailModal'));
-        modal.show();
-    }
-</script>
 {% endblock %}

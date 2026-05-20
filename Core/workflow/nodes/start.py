@@ -1,4 +1,4 @@
-"""
+﻿"""
 工作流开始和结束节点
 """
 from typing import Any
@@ -60,7 +60,7 @@ class StartNode(BaseNode):
         event = context.event
         
         # 保存完整事件对象（脚本可以直接从 event 取任何字段）
-        context.set_variable('event', event)
+        # context.set_variable('event', event)
         context.set_variable('post_type', getattr(event, 'post_type', 'message'))
 
         # 提取消息内容和类型
@@ -68,7 +68,7 @@ class StartNode(BaseNode):
         message_type = "text"
         has_image = False
         has_at = False
-        message_cq = ""
+        message_cq = "" 
 
         if hasattr(event, 'message') and event.message:
             # 使用extract_plain_text方法提取纯文本
@@ -100,12 +100,16 @@ class StartNode(BaseNode):
         message_text = (message_text or "").strip()
 
         # 提取发送者信息
-        user_id = getattr(event, 'user_id', '')
-        sender_obj = getattr(event, 'raw_data', {}).get('sender', {})
-        sender_name = sender_obj.get('nickname', '') or sender_obj.get('card', '')
+        raw_data = getattr(event, 'raw_data', {}) or {}
+        user_id = getattr(event, 'user_id', '') or raw_data.get('author', {}).get('id', '')
+        sender_obj = raw_data.get('sender', {}) or {}
+        sender_name = sender_obj.get('nickname', '') or sender_obj.get('card', '') or raw_data.get('author', {}).get('username', '')
+        sender_data = dict(sender_obj) if isinstance(sender_obj, dict) else {}
+        sender_data['user_id'] = str(user_id) if user_id is not None else ''
+        sender_data['nickname'] = sender_name or ''
 
         # 提取群组信息
-        group_id = getattr(event, 'group_id', None) or ""
+        group_id = getattr(event, 'group_id', None) or raw_data.get('group_id') or raw_data.get('group_openid') or ""
         is_group = bool(group_id)
 
         # 提取消息ID
@@ -134,10 +138,9 @@ class StartNode(BaseNode):
         context.set_variable('has_at', has_at)
 
         # 发送者信息（仅保留新格式）
-        context.set_variable('sender.user_id', str(user_id))
-        context.set_variable('sender.nickname', sender_name)
-        if sender_obj:
-            context.set_variable('sender', sender_obj)  # 完整sender对象
+        context.set_variable('sender.user_id', sender_data['user_id'])
+        context.set_variable('sender.nickname', sender_data['nickname'])
+        context.set_variable('sender', sender_data)  # 完整sender对象
 
         context.set_variable('group_id', str(group_id))
         context.set_variable('message_id', str(message_id))

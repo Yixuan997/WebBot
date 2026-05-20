@@ -185,10 +185,13 @@ class QQAdapter(BaseAdapter):
         from .message import QQMessage
         return QQMessage.file(file_url, filename)
 
-    def build_markdown_message(self, content: str, template_id: str = "", keyboard_id: str = ""):
+    def build_markdown_message(self, content: str, template_id: str = "", keyboard_id: str = "",
+                               keyboard_content: str = ""):
         from .message import QQMessage, QQMessageSegment
         if template_id:
-            return QQMessage([QQMessageSegment.markdown_template(template_id, content, keyboard_id)])
+            return QQMessage([QQMessageSegment.markdown_template(
+                template_id, content, keyboard_id, keyboard_content
+            )])
         return QQMessage([QQMessageSegment.markdown(content)])
 
     def build_keyboard_message(self, content: str, keyboard_id: str):
