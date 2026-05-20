@@ -68,9 +68,13 @@ class QQMessageSegment(BaseMessageSegment):
         return cls("file", {"url": url, "filename": filename})
 
     @classmethod
-    def markdown(cls, content: str) -> "QQMessageSegment":
-        """构造原生Markdown消息段（仅频道支持）"""
-        return cls("markdown", {"content": content})
+    def markdown(cls, content: str, keyboard_id: str = "", keyboard_content: str = "") -> "QQMessageSegment":
+        """构造原生Markdown消息段（支持可选keyboard）"""
+        return cls("markdown", {
+            "content": content,
+            "keyboard_id": keyboard_id,
+            "keyboard_content": keyboard_content
+        })
 
     @classmethod
     def markdown_template(cls, template_id: str, content: str, keyboard_id: str = "",
@@ -129,6 +133,57 @@ class QQMessageSegment(BaseMessageSegment):
         "file": (4, "filename"),  # 4=文件
     }
 
+    @staticmethod
+    def _build_simple_link_button_keyboard(data: dict) -> dict:
+        """将简写按钮格式转换为 keyboard.content 官方结构。"""
+        label = str(data.get("text", "")).strip()
+        link = str(data.get("link", "")).strip()
+        style = data.get("style", 1)
+        if not label or not link:
+            return {}
+        try:
+            style = int(style)
+        except (TypeError, ValueError):
+            style = 1
+        return {
+            "rows": [
+                {
+                    "buttons": [
+                        {
+                            "id": str(data.get("id", "btn_1")),
+                            "render_data": {
+                                "label": label,
+                                "visited_label": str(data.get("visited_text", label)),
+                                "style": style
+                            },
+                            "action": {
+                                "type": 0,
+                                "permission": {"type": 2},
+                                "data": link
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+    @classmethod
+    def _normalize_keyboard_content(cls, keyboard_content: str) -> dict:
+        """解析并归一化 keyboard.content。支持官方JSON和简写格式。"""
+        if not keyboard_content:
+            return {}
+        try:
+            parsed = json.loads(keyboard_content)
+        except (json.JSONDecodeError, TypeError):
+            return {}
+        if not isinstance(parsed, dict):
+            return {}
+        if isinstance(parsed.get("rows"), list):
+            return parsed
+        if "text" in parsed and "link" in parsed:
+            return cls._build_simple_link_button_keyboard(parsed)
+        return {}
+
     def to_api_format(self) -> dict:
         """
         转换为QQ API格式
@@ -159,11 +214,22 @@ class QQMessageSegment(BaseMessageSegment):
             return result
 
         if self.type == "markdown":
-            # 原生Markdown（仅频道）
-            return {
+            # 原生Markdown（可附带 keyboard）
+            result = {
                 "msg_type": 2,
                 "markdown": {"content": self.data["content"]}
             }
+            keyboard_id = self.data.get("keyboard_id", "")
+            keyboard_content = self.data.get("keyboard_content", "")
+            if keyboard_content:
+                custom_keyboard = self._normalize_keyboard_content(keyboard_content)
+                if custom_keyboard:
+                    result["keyboard"] = {"content": custom_keyboard}
+                elif keyboard_id:
+                    result["keyboard"] = {"id": keyboard_id}
+            elif keyboard_id:
+                result["keyboard"] = {"id": keyboard_id}
+            return result
         elif self.type == "markdown_template":
             # 模板Markdown（群/私聊）
             # content 支持两种格式：
@@ -201,14 +267,11 @@ class QQMessageSegment(BaseMessageSegment):
 
             # 自定义按钮优先，其次按钮模板ID
             if keyboard_content:
-                try:
-                    custom_keyboard = json.loads(keyboard_content)
-                    if isinstance(custom_keyboard, dict):
-                        result["keyboard"] = {"content": custom_keyboard}
-                except (json.JSONDecodeError, TypeError):
-                    # 自定义按钮JSON格式不正确时，回退到keyboard_id
-                    if keyboard_id:
-                        result["keyboard"] = {"id": keyboard_id}
+                custom_keyboard = self._normalize_keyboard_content(keyboard_content)
+                if custom_keyboard:
+                    result["keyboard"] = {"content": custom_keyboard}
+                elif keyboard_id:
+                    result["keyboard"] = {"id": keyboard_id}
             elif keyboard_id:
                 result["keyboard"] = {"id": keyboard_id}
 

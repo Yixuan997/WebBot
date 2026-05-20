@@ -192,7 +192,7 @@ class QQAdapter(BaseAdapter):
             return QQMessage([QQMessageSegment.markdown_template(
                 template_id, content, keyboard_id, keyboard_content
             )])
-        return QQMessage([QQMessageSegment.markdown(content)])
+        return QQMessage([QQMessageSegment.markdown(content, keyboard_id, keyboard_content)])
 
     def build_keyboard_message(self, content: str, keyboard_id: str):
         from .message import QQMessage, QQMessageSegment

@@ -3,6 +3,8 @@
 
 执行具体操作，如发送消息、调用API等
 """
+import json
+
 from Core.message.builder import MessageBuilder
 from .base import BaseNode
 
@@ -142,7 +144,19 @@ class SendMessageNode(BaseNode):
                 case 'markdown':
                     template_id = self.config.get('markdown_template_id', '').strip()
                     keyboard_id = self.config.get('keyboard_id', '').strip()
-                    keyboard_content = self.config.get('keyboard_content', '').strip()
+                    keyboard_content = context.render_template(self.config.get('keyboard_content', '')).strip()
+                    if keyboard_content:
+                        try:
+                            parsed = json.loads(keyboard_content)
+                            if not isinstance(parsed, dict):
+                                raise ValueError("keyboard_content 必须是 JSON 对象")
+                            if not (
+                                isinstance(parsed.get('rows'), list) or
+                                ('text' in parsed and 'link' in parsed)
+                            ):
+                                raise ValueError("keyboard_content 需为官方 keyboard.content（含 rows）或简写格式（含 text/link）")
+                        except Exception as e:
+                            raise ValueError(f"自定义按钮JSON格式错误: {e}")
                     message = MessageBuilder.markdown(
                         content,
                         template_id=template_id,
