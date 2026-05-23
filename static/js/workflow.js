@@ -437,7 +437,7 @@ function buildDrawflowData() {
 
         let title = nodeMeta?.name || node.type;
         if (node.type === 'start') title = '开始';
-        if (node.type === 'end') title = '缁撴潫';
+        if (node.type === 'end') title = '结束';
         const subtitle = getNodeSubtitle(node, nodeMeta);
 
         const schemaNames = new Set((nodeMeta?.config_schema || []).map(f => f.name));
@@ -642,11 +642,11 @@ function openQuickLinkModal(nodeId) {
 
     const bodyHtml = (hasTrue || hasFalse)
         ? `
-            ${hasTrue ? `<div class="mb-3"><label class="form-label">婊¤冻 鈫?/label><select id="quick_true" class="form-select"><option value="">涓嶈烦杞?缁堟娴佺▼)</option>${optionsHtml}</select></div>` : ''}
-            ${hasFalse ? `<div class="mb-3"><label class="form-label">涓嶆弧瓒?鈫?/label><select id="quick_false" class="form-select"><option value="">涓嶈烦杞?缁堟娴佺▼)</option>${optionsHtml}</select></div>` : ''}
+            ${hasTrue ? `<div class="mb-3"><label class="form-label">满足 -></label><select id="quick_true" class="form-select"><option value="">不跳转（终止流程）</option>${optionsHtml}</select></div>` : ''}
+            ${hasFalse ? `<div class="mb-3"><label class="form-label">不满足 -></label><select id="quick_false" class="form-select"><option value="">不跳转（终止流程）</option>${optionsHtml}</select></div>` : ''}
           `
         : `
-            <div class="mb-2"><label class="form-label">涓嬩竴鑺傜偣</label><select id="quick_single" class="form-select"><option value="">涓嶈烦杞?缁堟娴佺▼)</option>${optionsHtml}</select></div>
+            <div class="mb-2"><label class="form-label">下一节点</label><select id="quick_single" class="form-select"><option value="">不跳转（终止流程）</option>${optionsHtml}</select></div>
           `;
 
     const modal = document.createElement('div');
@@ -655,12 +655,12 @@ function openQuickLinkModal(nodeId) {
         <div class="modal-dialog modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">蹇嵎杩炴帴</h5>
+              <h5 class="modal-title">快捷连接</h5>
               <button type="button" class="btn-close js-modal-close"></button>
             </div>
             <div class="modal-body">${bodyHtml}</div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-link link-secondary js-modal-close">鍙栨秷</button>
+              <button type="button" class="btn btn-link link-secondary js-modal-close">取消</button>
               <button
                 type="button"
                 class="btn btn-primary ms-auto js-quick-apply"
@@ -902,11 +902,11 @@ function addNode(sourceNodeId = '') {
     // 生成分类列表内容
     const contentHtml = categoryOrder.map(cat => {
         if (!nodesByCategory[cat] || nodesByCategory[cat].length === 0) return '';
-        const config = categoryConfig[cat] || { name: cat, icon: '馃摝', color: '#666' };
+        const config = categoryConfig[cat] || { name: cat, icon: 'O', color: '#666' };
         const listHtml = nodesByCategory[cat].map(node => {
             const originalIdx = availableNodes.findIndex(n => n.type === node.type);
             return `<a class="list-group-item list-group-item-action js-select-node-type" href="#" data-node-index="${originalIdx}" data-source-node-id="${escapeNodeHtml(sourceNodeId)}">
-                ${node.icon || '馃摝'} ${node.name}
+                ${node.icon || 'O'} ${node.name}
                 <small class="text-muted d-block">${node.description || ''}</small>
             </a>`;
         }).join('');
@@ -999,9 +999,9 @@ function selectNodeType(nodeIndex, sourceNodeId = '') {
     renderNodes();
     if (sourceNodeId) {
         if (autoLinked) {
-            showToast('宸叉柊澧炶妭鐐瑰苟鑷姩杩炵嚎', 'success');
+            showToast('已新增节点并自动连线', 'success');
         } else {
-            showToast(`宸叉柊澧炶妭鐐?${nodeId})锛岃鎵嬪姩閫夋嫨鍒嗘敮杩炵嚎`, 'warning');
+            showToast(`已新增节点（${nodeId}），请手动选择分支连线`, 'warning');
             setTimeout(() => openQuickLinkModal(sourceNodeId), 0);
         }
     } else {
@@ -1146,14 +1146,14 @@ function buildVariableSelectOptions(index, value) {
 
         if (prevTemplate && prevTemplate.outputs) {
             prevTemplate.outputs.forEach(out => {
-                variables.push({name: out.name, label: `${prevTemplate.name} 鈫?${out.label}`, source: prevNode.id});
+                variables.push({name: out.name, label: `${prevTemplate.name} -> ${out.label}`, source: prevNode.id});
             });
         }
 
         if (prevNode.config && prevNode.config.save_to) {
             const saveTo = prevNode.config.save_to;
             if (!variables.find(v => v.name === saveTo)) {
-                variables.push({name: saveTo, label: `${prevTemplate ? prevTemplate.name : prevNode.type} 鈫?${saveTo}`, source: prevNode.id});
+                variables.push({name: saveTo, label: `${prevTemplate ? prevTemplate.name : prevNode.type} -> ${saveTo}`, source: prevNode.id});
             }
         }
     }
@@ -1173,13 +1173,13 @@ function buildFieldInputHtml(node, field, value, escapedValue, index) {
 
         if (field.name === 'snippet_name') {
             setTimeout(() => loadSnippets(field.name, value), 100);
-            return `<select class="form-select" id="field_${field.name}" onchange="showSnippetMetadata(this.value)"><option value="">鍔犺浇涓?..</option></select>
+            return `<select class="form-select" id="field_${field.name}" onchange="showSnippetMetadata(this.value)"><option value="">加载中...</option></select>
                      <div id="snippet_metadata_info" class="mt-3 p-3 bg-light rounded" style="display: none;">
                          <div class="row g-2">
-                             <div class="col-12"><strong>鏂囦欢:</strong> <span id="snippet_filename">-</span></div>
-                             <div class="col-12"><strong>绠€浠?</strong> <span id="snippet_description">-</span></div>
-                             <div class="col-6"><strong>浣滆€?</strong> <span id="snippet_author">-</span></div>
-                             <div class="col-6"><strong>鐗堟湰:</strong> <span id="snippet_version">-</span></div>
+                             <div class="col-12"><strong>文件:</strong> <span id="snippet_filename">-</span></div>
+                             <div class="col-12"><strong>简介:</strong> <span id="snippet_description">-</span></div>
+                             <div class="col-6"><strong>作者:</strong> <span id="snippet_author">-</span></div>
+                             <div class="col-6"><strong>版本:</strong> <span id="snippet_version">-</span></div>
                          </div>
                      </div>`;
         }
@@ -1198,7 +1198,7 @@ function buildFieldInputHtml(node, field, value, escapedValue, index) {
 
     if (field.type === 'variable_select') {
         const optionsHtml = buildVariableSelectOptions(index, value);
-        const finalOptions = `<option value="">璇烽€夋嫨鍙橀噺...</option>${optionsHtml}`;
+        const finalOptions = `<option value="">请选择变量...</option>${optionsHtml}`;
         return `<select class="form-select" id="field_${field.name}">${finalOptions}</select>`;
     }
 
@@ -1248,13 +1248,13 @@ function buildEditNodeModalHtml(nodeTemplateName, fieldsHtml, index) {
             <div class="modal-dialog modal-dialog-centered modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">缂栬緫鑺傜偣: ${escapeHtml(nodeTemplateName)}</h5>
+                        <h5 class="modal-title">编辑节点: ${escapeHtml(nodeTemplateName)}</h5>
                         <button type="button" class="btn-close js-modal-close"></button>
                     </div>
                     <div class="modal-body">${fieldsHtml}</div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-link link-secondary js-modal-close">鍙栨秷</button>
-                        <button type="button" class="btn btn-primary ms-auto js-save-node" data-node-index="${index}">淇濆瓨</button>
+                        <button type="button" class="btn btn-link link-secondary js-modal-close">取消</button>
+                        <button type="button" class="btn btn-primary ms-auto js-save-node" data-node-index="${index}">保存</button>
                     </div>
                 </div>
             </div>
@@ -1425,7 +1425,7 @@ function loadSnippets(fieldName, currentValue) {
                 const options = data.snippets.map(s => 
                     `<option value="${s.filename}" ${currentValue === s.filename ? 'selected' : ''}>${s.name}</option>`
                 ).join('');
-                selectEl.innerHTML = `<option value="">璇烽€夋嫨浠ｇ爜鐗囨</option>${options}`;
+                selectEl.innerHTML = `<option value="">请选择代码片段</option>${options}`;
                 
                 // 如果有当前值，显示元数据
                 if (currentValue) {
@@ -1450,7 +1450,7 @@ function showSnippetMetadata(filename) {
     if (snippet) {
         document.getElementById('snippet_filename').textContent = snippet.filename;
         document.getElementById('snippet_description').textContent = snippet.description || '无';
-        document.getElementById('snippet_author').textContent = snippet.author || '鏈煡';
+        document.getElementById('snippet_author').textContent = snippet.author || '未知';
         document.getElementById('snippet_version').textContent = snippet.version || '1.0.0';
         metadataDiv.style.display = 'block';
     } else {
@@ -1474,12 +1474,12 @@ function loadDebugRecord() {
                 debugRecord = null;
                 debugNodeMap = new Map();
                 hideNodeDebugPanel();
-                showToast(data.message || '鏆傛棤璋冭瘯璁板綍', 'warning');
+                showToast(data.message || '暂无调试记录', 'warning');
             }
         })
         .catch(err => {
-            console.error('鍔犺浇璋冭瘯璁板綍澶辫触:', err);
-            showToast('鍔犺浇璋冭瘯璁板綍澶辫触', 'danger');
+            console.error('加载调试记录失败:', err);
+            showToast('加载调试记录失败', 'danger');
         });
 }
 
@@ -1498,12 +1498,12 @@ function clearDebugRecord() {
                 hideNodeDebugPanel();
                 showToast('调试记录已清除', 'success');
             } else {
-                showToast(data.message || '娓呴櫎澶辫触', 'danger');
+                showToast(data.message || '清除失败', 'danger');
             }
         })
         .catch(err => {
-            console.error('娓呴櫎璋冭瘯璁板綍澶辫触:', err);
-            showToast('娓呴櫎璋冭瘯璁板綍澶辫触', 'danger');
+            console.error('清除调试记录失败:', err);
+            showToast('清除调试记录失败', 'danger');
         });
 }
 
@@ -1535,7 +1535,7 @@ function showDebugSummary() {
     
     const statusBadge = debugRecord.status === 'success' 
         ? '<span class="badge bg-success-lt text-success">鎴愬姛</span>' 
-        : '<span class="badge bg-danger-lt text-danger">澶辫触</span>';
+        : '<span class="badge bg-danger-lt text-danger">失败</span>';
     const triggerMsg = debugRecord.trigger_message || '-';
     const nodeCount = debugRecord.nodes ? debugRecord.nodes.length : 0;
     const successCount = debugRecord.nodes ? debugRecord.nodes.filter(n => n.status === 'success').length : 0;
@@ -1544,20 +1544,20 @@ function showDebugSummary() {
         <div id="debugSummary" class="card card-sm mb-3">
             <div class="card-body py-2">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="fw-bold">璋冭瘯璁板綍</span>
+                    <span class="fw-bold">调试记录</span>
                     <div>
                         ${statusBadge}
-                        <a href="#" class="text-muted ms-2" onclick="clearDebugRecord(); return false;" title="娓呴櫎">脳</a>
+                        <a href="#" class="text-muted ms-2" onclick="clearDebugRecord(); return false;" title="清除">×</a>
                     </div>
                 </div>
                 <div class="text-muted" style="font-size:12px;">
-                    <span class="me-3">鏃堕棿: ${debugRecord.trigger_time || '-'}</span>
-                    <span class="me-3">鐢ㄦ埛: ${debugRecord.user_id || '-'}</span>
-                    <span class="me-3">缇? ${debugRecord.group_id || '-'}</span>
-                    <span>鑺傜偣: ${successCount}/${nodeCount}</span>
+                    <span class="me-3">时间: ${debugRecord.trigger_time || '-'}</span>
+                    <span class="me-3">用户: ${debugRecord.user_id || '-'}</span>
+                    <span class="me-3">群: ${debugRecord.group_id || '-'}</span>
+                    <span>节点: ${successCount}/${nodeCount}</span>
                 </div>
                 <details class="mt-2" style="font-size:12px;">
-                    <summary style="cursor:pointer; color:#206bc4;">瑙﹀彂娑堟伅</summary>
+                    <summary style="cursor:pointer; color:#206bc4;">触发消息</summary>
                     <pre class="bg-dark text-white p-2 mt-1 rounded" style="font-size:12px; max-height:100px; overflow:auto; white-space:pre-wrap; word-break:break-all;">${escapeHtml(triggerMsg)}</pre>
                 </details>
             </div>
@@ -1587,14 +1587,14 @@ function showNodeDebugPanel(nodeId) {
     const debugInfo = getNodeDebugInfo(nodeId);
 
     if (!debugRecord) {
-        body.innerHTML = `<div class="text-muted">璇峰厛鐐瑰嚮鈥滆皟璇曗€濆姞杞芥渶杩戜竴娆℃墽琛岃褰曘€?/div>`;
+        body.innerHTML = `<div class="text-muted">请先点击“调试”加载最近一次执行记录。</div>`;
         panel.style.display = 'block';
         return;
     }
     if (!debugInfo) {
         body.innerHTML = `
             <div class="meta">${escapeHtml(nodeMeta?.name || node?.type || nodeId)} (${escapeHtml(nodeId)})</div>
-            <div class="text-muted">褰撳墠璋冭瘯璁板綍涓病鏈夎鑺傜偣鎵ц鏁版嵁銆?/div>
+            <div class="text-muted">当前调试记录中没有该节点执行数据。</div>
         `;
         panel.style.display = 'block';
         return;
