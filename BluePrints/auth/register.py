@@ -10,7 +10,8 @@
 from flask import render_template, request, flash, redirect, url_for
 from werkzeug.security import generate_password_hash
 
-from Database.Redis import get_value, get_redis, delete_key
+from Database.Redis import get_value, delete_key
+from Database.Redis.keys import captcha_key, email_verification_key
 from Models import User, db, time_format
 
 
@@ -29,14 +30,13 @@ def register():
         # 验证验证码
         try:
             # 从Redis获取存储的验证码
-            stored_captcha = get_value(f'captcha:{captcha_id}')
+            stored_captcha = get_value(captcha_key(captcha_id))
             if stored_captcha:
                 # 统一转换为小写进行比较
                 stored_captcha = stored_captcha.decode().lower() if isinstance(stored_captcha,
                                                                                bytes) else stored_captcha.lower()
                 # 验证完成后立即删除验证码，防止重复使用
-                with get_redis() as redis:
-                    redis.delete(f'captcha:{captcha_id}')
+                delete_key(captcha_key(captcha_id))
             else:
                 # 验证码不存在或已过期
                 flash('验证码已过期，请重新获取', 'warning')
@@ -54,8 +54,8 @@ def register():
         # 验证邮箱验证码
         try:
             # 从Redis获取邮箱验证码
-            email_verification_key = f'email_verification:register:{email}'
-            stored_email_code = get_value(email_verification_key)
+            verification_key = email_verification_key('register', email)
+            stored_email_code = get_value(verification_key)
 
             if not stored_email_code:
                 flash('邮箱验证码已过期，请重新获取', 'warning')
@@ -70,7 +70,7 @@ def register():
                 return render_template('auth/register.html')
 
             # 验证成功，删除验证码
-            delete_key(email_verification_key)
+            delete_key(verification_key)
 
         except Exception as e:
             flash('邮箱验证码验证失败，请重试', 'warning')

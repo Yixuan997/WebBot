@@ -13,6 +13,7 @@ from flask import request, jsonify, render_template
 from flask_mail import Message
 
 from Database.Redis import set_value, get_value, delete_key
+from Database.Redis.keys import email_verification_key
 from Models import Email
 
 
@@ -164,7 +165,7 @@ def _send_verification_email(email, data):
     code = generate_verification_code()
 
     # 存储到Redis，5分钟过期
-    redis_key = f"email_verification:{purpose}:{email}"
+    redis_key = email_verification_key(purpose, email)
     set_value(redis_key, code, 300)
 
     # 根据用途选择邮件模板
@@ -301,7 +302,7 @@ def verify_code():
             return jsonify({'success': False, 'message': '邮箱和验证码不能为空'})
 
         # 从Redis获取验证码
-        redis_key = f"email_verification:{purpose}:{email}"
+        redis_key = email_verification_key(purpose, email)
         stored_code = get_value(redis_key)
 
         if not stored_code:

@@ -4,7 +4,12 @@ QQ事件处理器
 专门处理各种QQ Webhook事件的业务逻辑
 """
 
+import json
+
 from Core.logging.file_logger import log_info, log_error, log_warn, log_debug
+from Core.message.dispatcher import message_async_dispatcher
+from Database.Redis.client import get_value
+from Database.Redis.keys import qq_message_raw_key
 
 
 class QQEventProcessor:
@@ -12,6 +17,51 @@ class QQEventProcessor:
 
     def __init__(self):
         pass
+
+    @staticmethod
+    def _inject_raw_body_from_payload_or_redis(payload: dict, message_data: dict):
+        """
+        为 message_data 注入 qq_webhook_body：
+        1. 优先使用当前payload透传的 _qq_webhook_body
+        2. 若缺失则按 message_id 从 Redis 回查历史原始包
+        """
+        if not isinstance(payload, dict) or not isinstance(message_data, dict):
+            return
+
+        inline_body = payload.get('_qq_webhook_body')
+        if inline_body is not None:
+            message_data['qq_webhook_body'] = inline_body
+            return
+
+        message_id = message_data.get('id') or payload.get('id')
+        if not message_id:
+            return
+
+        try:
+            bot_id = message_data.get('bot_id') or 0
+            redis_key = qq_message_raw_key(bot_id, str(message_id))
+            cached = get_value(redis_key)
+            if not cached:
+                return
+            if isinstance(cached, bytes):
+                cached = cached.decode('utf-8', errors='replace')
+            parsed = json.loads(cached)
+            message_data['qq_webhook_body'] = parsed
+            log_debug(
+                0,
+                "从Redis回填QQ原始包成功",
+                "QQ_RAW_MESSAGE_CACHE_HIT",
+                message_id=str(message_id),
+                redis_key=redis_key
+            )
+        except Exception as e:
+            log_warn(
+                0,
+                f"从Redis回填QQ原始包失败: {e}",
+                "QQ_RAW_MESSAGE_CACHE_LOAD_FAILED",
+                message_id=str(message_id),
+                error=str(e)
+            )
 
     def _clean_channel_at_content(self, content: str, mentions: list = None) -> str:
         """
@@ -86,15 +136,12 @@ class QQEventProcessor:
                 # 注入bot实例
                 event.bot = adapter.bot
 
-                # 调用新架构的消息处理器
-                import asyncio
-                import threading
-
-                def run_handler():
-                    asyncio.run(adapter.bot.handle_event(event))
-
-                # 在单独线程中运行异步函数
-                threading.Thread(target=run_handler, daemon=True).start()
+                # 投递到全局常驻事件循环，避免每条消息新建线程和事件循环
+                message_async_dispatcher.submit(
+                    adapter.bot.handle_event(event),
+                    bot_id=bot_id,
+                    source="qq_webhook_event"
+                )
 
                 log_debug(bot_id, f"消息处理完成", "QQ_MESSAGE_DONE")
 
@@ -110,6 +157,7 @@ class QQEventProcessor:
             # 解析单聊消息
             message_data = {
                 'id': payload.get('id'),  # 消息ID
+                'bot_id': bot_id,  # 机器人ID（用于Redis命名空间）
                 'openid': payload.get('author', {}).get('user_openid'),  # 发送者ID
                 'content': payload.get('content', ''),  # 消息内容
                 'timestamp': payload.get('timestamp'),  # 时间戳
@@ -118,6 +166,7 @@ class QQEventProcessor:
                 'msg_id': payload.get('id'),  # 原始消息ID用于回复
                 'message_scene': payload.get('message_scene', {})  # 消息场景信息
             }
+            self._inject_raw_body_from_payload_or_redis(payload, message_data)
 
             # 记录单聊消息事件
             log_info(bot_id, f"收到单聊消息", "QQ_C2C_MESSAGE_WEBHOOK",
@@ -156,6 +205,7 @@ class QQEventProcessor:
             # 按照官方文档格式解析频道消息
             message_data = {
                 'id': payload.get('id'),  # 消息ID
+                'bot_id': bot_id,  # 机器人ID（用于Redis命名空间）
                 'channel_id': payload.get('channel_id'),  # 频道ID
                 'guild_id': payload.get('guild_id'),  # 服务器ID
                 'content': cleaned_content,  # 清理后的消息内容
@@ -165,6 +215,7 @@ class QQEventProcessor:
                 'type': 'channel',  # 消息类型
                 'msg_id': payload.get('id')  # 添加原始消息ID用于回复
             }
+            self._inject_raw_body_from_payload_or_redis(payload, message_data)
 
             log_info(bot_id, f"收到频道消息", "QQ_CHANNEL_MESSAGE_WEBHOOK",
                      channel_id=message_data['channel_id'],
@@ -201,6 +252,7 @@ class QQEventProcessor:
             # 按照官方文档格式解析群聊@消息
             message_data = {
                 'id': payload.get('id'),  # 消息ID
+                'bot_id': bot_id,  # 机器人ID（用于Redis命名空间）
                 'group_openid': payload.get('group_openid'),  # 群组ID
                 'content': cleaned_content,  # 清理后的消息内容
                 'raw_content': raw_content,  # 保留原始内容
@@ -210,6 +262,7 @@ class QQEventProcessor:
                 'msg_id': payload.get('id'),  # 原始消息ID用于回复
                 'message_scene': payload.get('message_scene', {})  # 消息场景信息
             }
+            self._inject_raw_body_from_payload_or_redis(payload, message_data)
 
             # 获取author_openid
             author_info = message_data['author']
@@ -252,6 +305,7 @@ class QQEventProcessor:
             # 按照官方文档格式解析公域频道@消息
             message_data = {
                 'id': payload.get('id'),  # 消息ID
+                'bot_id': bot_id,  # 机器人ID（用于Redis命名空间）
                 'channel_id': payload.get('channel_id'),  # 频道ID
                 'guild_id': payload.get('guild_id'),  # 服务器ID
                 'content': cleaned_content,  # 清理后的消息内容
@@ -262,6 +316,7 @@ class QQEventProcessor:
                 'type': 'at_message',  # 消息类型
                 'msg_id': payload.get('id')  # 原始消息ID用于回复
             }
+            self._inject_raw_body_from_payload_or_redis(payload, message_data)
 
             log_info(bot_id, f"收到公域频道@消息", "QQ_AT_MESSAGE_WEBHOOK",
                      channel_id=message_data['channel_id'],
@@ -298,6 +353,7 @@ class QQEventProcessor:
             # 按照官方文档格式解析私信消息
             message_data = {
                 'id': payload.get('id'),  # 消息ID
+                'bot_id': bot_id,  # 机器人ID（用于Redis命名空间）
                 'guild_id': payload.get('guild_id'),  # 服务器ID
                 'content': cleaned_content,  # 清理后的消息内容
                 'raw_content': raw_content,  # 保留原始内容
@@ -307,6 +363,7 @@ class QQEventProcessor:
                 'type': 'direct_message',  # 消息类型
                 'msg_id': payload.get('id')  # 添加原始消息ID用于回复
             }
+            self._inject_raw_body_from_payload_or_redis(payload, message_data)
 
             log_info(bot_id, f"收到私信消息", "QQ_DIRECT_MESSAGE_WEBHOOK",
                      guild_id=message_data['guild_id'],

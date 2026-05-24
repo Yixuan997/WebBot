@@ -7,9 +7,10 @@ import json
 from typing import Any
 
 from Core.logging.file_logger import log_info, log_error
+from Database.Redis.keys import workflow_globals_key
 
 # Redis key
-GLOBALS_CACHE_KEY = "workflow:globals"
+GLOBALS_CACHE_KEY = workflow_globals_key()
 
 
 class GlobalVariableManager:

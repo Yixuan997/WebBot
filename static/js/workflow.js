@@ -426,11 +426,11 @@ function buildDrawflowData() {
         const visual = getNodeVisual(node, nodeMeta);
         const dbg = debugByNodeId.get(node.id);
         if (dbg?.status === 'success') {
-            visual.badgeText = '杩愯鎴愬姛';
+            visual.badgeText = '运行成功';
             visual.badgeBg = '#d1fae5';
             visual.badgeColor = '#065f46';
         } else if (dbg?.status === 'error') {
-            visual.badgeText = '鎵ц澶辫触';
+            visual.badgeText = '执行失败';
             visual.badgeBg = '#fee2e2';
             visual.badgeColor = '#991b1b';
         }
@@ -1534,7 +1534,7 @@ function showDebugSummary() {
     hideDebugSummary();
     
     const statusBadge = debugRecord.status === 'success' 
-        ? '<span class="badge bg-success-lt text-success">鎴愬姛</span>' 
+        ? '<span class="badge bg-success-lt text-success">成功</span>' 
         : '<span class="badge bg-danger-lt text-danger">失败</span>';
     const triggerMsg = debugRecord.trigger_message || '-';
     const nodeCount = debugRecord.nodes ? debugRecord.nodes.length : 0;
@@ -1601,8 +1601,8 @@ function showNodeDebugPanel(nodeId) {
     }
 
     const statusBadge = debugInfo.status === 'success'
-        ? '<span class="badge bg-success-lt text-success">鎴愬姛</span>'
-        : '<span class="badge bg-danger-lt text-danger">澶辫触</span>';
+        ? '<span class="badge bg-success-lt text-success">成功</span>'
+        : '<span class="badge bg-danger-lt text-danger">失败</span>';
     const duration = debugInfo.duration_ms !== undefined ? `${debugInfo.duration_ms}ms` : '-';
     const outputText = formatDebugData(debugInfo.output);
     const inputText = formatDebugData(debugInfo.input);
@@ -1610,10 +1610,10 @@ function showNodeDebugPanel(nodeId) {
 
     body.innerHTML = `
         <div class="meta">${escapeHtml(nodeMeta?.name || node?.type || nodeId)} (${escapeHtml(nodeId)})</div>
-        <div class="mb-2">${statusBadge} <span class="text-muted ms-2">鑰楁椂: ${duration}</span></div>
-        ${errorText ? `<div class="mb-2 text-danger"><strong>閿欒:</strong> ${errorText}</div>` : ''}
-        ${inputText ? `<div class="mb-2"><div class="mb-1 fw-semibold">杈撳叆</div><pre>${escapeHtml(inputText)}</pre></div>` : ''}
-        ${outputText ? `<div><div class="mb-1 fw-semibold">杈撳嚭</div><pre>${escapeHtml(outputText)}</pre></div>` : ''}
+        <div class="mb-2">${statusBadge} <span class="text-muted ms-2">耗时: ${duration}</span></div>
+        ${errorText ? `<div class="mb-2 text-danger"><strong>错误:</strong> ${errorText}</div>` : ''}
+        ${inputText ? `<div class="mb-2"><div class="mb-1 fw-semibold">输入</div><pre>${escapeHtml(inputText)}</pre></div>` : ''}
+        ${outputText ? `<div><div class="mb-1 fw-semibold">输出</div><pre>${escapeHtml(outputText)}</pre></div>` : ''}
     `;
     panel.style.display = 'block';
 }

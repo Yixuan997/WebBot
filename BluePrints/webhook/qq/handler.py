@@ -8,12 +8,15 @@ from datetime import datetime
 
 from Core.logging.file_logger import log_info, log_error, log_debug, log_warn
 from Database.Redis.client import set_value, get_value
+from Database.Redis.keys import qq_event_dedup_key, qq_message_raw_key
 from .events import QQEventProcessor
 from ..base import BaseWebhookHandler
 
 
 class QQWebhookHandler(BaseWebhookHandler):
     """QQ协议Webhook处理器"""
+
+    QQ_RAW_MESSAGE_TTL_SECONDS = 7 * 24 * 60 * 60
 
     def __init__(self):
         super().__init__("QQ")
@@ -36,7 +39,12 @@ class QQWebhookHandler(BaseWebhookHandler):
     def _get_event_redis_key(self, event_id: str) -> str:
         """获取事件Redis键名"""
         today = datetime.now().strftime("%Y%m%d")
-        return f"qq_event_dedup:{today}:{event_id}"
+        return qq_event_dedup_key(today, event_id)
+
+    @staticmethod
+    def _get_message_raw_redis_key(bot_id: int, message_id: str) -> str:
+        """获取消息原始包Redis键名"""
+        return qq_message_raw_key(bot_id, message_id)
 
     def _is_duplicate_event(self, event_id: str) -> bool:
         """检查是否为重复事件 - 使用Redis存储"""
@@ -55,6 +63,30 @@ class QQWebhookHandler(BaseWebhookHandler):
             set_value(redis_key, "true", expire_seconds=86400)
         except Exception as e:
             log_error(0, f"记录事件ID失败: {e}", "QQ_EVENT_RECORD_ERROR")
+
+    def _store_message_raw_body(self, bot_id: int, message_id: str, webhook_body_json: str):
+        """按 message_id 存储 QQ webhook 原始包，默认保留 7 天"""
+        if not message_id or not webhook_body_json:
+            return
+        try:
+            redis_key = self._get_message_raw_redis_key(bot_id, str(message_id))
+            set_value(redis_key, webhook_body_json, expire_seconds=self.QQ_RAW_MESSAGE_TTL_SECONDS)
+            log_debug(
+                bot_id,
+                "QQ消息原始包已写入Redis",
+                "QQ_RAW_MESSAGE_SAVED",
+                message_id=str(message_id),
+                redis_key=redis_key,
+                expire_seconds=self.QQ_RAW_MESSAGE_TTL_SECONDS
+            )
+        except Exception as e:
+            log_warn(
+                bot_id,
+                f"QQ消息原始包写入Redis失败: {e}",
+                "QQ_RAW_MESSAGE_SAVE_FAILED",
+                message_id=str(message_id),
+                error=str(e)
+            )
 
     def parse_event(self, raw_data: bytes) -> dict:
         """解析QQ事件数据"""
@@ -311,6 +343,16 @@ class QQWebhookHandler(BaseWebhookHandler):
             event_type = event_data.get('t')  # 事件类型
             event_payload = event_data.get('d')  # 事件数据
             op_code = event_data.get('op', 0)  # 操作码
+
+            webhook_body_json = json.dumps(event_data, ensure_ascii=False, default=str)
+
+            # 透传完整 webhook body 的快照副本
+            if isinstance(event_payload, dict):
+                event_payload['_qq_webhook_body'] = json.loads(
+                    webhook_body_json
+                )
+                message_id = event_payload.get('id')
+                self._store_message_raw_body(bot_id, str(message_id) if message_id else "", webhook_body_json)
 
             # 直接使用QQ提供的事件ID
             unique_event_id = event_data.get('id')

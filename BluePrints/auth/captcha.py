@@ -13,6 +13,7 @@ from PIL import Image, ImageDraw, ImageFont
 from flask import make_response
 
 from Database.Redis import set_value
+from Database.Redis.keys import captcha_key
 
 # 字体路径
 FONT_PATH = "static/fonts/DejaVuSans.ttf"
@@ -62,7 +63,7 @@ def generate_captcha():
     output.seek(0)
 
     # 将验证码存储在 Redis 中
-    set_value(f'captcha:{captcha_id}', captcha_text.lower(), 300)  # 5分钟过期
+    set_value(captcha_key(captcha_id), captcha_text.lower(), 300)  # 5分钟过期
 
     resp = make_response(output.getvalue())
     resp.headers['Content-Type'] = 'image/png'

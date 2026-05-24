@@ -2,11 +2,11 @@
 工作流缓存管理器
 
 提供内存缓存，避免每次消息都查询数据库
-预编译工作流引擎，提高执行效率
+缓存预过滤信息，提高执行效率
 """
 import threading
 from collections import Counter
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 
 from Core.logging.file_logger import log_info, log_debug, log_error
 
@@ -33,9 +33,10 @@ class WorkflowCache:
             log_info(0, "工作流缓存管理器初始化", "WORKFLOW_CACHE_INIT")
 
     def _build_cached_workflow(self, workflow) -> Dict[str, Any]:
-        """构建缓存项（含预编译引擎）"""
+        """构建缓存项（含预过滤信息与引擎工厂）"""
         config = workflow.get_config()
         trigger_type = config.get('trigger_type', 'message')
+        engine_factory = self._build_engine_factory(workflow.id, workflow.name, config)
         return {
             'id': workflow.id,
             'name': workflow.name,
@@ -43,8 +44,118 @@ class WorkflowCache:
             'config': config,
             'enabled': workflow.enabled,
             'trigger_type': trigger_type,
-            'engine': self._precompile_engine(workflow.id, workflow.name, config),
+            'message_prefilter': self._extract_message_prefilter(config),
+            'engine_factory': engine_factory,
         }
+
+    @staticmethod
+    def _extract_message_prefilter(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        提取消息预过滤信息（仅在可静态判定时启用）
+
+        当前仅支持: start -> keyword_trigger
+        """
+        try:
+            steps = config.get('workflow', []) or []
+            if not steps:
+                return None
+
+            step_map = {}
+            for step in steps:
+                step_id = step.get('id')
+                if step_id:
+                    step_map[step_id] = step
+
+            start_step = next((step for step in steps if step.get('type') == 'start'), None)
+            if not start_step:
+                return None
+
+            start_config = start_step.get('config') or {}
+            next_node = start_config.get('next_node')
+            if not next_node:
+                return None
+
+            entry_step = step_map.get(next_node)
+            if not entry_step or entry_step.get('type') != 'keyword_trigger':
+                return None
+
+            entry_config = entry_step.get('config') or {}
+            keywords_text = entry_config.get('keywords', '')
+            if not isinstance(keywords_text, str):
+                return None
+
+            keywords = tuple(k.strip() for k in keywords_text.split('\n') if k.strip())
+            if not keywords:
+                return None
+
+            match_type = entry_config.get('match_type', 'contains')
+            if match_type not in ('contains', 'equals', 'starts_with'):
+                return None
+
+            return {
+                'type': 'keyword_trigger',
+                'match_type': match_type,
+                'keywords': keywords
+            }
+        except Exception:
+            return None
+
+    @staticmethod
+    def _match_message_prefilter(prefilter: Optional[Dict[str, Any]], message: str) -> bool:
+        """检查消息是否满足预过滤条件。"""
+        if not prefilter:
+            return True
+
+        if prefilter.get('type') != 'keyword_trigger':
+            return True
+
+        match_type = prefilter.get('match_type', 'contains')
+        keywords = prefilter.get('keywords', ())
+
+        if not keywords:
+            return True
+
+        if match_type == 'equals':
+            return any(message == keyword for keyword in keywords)
+        if match_type == 'starts_with':
+            return any(message.startswith(keyword) for keyword in keywords)
+        return any(keyword in message for keyword in keywords)
+
+    def prefilter_message_workflows(self, workflows: List[Dict[str, Any]], message: str) -> List[Dict[str, Any]]:
+        """基于缓存的入口条件做快速过滤，减少无效引擎执行。"""
+        if not workflows:
+            return workflows
+        filtered = [
+            workflow for workflow in workflows
+            if self._match_message_prefilter(workflow.get('message_prefilter'), message)
+        ]
+        return filtered
+
+    @staticmethod
+    def _build_engine_factory(workflow_id: int, workflow_name: str, config: Dict[str, Any]) -> Callable:
+        """构建轻量引擎工厂。"""
+        from Core.workflow.engine import WorkflowEngine
+
+        def _factory():
+            return WorkflowEngine(config, name=workflow_name, workflow_id=workflow_id)
+
+        return _factory
+
+    def acquire_engine(self, workflow_data: Dict[str, Any]):
+        """按工厂创建新引擎实例（不使用引擎池）。"""
+        engine_factory = workflow_data.get('engine_factory')
+        if engine_factory:
+            return engine_factory()
+
+        # 兜底（兼容旧缓存结构）
+        from Core.workflow.engine import WorkflowEngine
+        config = workflow_data.get('config', {})
+        return WorkflowEngine(config, name=workflow_data.get('name'), workflow_id=workflow_data.get('id'))
+
+    @staticmethod
+    def release_engine(workflow_data: Dict[str, Any], engine) -> None:
+        """无池化模式下无需归还，保持接口兼容。"""
+        return
 
     def reload(self) -> int:
         """
@@ -146,37 +257,6 @@ class WorkflowCache:
                           workflow_id=workflow_id)
             return removed
 
-    def _precompile_engine(self, workflow_id: int, workflow_name: str, config: Dict[str, Any]):
-        """
-        预编译工作流引擎
-        
-        Args:
-            workflow_id: 工作流 ID
-            workflow_name: 工作流名称
-            config: 工作流配置
-            
-        Returns:
-            WorkflowEngine: 预编译好的引擎实例，失败返回None
-        """
-        try:
-            from Core.workflow.engine import WorkflowEngine
-
-            # 创建引擎实例（传入 workflow_id 用于调试记录）
-            engine = WorkflowEngine(config, name=workflow_name, workflow_id=workflow_id)
-
-            log_debug(0, f"预编译工作流引擎: {workflow_name}", "WORKFLOW_PRECOMPILE_SUCCESS",
-                      workflow=workflow_name,
-                      steps_count=len(config.get('workflow', [])))
-
-            return engine
-
-        except Exception as e:
-            log_error(0, f"预编译工作流 {workflow_name} 失败: {e}",
-                      "WORKFLOW_PRECOMPILE_ERROR",
-                      workflow=workflow_name,
-                      error=str(e))
-            return None
-
     def _get_subscribed_workflow_ids(self, user_id: Optional[int]) -> set:
         """获取用户订阅的工作流ID集合"""
         if not user_id:
@@ -206,39 +286,44 @@ class WorkflowCache:
         Returns:
             List[Dict]: 匹配的工作流列表
         """
-        from Core.utils.context import app_context
-        
-        with app_context():
-            with self._lock:
-                subscribed_ids = self._get_subscribed_workflow_ids(user_id)
-                
-                result = []
-                for workflow in self._workflows:
-                    wf_trigger = workflow.get('trigger_type', 'message')
-                    if wf_trigger != trigger_type:
+        with self._lock:
+            subscribed_ids = self._get_subscribed_workflow_ids(user_id)
+
+            result = []
+            skipped_by_trigger = 0
+            skipped_by_event = 0
+            skipped_by_subscribe = 0
+            skipped_by_protocol = 0
+            for workflow in self._workflows:
+                wf_trigger = workflow.get('trigger_type', 'message')
+                if wf_trigger != trigger_type:
+                    skipped_by_trigger += 1
+                    continue
+
+                config = workflow.get('config', {})
+
+                # 事件名称过滤（notice/request 事件）
+                if event_name:
+                    event_filter = config.get('event_filter', [])
+                    if event_filter and event_name not in event_filter:
+                        skipped_by_event += 1
                         continue
-                    
-                    config = workflow.get('config', {})
-                    
-                    # 事件名称过滤（notice/request 事件）
-                    if event_name:
-                        event_filter = config.get('event_filter', [])
-                        if event_filter and event_name not in event_filter:
-                            continue
-                    
-                    # 订阅过滤
-                    if user_id and workflow['id'] not in subscribed_ids:
+
+                # 订阅过滤
+                if user_id and workflow['id'] not in subscribed_ids:
+                    skipped_by_subscribe += 1
+                    continue
+
+                # 协议过滤
+                if protocol:
+                    allowed = config.get('protocols', [])
+                    if allowed and protocol not in allowed:
+                        skipped_by_protocol += 1
                         continue
-                    
-                    # 协议过滤
-                    if protocol:
-                        allowed = config.get('protocols', [])
-                        if allowed and protocol not in allowed:
-                            continue
-                    
-                    result.append(workflow)
-                
-                return result
+
+                result.append(workflow)
+
+            return result
 
     def get_all_workflows(self) -> List[Dict[str, Any]]:
         """获取所有缓存的工作流"""

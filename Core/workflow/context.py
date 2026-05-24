@@ -121,12 +121,16 @@ class WorkflowContext:
             env = Environment(undefined=ChainableUndefined)
             # 添加 json_safe 过滤器：转义字符串中的特殊字符，使其可以安全嵌入 JSON
             env.filters['json_safe'] = lambda s: json.dumps(str(s), ensure_ascii=False)[1:-1] if s else ''
+            # 添加 tojson 过滤器：格式化任意对象为 JSON 字符串（支持缩进）
+            env.filters['tojson'] = lambda value, indent=2: json.dumps(
+                value, ensure_ascii=False, indent=indent, default=str
+            )
             template = env.from_string(template_str)
             
             # 注入全局变量，支持 {{global.xxx}} 语法
             render_vars = {**self.variables, 'global': global_variables.get_all()}
             return template.render(**render_vars)
-        except Exception:
+        except Exception as e:
             # 如果模板渲染失败，返回原字符串
             return template_str
 

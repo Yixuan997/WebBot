@@ -30,7 +30,6 @@ class WorkflowEngine:
         self.name = name or config.get('name', 'Unnamed Workflow')
         self.workflow_id = workflow_id
         self.workflow_steps = config.get('workflow', []) or []
-        self.debug_recorder = None
 
     def _find_start_index(self) -> Optional[int]:
         """返回 start 节点索引；未找到时返回 None。"""
@@ -50,6 +49,7 @@ class WorkflowEngine:
             dict: {'handled': bool, 'response': BaseMessage, 'continue': bool}
         """
         start_time = time.time()
+        debug_recorder: WorkflowDebugRecorder | None = None
 
         try:
             # 1. 检查事件类型
@@ -63,19 +63,19 @@ class WorkflowEngine:
 
             # 3. 初始化调试记录器
             if self.workflow_id:
-                self.debug_recorder = WorkflowDebugRecorder(self.workflow_id, self.name)
-                self.debug_recorder.start(event)
+                debug_recorder = WorkflowDebugRecorder(self.workflow_id, self.name)
+                debug_recorder.start(event)
 
             # 4. 执行节点
             context = WorkflowContext(event)
-            await self._run_nodes(context)
+            await self._run_nodes(context, debug_recorder)
 
             # 5. 返回结果（并在有响应时保存调试记录）
             response = context.get_response()
             if response is not None:
                 # 有响应时保存调试记录
-                if self.debug_recorder:
-                    self.debug_recorder.finish(success=True)
+                if debug_recorder:
+                    debug_recorder.finish(success=True)
                     
                 elapsed = time.time() - start_time
                 log_info(0, f"[{self.name}] 处理完成 ({elapsed:.3f}s)", "WORKFLOW_SUCCESS")
@@ -90,11 +90,11 @@ class WorkflowEngine:
             log_error(0, f"工作流 {self.name} 执行异常: {e}", "WORKFLOW_ERROR",
                       error=str(e), traceback=format_exception(e))
             # 记录异常
-            if self.debug_recorder:
-                self.debug_recorder.finish(success=False, error=str(e))
+            if debug_recorder:
+                debug_recorder.finish(success=False, error=str(e))
             return {'handled': False}
 
-    async def _run_nodes(self, context: WorkflowContext):
+    async def _run_nodes(self, context: WorkflowContext, debug_recorder: WorkflowDebugRecorder | None = None):
         """执行所有节点"""
         node_index_map = {step.get('id'): idx for idx, step in enumerate(self.workflow_steps)}
         current_index = self._find_start_index()
@@ -138,8 +138,8 @@ class WorkflowEngine:
                         break
 
                 # 记录节点执行结果
-                if self.debug_recorder:
-                    self.debug_recorder.record_node(
+                if debug_recorder:
+                    debug_recorder.record_node(
                         node_id=node_id,
                         node_type=node_type,
                         status="success",
@@ -185,7 +185,7 @@ class WorkflowEngine:
                         if result.get('stop_sequence'):
                             # 执行跳转目标节点
                             await self._execute_and_record_node(
-                                self.workflow_steps[current_index], context
+                                self.workflow_steps[current_index], context, debug_recorder
                             )
                             
                             # 在循环中返回 foreach，否则停止执行
@@ -239,8 +239,8 @@ class WorkflowEngine:
                 log_error(0, f"节点 {node_id} 执行失败: {e}", "WORKFLOW_NODE_ERROR",
                           error=str(e), node_type=node_type, traceback=format_exception(e))
                 # 记录节点错误
-                if self.debug_recorder:
-                    self.debug_recorder.record_node(
+                if debug_recorder:
+                    debug_recorder.record_node(
                         node_id=node_id,
                         node_type=node_type,
                         status="error",
@@ -270,15 +270,20 @@ class WorkflowEngine:
 
         return result, False
     
-    async def _execute_and_record_node(self, step_config: dict, context: WorkflowContext) -> Any:
+    async def _execute_and_record_node(
+            self,
+            step_config: dict,
+            context: WorkflowContext,
+            debug_recorder: WorkflowDebugRecorder | None = None
+    ) -> Any:
         """执行并记录节点"""
         node_start = time.time()
         result, _ = await self._execute_node(step_config, context)
         node_duration = int((time.time() - node_start) * 1000)
         
         # 记录节点执行结果
-        if self.debug_recorder:
-            self.debug_recorder.record_node(
+        if debug_recorder:
+            debug_recorder.record_node(
                 node_id=step_config.get('id'),
                 node_type=step_config.get('type'),
                 status="success",

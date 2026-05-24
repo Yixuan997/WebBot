@@ -15,6 +15,7 @@ from typing import Dict, Any, Optional
 import websocket
 
 from Core.logging.file_logger import log_info, log_error, log_warn, log_debug
+from Core.message.dispatcher import message_async_dispatcher
 from .bot import OneBotBot
 from .config import OneBotConfig
 from .event import OneBotEvent, OneBotMessageEvent, OneBotNoticeEvent, OneBotRequestEvent, OneBotMetaEvent
@@ -86,10 +87,6 @@ class OneBotAdapter(BaseAdapter):
         self.connected = False
         self._stop_flag = threading.Event()
 
-        # 事件循环相关
-        self.event_loop = None
-        self.loop_thread = None
-
         # 统计信息
         self.start_time = None
         self.message_count = 0
@@ -107,9 +104,6 @@ class OneBotAdapter(BaseAdapter):
         try:
             log_info(self.bot_id, f"启动OneBot适配器", "ONEBOT_ADAPTER_START",
                      ws_url=self.ws_url)
-
-            # 启动专用事件循环线程
-            self._start_event_loop()
 
             # 创建WebSocketApp
             self._create_websocket_app()
@@ -166,9 +160,6 @@ class OneBotAdapter(BaseAdapter):
             # 等待WebSocket线程结束
             if self.ws_thread and self.ws_thread.is_alive():
                 self.ws_thread.join(timeout=5)
-
-            # 停止事件循环
-            self._stop_event_loop()
 
             # 统计信息
             if self.start_time:
@@ -313,11 +304,12 @@ class OneBotAdapter(BaseAdapter):
                           message_type=message_type,
                           content_preview=content_preview)
 
-            # 提交任务到共享事件循环
-            if self.bot and self.event_loop:
-                asyncio.run_coroutine_threadsafe(
+            # 提交任务到全局常驻事件循环
+            if self.bot:
+                message_async_dispatcher.submit(
                     self.bot.handle_event(event),
-                    self.event_loop
+                    bot_id=self.bot_id,
+                    source="onebot_ws_event"
                 )
 
                 if isinstance(event, OneBotMessageEvent):
@@ -343,32 +335,6 @@ class OneBotAdapter(BaseAdapter):
         else:
             log_warn(self.bot_id, f"OneBot连接意外关闭: {close_status_code}",
                      "ONEBOT_CONNECTION_LOST")
-
-    def _start_event_loop(self):
-        """启动专用事件循环线程"""
-        self.event_loop = asyncio.new_event_loop()
-
-        def run_loop():
-            asyncio.set_event_loop(self.event_loop)
-            self.event_loop.run_forever()
-
-        self.loop_thread = threading.Thread(
-            target=run_loop,
-            name=f"OneBot-Loop-{self.bot_id}",
-            daemon=True
-        )
-        self.loop_thread.start()
-        log_debug(self.bot_id, "事件循环线程已启动", "ONEBOT_LOOP_STARTED")
-
-    def _stop_event_loop(self):
-        """停止事件循环线程"""
-        if self.event_loop and self.event_loop.is_running():
-            self.event_loop.call_soon_threadsafe(self.event_loop.stop)
-
-            if self.loop_thread and self.loop_thread.is_alive():
-                self.loop_thread.join(timeout=3)
-
-            log_debug(self.bot_id, "事件循环线程已停止", "ONEBOT_LOOP_STOPPED")
 
     @classmethod
     def json_to_event(cls, json_data: Dict[str, Any]) -> Optional[OneBotEvent]:

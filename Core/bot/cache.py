@@ -11,16 +11,17 @@ import time
 
 from Core.logging.file_logger import log_info, log_error, log_warn, log_debug
 from Database.Redis.client import get_redis, set_value, get_value, delete_key
+from Database.Redis.keys import bot_mapping_key, bot_status_key, bot_config_key, namespaced_prefix
 
 
 class BotCacheManager:
     """机器人缓存管理器"""
 
     def __init__(self):
-        # 缓存键前缀设计 - 与插件系统保持一致的命名风格
-        self.mapping_prefix = "bot:mapping:"  # protocol:cache_key → bot_id 映射
-        self.status_prefix = "bot:status:"  # bot_id → 运行状态
-        self.config_prefix = "bot:config:"  # bot_id → 配置缓存
+        # 缓存键前缀（用于 scan 统计）
+        self.mapping_prefix = namespaced_prefix("bot", "mapping")
+        self.status_prefix = namespaced_prefix("bot", "status")
+        self.config_prefix = namespaced_prefix("bot", "config")
 
         # 缓存TTL设置 - 与插件系统保持一致
         self.config_ttl = 300  # 配置缓存5分钟，避免配置更新不同步
@@ -35,15 +36,15 @@ class BotCacheManager:
 
     def _get_mapping_key(self, protocol: str, cache_key: str) -> str:
         """获取 protocol + cache_key 到 bot_id 的映射键"""
-        return f"{self.mapping_prefix}{protocol}:{cache_key}"
+        return bot_mapping_key(protocol, cache_key)
 
     def _get_status_key(self, bot_id: int) -> str:
         """获取机器人状态缓存键"""
-        return f"{self.status_prefix}{bot_id}"
+        return bot_status_key(bot_id)
 
     def _get_config_key(self, bot_id: int) -> str:
         """获取机器人配置缓存键"""
-        return f"{self.config_prefix}{bot_id}"
+        return bot_config_key(bot_id)
 
     def update_bot_mapping(self, bot_id: int, protocol: str, cache_key: str, status: str) -> bool:
         """

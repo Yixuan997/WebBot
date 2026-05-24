@@ -7,6 +7,7 @@ Adapter基类
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Callable
 
+from Core.message.dispatcher import message_async_dispatcher
 from .bot import BaseBot
 from .event import BaseEvent
 
@@ -137,15 +138,13 @@ class BaseAdapter(ABC):
             # 注入bot
             event.bot = self.bot
 
-            # 处理事件（在新线程中运行异步函数）
+            # 处理事件（提交到全局常驻事件循环）
             if self.bot:
-                import asyncio
-                import threading
-
-                def run_handler():
-                    asyncio.run(self.bot.handle_event(event))
-
-                threading.Thread(target=run_handler, daemon=True).start()
+                message_async_dispatcher.submit(
+                    self.bot.handle_event(event),
+                    bot_id=self.bot_id,
+                    source=f"{self.get_protocol_name()}_adapter_raw_event"
+                )
 
         except Exception as e:
             from Core.logging.file_logger import log_error

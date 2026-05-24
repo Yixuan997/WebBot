@@ -8,9 +8,8 @@ import time
 from typing import Any
 
 from Core.logging.file_logger import log_error
+from Database.Redis.keys import workflow_debug_key
 
-# Redis key 前缀
-DEBUG_KEY_PREFIX = "workflow_debug:"
 # 调试记录过期时间（秒），默认 1 小时
 DEBUG_EXPIRE_SECONDS = 3600
 
@@ -127,7 +126,7 @@ class WorkflowDebugRecorder:
                 "nodes": self.nodes
             }
             
-            key = f"{DEBUG_KEY_PREFIX}{self.workflow_id}"
+            key = workflow_debug_key(self.workflow_id)
             value = json.dumps(record, ensure_ascii=False)
             set_value(key, value, expire_seconds=DEBUG_EXPIRE_SECONDS)
             
@@ -149,7 +148,7 @@ def get_debug_record(workflow_id: int) -> dict | None:
     try:
         from Database.Redis.client import get_value
         
-        key = f"{DEBUG_KEY_PREFIX}{workflow_id}"
+        key = workflow_debug_key(workflow_id)
         value = get_value(key)
         
         if value:
@@ -168,7 +167,7 @@ def clear_debug_record(workflow_id: int):
     """清除指定工作流的调试记录"""
     try:
         from Database.Redis.client import delete_key
-        key = f"{DEBUG_KEY_PREFIX}{workflow_id}"
+        key = workflow_debug_key(workflow_id)
         delete_key(key)
     except Exception as e:
         log_error(0, f"清除工作流调试记录失败: {e}", "WORKFLOW_DEBUG_CLEAR_ERROR",

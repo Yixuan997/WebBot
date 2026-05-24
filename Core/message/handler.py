@@ -2,6 +2,7 @@
 消息处理器
 """
 import asyncio
+
 from Core.utils.context import app_context
 
 
@@ -39,11 +40,12 @@ class MessageHandler:
 
             # 获取协议类型
             protocol = event.bot.adapter.get_protocol_name() if hasattr(event, 'bot') else None
-            
-            # 获取 bot 所有者的用户ID
-            owner_id = None
-            if hasattr(event, 'bot') and event.bot:
-                with app_context():
+
+            # 单次消息复用 app_context：避免每个工作流重复入栈/出栈
+            with app_context():
+                # 获取 bot 所有者的用户ID
+                owner_id = None
+                if hasattr(event, 'bot') and event.bot:
                     try:
                         db_bot_id = event.bot.adapter.bot_id
                         bot_db = BotModel.query.get(db_bot_id)
@@ -52,90 +54,83 @@ class MessageHandler:
                     except Exception as e:
                         log_debug(0, f"获取 owner_id 失败: {e}", "GET_OWNER_ID_ERROR")
 
-            # 根据事件类型获取工作流
-            post_type = getattr(event, 'post_type', 'message')
-            
-            if post_type == 'notice':
-                # 通知事件（群成员增减、管理员变动等）
-                notice_type = getattr(event, 'notice_type', '')
-                log_info(0, f"通知事件: {notice_type}", "NOTICE_EVENT_RECEIVED",
-                         notice_type=notice_type,
-                         group_id=getattr(event, 'group_id', None),
-                         user_id=getattr(event, 'user_id', None))
-                workflows = workflow_cache.get_workflows_by_trigger('notice', protocol, owner_id, notice_type)
-                
-            elif post_type == 'request':
-                # 请求事件（好友申请、入群申请等）
-                request_type = getattr(event, 'request_type', '')
-                log_info(0, f"请求事件: {request_type}", "REQUEST_EVENT_RECEIVED",
-                         request_type=request_type,
-                         user_id=getattr(event, 'user_id', None),
-                         comment=getattr(event, 'comment', ''))
-                workflows = workflow_cache.get_workflows_by_trigger('request', protocol, owner_id, request_type)
-                
-            else:
-                # 消息事件
-                content = event.get_plaintext().strip()
-                
-                # 记录消息摘要
-                group_id = getattr(event, 'group_id', None)
-                user_id = getattr(event, 'user_id', None)
-                msg_summary = f"群{group_id}" if group_id else "私聊"
-                msg_summary += f" 用户{user_id}" if user_id else ""
-                msg_summary += f": \"{content[:20]}{'...' if len(content) > 20 else ''}\""
-                log_info(0, msg_summary, "MESSAGE_RECEIVED")
-                
-                workflows = workflow_cache.get_workflows_by_trigger('message', protocol, owner_id)
+                # 根据事件类型获取工作流
+                post_type = getattr(event, 'post_type', 'message')
 
-            # 如果没有匹配的工作流，静默返回（不记录日志）
-            if not workflows:
-                return
+                if post_type == 'notice':
+                    # 通知事件（群成员增减、管理员变动等）
+                    notice_type = getattr(event, 'notice_type', '')
+                    log_info(0, f"通知事件: {notice_type}", "NOTICE_EVENT_RECEIVED",
+                             notice_type=notice_type,
+                             group_id=getattr(event, 'group_id', None),
+                             user_id=getattr(event, 'user_id', None))
+                    workflows = workflow_cache.get_workflows_by_trigger('notice', protocol, owner_id, notice_type)
 
-            # 创建所有工作流任务，使用 dict 映射 task -> workflow_data
-            task_to_workflow = {}
-            for workflow_data in workflows:
-                # 在当前事件循环中创建异步任务
-                loop = asyncio.get_event_loop()
-                task = loop.create_task(
-                    self._async_execute_workflow(workflow_data, event)
-                )
-                task_to_workflow[task] = workflow_data
+                elif post_type == 'request':
+                    # 请求事件（好友申请、入群申请等）
+                    request_type = getattr(event, 'request_type', '')
+                    log_info(0, f"请求事件: {request_type}", "REQUEST_EVENT_RECEIVED",
+                             request_type=request_type,
+                             user_id=getattr(event, 'user_id', None),
+                             comment=getattr(event, 'comment', ''))
+                    workflows = workflow_cache.get_workflows_by_trigger('request', protocol, owner_id, request_type)
 
-            # 使用 asyncio.wait 实现即时响应
+                else:
+                    # 消息事件
+                    content = event.get_plaintext().strip()
 
-            pending = set(task_to_workflow.keys())
+                    # 记录消息摘要
+                    group_id = getattr(event, 'group_id', None)
+                    user_id = getattr(event, 'user_id', None)
+                    msg_summary = f"群{group_id}" if group_id else "私聊"
+                    msg_summary += f" 用户{user_id}" if user_id else ""
+                    msg_summary += f": \"{content[:20]}{'...' if len(content) > 20 else ''}\""
+                    log_info(0, msg_summary, "MESSAGE_RECEIVED")
 
-            while pending:
-                # 等待任意一个任务完成
-                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                    workflows = workflow_cache.get_workflows_by_trigger('message', protocol, owner_id)
+                    workflows = workflow_cache.prefilter_message_workflows(workflows, content)
 
-                for task in done:
-                    workflow_data = task_to_workflow[task]
-                    workflow_name = workflow_data['name']
-                    workflow_priority = workflow_data['priority']
+                # 如果没有匹配的工作流，静默返回（不记录日志）
+                if not workflows:
+                    return
 
-                    try:
-                        result = task.result()
+                # 全并发执行：谁先完成且命中就先响应，不阻塞后续优先级
+                task_to_workflow = {
+                    asyncio.create_task(self._async_execute_workflow(workflow_data, event)): workflow_data
+                    for workflow_data in workflows
+                }
+                pending = set(task_to_workflow.keys())
 
-                        if result.get('handled'):
-                            # 发送响应（仅当是 BaseMessage 时）
-                            response = result.get('response')
-                            if response:
-                                from Adapters.base.message import BaseMessage
-                                if isinstance(response, BaseMessage):
-                                    await self._async_send_response(event, response)
+                while pending:
+                    done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
 
-                            # 命中且不允许继续时，取消剩余工作流任务并收敛
-                            if not result.get('continue', True) and pending:
-                                for p in pending:
-                                    p.cancel()
-                                await asyncio.gather(*pending, return_exceptions=True)
-                                pending = set()
-                                break
+                    for task in done:
+                        workflow_data = task_to_workflow[task]
+                        workflow_name = workflow_data['name']
 
-                    except Exception as e:
-                        log_error(bot_id, f"工作流 {workflow_name} 执行异常: {e}",
-                                  "WORKFLOW_EXECUTION_ERROR", error=str(e), workflow=workflow_name)
+                        try:
+                            result = task.result()
+
+                            if result.get('handled'):
+                                # 发送响应（仅当是 BaseMessage 时）
+                                response = result.get('response')
+                                if response:
+                                    from Adapters.base.message import BaseMessage
+                                    if isinstance(response, BaseMessage):
+                                        await self._async_send_response(event, response)
+
+                                # 命中且不允许继续时，取消剩余工作流任务并收敛
+                                if not result.get('continue', True):
+                                    for pending_task in pending:
+                                        pending_task.cancel()
+                                    if pending:
+                                        await asyncio.gather(*pending, return_exceptions=True)
+                                    pending = set()
+                                    break
+
+                        except Exception as e:
+                            log_error(bot_id, f"工作流 {workflow_name} 执行异常: {e}",
+                                      "WORKFLOW_EXECUTION_ERROR", error=str(e), workflow=workflow_name)
 
         except Exception as e:
             import traceback
@@ -160,27 +155,14 @@ class MessageHandler:
         Returns:
             dict: 工作流执行结果
         """
-        from Core.workflow.engine import WorkflowEngine
+        from Core.workflow.cache import workflow_cache
 
-        with app_context():
-            # 优先使用预编译的引擎
-            engine = workflow_data.get('engine')
-
-            if not engine:
-                # 降级方案：动态创建引擎（如果预编译失败）
-                from Core.logging.file_logger import log_debug
-                workflow_config = workflow_data['config']
-                workflow_name = workflow_data['name']
-                workflow_id = workflow_data.get('id')
-
-                log_debug(0, f"预编译引擎不存在，动态创建: {workflow_name}",
-                          "WORKFLOW_FALLBACK_CREATE")
-
-                engine = WorkflowEngine(workflow_config, name=workflow_name, workflow_id=workflow_id)
-
+        engine = workflow_cache.acquire_engine(workflow_data)
+        try:
             # 异步执行工作流
-            result = await engine.execute(event)
-            return result
+            return await engine.execute(event)
+        finally:
+            workflow_cache.release_engine(workflow_data, engine)
 
     async def _async_send_response(self, event, response, timeout=30):
         """

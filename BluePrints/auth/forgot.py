@@ -10,6 +10,7 @@ from flask import render_template, request, flash, redirect, url_for, jsonify
 from werkzeug.security import generate_password_hash
 
 from Database.Redis import get_value, delete_key
+from Database.Redis.keys import captcha_key, email_verification_key
 from Models import User, db
 
 
@@ -34,7 +35,7 @@ def forgot_password():
 
         # 验证图片验证码
         try:
-            stored_captcha = get_value(f'captcha:{captcha_id}')
+            stored_captcha = get_value(captcha_key(captcha_id))
             if not stored_captcha:
                 flash('验证码已过期，请重新获取', 'warning')
                 return render_template('auth/forgot.html')
@@ -46,7 +47,7 @@ def forgot_password():
                 return render_template('auth/forgot.html')
 
             # 验证成功，删除验证码
-            delete_key(f'captcha:{captcha_id}')
+            delete_key(captcha_key(captcha_id))
 
         except Exception:
             flash('验证码服务暂时不可用，请稍后重试', 'warning')
@@ -54,8 +55,8 @@ def forgot_password():
 
         # 验证邮箱验证码
         try:
-            email_verification_key = f'email_verification:reset_password:{email}'
-            stored_email_code = get_value(email_verification_key)
+            verification_key = email_verification_key('reset_password', email)
+            stored_email_code = get_value(verification_key)
 
             if not stored_email_code:
                 flash('邮箱验证码已过期，请重新获取', 'warning')
@@ -69,7 +70,7 @@ def forgot_password():
                 return render_template('auth/forgot.html')
 
             # 验证成功，删除验证码
-            delete_key(email_verification_key)
+            delete_key(verification_key)
 
         except Exception:
             flash('邮箱验证码验证失败，请重试', 'warning')

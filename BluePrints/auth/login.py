@@ -8,7 +8,8 @@
 from flask import render_template, request, flash, session, redirect, url_for, g
 from werkzeug.security import check_password_hash
 
-from Database.Redis import get_value, get_redis
+from Database.Redis import get_value, delete_key
+from Database.Redis.keys import captcha_key
 from Models import User, db, time_format
 
 
@@ -31,7 +32,7 @@ def login():
 
         try:
             # 从Redis获取存储的验证码
-            stored_captcha = get_value(f'captcha:{captcha_id}')
+            stored_captcha = get_value(captcha_key(captcha_id))
             if not stored_captcha:
                 flash('验证码已过期，请重新获取', 'warning')
                 return render_template('auth/login.html')
@@ -46,8 +47,7 @@ def login():
                 return render_template('auth/login.html')
 
             # 验证成功后立即删除验证码，防止重复使用
-            with get_redis() as redis:
-                redis.delete(f'captcha:{captcha_id}')
+            delete_key(captcha_key(captcha_id))
 
         except Exception:
             # Redis服务异常处理
