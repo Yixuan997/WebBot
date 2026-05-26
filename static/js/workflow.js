@@ -385,20 +385,7 @@ function computeAutoLayoutPositions(allEdges) {
         });
     });
 
-    // 进一步降低中部重叠：start固定最左，end固定最右（保持层级不变）
-    const allPos = Object.values(positions);
-    if (allPos.length) {
-        const minX = Math.min(...allPos.map(p => p.x));
-        const maxX = Math.max(...allPos.map(p => p.x));
-        const startIdsForLayout = nodes.filter(n => n.type === 'start').map(n => n.id);
-        const endIdsForLayout = nodes.filter(n => n.type === 'end').map(n => n.id);
-        startIdsForLayout.forEach(id => {
-            if (positions[id]) positions[id].x = minX - 260;
-        });
-        endIdsForLayout.forEach(id => {
-            if (positions[id]) positions[id].x = maxX + 260;
-        });
-    }
+    // 保持纵向流：开始在上、结束在下，不再强制 start/end 横向偏移
     return positions;
 }
 
@@ -447,11 +434,16 @@ function buildDrawflowData() {
         if (schemaNames.has('next_node') || node.type === 'start') outputFields.push('next_node');
         if (schemaNames.has('loop_body')) outputFields.push('loop_body');
         const outputFieldByClass = {};
-        const hasOutput = outputFields.length > 0;
+        let outputs = {};
+        const hasOutgoingEdge = allEdges.some(edge => edge.sourceId === node.id);
+        const hasOutputCapability = outputFields.length > 0;
         const isMultiBranchOutput = outputFields.length > 1;
-        if (hasOutput) {
-            // 多分支节点共用一个输出锚点，分支映射在同步阶段按连线顺序回填
+
+        // 统一单输出锚点：所有节点只保留一个输出球
+        // 多分支节点使用 unassigned 回填逻辑（见 syncNodeConfigsFromDrawflow）
+        if (hasOutputCapability && hasOutgoingEdge) {
             outputFieldByClass.output_1 = isMultiBranchOutput ? '' : outputFields[0];
+            outputs.output_1 = { connections: [] };
         }
 
         const html = `
@@ -483,7 +475,7 @@ function buildDrawflowData() {
             html,
             typenode: false,
             inputs: node.type === 'start' ? {} : { input_1: { connections: [] } },
-            outputs: hasOutput ? { output_1: { connections: [] } } : {},
+            outputs,
             pos_x: pos?.x || 140,
             pos_y: pos?.y || 120
         };
@@ -555,49 +547,83 @@ function syncNodeConfigsFromDrawflow() {
 
     nodes.forEach(node => {
         if (!node.config) node.config = {};
-        EDGE_FIELDS.forEach(field => {
-            if (field in node.config) node.config[field] = '';
-        });
 
         const nodeTemplate = getNodeTemplateByType(node.type);
         const allowed = EDGE_FIELDS.filter(field => (nodeTemplate?.config_schema || []).some(f => f.name === field));
-        const allowedSet = new Set(allowed);
-        const trueField = firstExistingField(allowedSet, ['true_branch']);
-        const falseField = firstExistingField(allowedSet, ['false_branch']);
-        const singleField = firstExistingField(allowedSet, ['next_node', 'loop_body']);
-        const used = new Set();
         const mapping = sourceMap[node.id] || { byField: {}, unassigned: [] };
 
-        if (trueField) {
-            const direct = mapping.byField.true_branch;
-            if (direct) {
-                node.config[trueField] = direct;
-                used.add(direct);
-            }
-        }
-        if (falseField) {
-            const direct = mapping.byField.false_branch;
-            if (direct) {
-                node.config[falseField] = direct;
-                used.add(direct);
-            }
-        }
-        if (singleField && mapping.byField[singleField]) {
-            node.config[singleField] = mapping.byField[singleField];
-            used.add(mapping.byField[singleField]);
+        // 单分支节点：连线与配置一一对应，可安全同步
+        if (allowed.length === 1) {
+            const field = allowed[0];
+            node.config[field] = mapping.byField[field] || mapping.unassigned[0] || '';
+            return;
         }
 
-        const remaining = mapping.unassigned.filter(t => !used.has(t));
-        if (singleField && !node.config[singleField] && remaining.length) {
-            node.config[singleField] = remaining.shift();
-        }
-        if (trueField && !node.config[trueField] && remaining.length) {
-            node.config[trueField] = remaining.shift();
-        }
-        if (falseField && !node.config[falseField] && remaining.length) {
-            node.config[falseField] = remaining.shift();
-        }
+        // 多分支节点：以“编辑节点表单”的字段值为准，不按连线顺序猜测
+        // 仅当连线上存在明确字段映射时才覆盖（兼容历史多输出模式）
+        allowed.forEach(field => {
+            const target = mapping.byField[field];
+            if (target) node.config[field] = target;
+        });
     });
+}
+
+function getNodeLabel(node) {
+    const nodeMeta = getNodeTemplateByType(node.type);
+    return `${nodeMeta?.name || node.type}(${node.id})`;
+}
+
+function validateWorkflowBeforeSave() {
+    const errors = [];
+    const nodeIdSet = new Set();
+    const duplicateIds = new Set();
+
+    nodes.forEach(node => {
+        if (!node?.id) return;
+        if (nodeIdSet.has(node.id)) duplicateIds.add(node.id);
+        nodeIdSet.add(node.id);
+    });
+
+    if (duplicateIds.size > 0) {
+        errors.push(`存在重复节点ID: ${Array.from(duplicateIds).join(', ')}`);
+    }
+
+    if (!nodes.some(n => n.type === 'start')) {
+        errors.push('缺少开始节点(start)。');
+    }
+    if (!nodes.some(n => n.type === 'end')) {
+        errors.push('缺少结束节点(end)。');
+    }
+
+    nodes.forEach(node => {
+        if (!node?.id) {
+            errors.push('存在缺少节点ID的节点。');
+            return;
+        }
+        if (!node.config) return;
+
+        const nodeTemplate = getNodeTemplateByType(node.type);
+        const allowedFields = EDGE_FIELDS.filter(field => (nodeTemplate?.config_schema || []).some(f => f.name === field));
+
+        allowedFields.forEach(field => {
+            const rawValue = node.config[field];
+            const targetId = rawValue === undefined || rawValue === null ? '' : String(rawValue).trim();
+            if (!targetId) return;
+
+            if (!nodeIdSet.has(targetId)) {
+                errors.push(`${getNodeLabel(node)} 的 ${field} 指向不存在节点: ${targetId}`);
+                return;
+            }
+            if (targetId === node.id) {
+                errors.push(`${getNodeLabel(node)} 的 ${field} 不能指向自身。`);
+            }
+        });
+    });
+
+    return {
+        valid: errors.length === 0,
+        errors
+    };
 }
 
 
@@ -1643,6 +1669,12 @@ function submitWorkflow(event) {
     // 节点不能为空
     if (nodes.length === 0) {
         alert('工作流节点不能为空');
+        return;
+    }
+
+    const validation = validateWorkflowBeforeSave();
+    if (!validation.valid) {
+        alert(`保存失败，请先修正以下问题：\n\n- ${validation.errors.join('\n- ')}`);
         return;
     }
     
