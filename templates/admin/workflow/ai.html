@@ -12,26 +12,34 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleConfigPanel()">配置</button>
             </div>
             <div class="card-body p-0">
-                <div id="configPanel" class="border-bottom bg-body-tertiary p-3 d-none">
+                <form id="configPanel" class="border-bottom bg-body-tertiary p-3 d-none"
+                      method="post"
+                      action="{{ url_for('Admin.workflow_ai_config_save') }}">
                     <div class="row g-2">
                         <div class="col-12 col-lg-4">
                             <label class="form-label">API Base URL</label>
-                            <input type="text" class="form-control" id="ai_base_url" placeholder="https://api.openai.com/v1">
+                            <input type="text" class="form-control" id="ai_base_url" name="base_url"
+                                   value="{{ ai_config.base_url or '' }}"
+                                   placeholder="https://api.openai.com/v1">
                         </div>
                         <div class="col-12 col-lg-4">
                             <label class="form-label">API Key / Token</label>
-                            <input type="password" class="form-control" id="ai_api_key" placeholder="sk-...">
+                            <input type="password" class="form-control" id="ai_api_key" name="api_key"
+                                   value="{{ ai_config.api_key or '' }}"
+                                   placeholder="sk-...">
                         </div>
                         <div class="col-12 col-lg-4">
                             <label class="form-label">Model</label>
-                            <input type="text" class="form-control" id="ai_model" placeholder="gpt-5">
+                            <input type="text" class="form-control" id="ai_model" name="model"
+                                   value="{{ ai_config.model or '' }}"
+                                   placeholder="gpt-5">
                         </div>
                     </div>
                     <div class="d-flex gap-2 mt-2">
-                        <button type="button" class="btn btn-sm btn-primary" onclick="saveAiConfig()">保存配置</button>
+                        <button type="submit" class="btn btn-sm btn-primary">保存配置</button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAiConfig()">清空配置</button>
                     </div>
-                </div>
+                </form>
 
                 <div id="resultAlert" class="alert d-none m-3 mb-0"></div>
 
@@ -55,7 +63,6 @@
 
 {% block extra_js %}
 <script>
-const AI_STORAGE_KEY = 'workflow_ai_config_v1';
 const WELCOME_PROMPTS = [
     '做一个签到工作流：发送“签到”后累计次数并回复',
     '做一个关键词回复：命中“菜单”返回功能列表',
@@ -293,30 +300,7 @@ function toggleConfigPanel() {
     panel.classList.toggle('d-none');
 }
 
-function saveAiConfig() {
-    const payload = {
-        base_url: document.getElementById('ai_base_url').value.trim(),
-        api_key: document.getElementById('ai_api_key').value.trim(),
-        model: document.getElementById('ai_model').value.trim()
-    };
-    localStorage.setItem(AI_STORAGE_KEY, JSON.stringify(payload));
-}
-
-function loadAiConfig() {
-    const raw = localStorage.getItem(AI_STORAGE_KEY);
-    if (!raw) return;
-    try {
-        const cfg = JSON.parse(raw);
-        document.getElementById('ai_base_url').value = cfg.base_url || '';
-        document.getElementById('ai_api_key').value = cfg.api_key || '';
-        document.getElementById('ai_model').value = cfg.model || '';
-    } catch (e) {
-        console.error('loadAiConfig error', e);
-    }
-}
-
 function clearAiConfig() {
-    localStorage.removeItem(AI_STORAGE_KEY);
     document.getElementById('ai_base_url').value = '';
     document.getElementById('ai_api_key').value = '';
     document.getElementById('ai_model').value = '';
@@ -368,7 +352,6 @@ async function generateWorkflow() {
     }
 
     const promptEl = document.getElementById('ai_prompt');
-    saveAiConfig();
     appendChatMessage('user', escapeHtml(payload.prompt).replace(/\n/g, '<br>'));
     if (promptEl) {
         promptEl.value = '';
@@ -482,7 +465,7 @@ async function generateWorkflow() {
             } else if (data.raw_output) {
                 setChatMessageContent(assistantBubble, renderAssistantOutput(data.raw_output));
             } else {
-                setChatMessageContent(assistantBubble, `生成失败：${escapeHtml(data.message || errorMessage || '未知错误')}`);
+                setChatMessageContent(assistantBubble, `生成失败：${escapeHtml(data.message || data.msg || errorMessage || '未知错误')}`);
             }
             setChatActionButtons(assistantBubble, '');
             return;
@@ -542,8 +525,8 @@ async function createWorkflow(triggerBtn = null) {
             body: JSON.stringify({workflow: latestWorkflow})
         });
         const data = await response.json();
-        if (!data.success) {
-            showAlert('danger', data.message || '创建失败');
+        if (data.code !== 200) {
+            showAlert('danger', data.msg || '创建失败');
             if (btn) {
                 btn.disabled = false;
                 btn.textContent = oldText || '创建工作流';
@@ -565,7 +548,6 @@ async function createWorkflow(triggerBtn = null) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-    loadAiConfig();
     renderWelcomeState();
     const promptEl = document.getElementById('ai_prompt');
     if (promptEl) {

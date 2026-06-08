@@ -95,7 +95,7 @@
         fetch('/admin/logs/stats?ajax=1')
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.lines) {
+                if (data.code === 200 && data.lines) {
                     const terminalBody = document.querySelector('#terminalBody');
                     if (terminalBody) {
                         terminalBody.innerHTML = '';
@@ -122,7 +122,7 @@
                 } else {
                     const terminalBody = document.querySelector('#terminalBody');
                     if (terminalBody) {
-                        terminalBody.innerHTML = '<div class="text-danger mb-1">获取系统日志失败: ' + (data.message || '未知错误') + '</div>';
+                        terminalBody.innerHTML = '<div class="text-danger mb-1">获取系统日志失败: ' + (data.msg || '未知错误') + '</div>';
                     }
                 }
             })

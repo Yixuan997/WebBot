@@ -18,6 +18,7 @@ from flask import render_template, request, flash, redirect, url_for, jsonify, g
 from Core.logging.file_logger import log_info, log_error
 from Core.protocols import list_protocols
 from Core.workflow.registry import NodeRegistry
+from http_json import fail_api, success_api, table_api
 from Models import db, GlobalVariable
 from Models.SQL.Workflow import Workflow
 from utils.page_utils import adapt_pagination
@@ -376,59 +377,66 @@ def workflow_list():
 
 def workflow_ai_page():
     """AI 生成工作流页面。"""
-    return render_template('admin/workflow/ai.html')
+    base_url_var = GlobalVariable.query.filter_by(key='workflow_ai_base_url').first()
+    model_var = GlobalVariable.query.filter_by(key='workflow_ai_model').first()
+    api_key_var = GlobalVariable.query.filter_by(key='workflow_ai_api_key').first()
+    ai_config = {
+        'base_url': base_url_var.value if base_url_var else '',
+        'model': model_var.value if model_var else '',
+        'api_key': api_key_var.value if api_key_var else '',
+    }
+    return render_template('admin/workflow/ai.html', ai_config=ai_config)
 
 
-def workflow_ai_config_get():
-    """读取 AI 配置（数据库）。"""
-    try:
-        base_url_var = GlobalVariable.get_by_key('workflow_ai_base_url')
-        model_var = GlobalVariable.get_by_key('workflow_ai_model')
-        api_key_var = GlobalVariable.get_by_key('workflow_ai_api_key')
+def _upsert_global_variable(key: str, value: str, description: str, is_secret: bool = False):
+    """保存全局变量配置。"""
+    var = GlobalVariable.query.filter_by(key=key).first()
+    if var:
+        var.value = value
+        var.description = description
+        var.is_secret = is_secret
+        return
 
-        return jsonify({
-            'success': True,
-            'config': {
-                'base_url': base_url_var.value if base_url_var else '',
-                'model': model_var.value if model_var else '',
-                'api_key': api_key_var.value if api_key_var else '',
-            }
-        })
-    except Exception as e:
-        log_error(0, f"读取 AI 配置失败: {e}", "WORKFLOW_AI_CONFIG_GET_ERROR", error=str(e))
-        return jsonify({'success': False, 'message': f'读取配置失败: {e}'})
+    db.session.add(GlobalVariable(
+        key=key,
+        value=value,
+        description=description,
+        is_secret=is_secret
+    ))
 
 
 def workflow_ai_config_save():
     """保存 AI 配置（数据库）。"""
     try:
-        data = request.get_json(silent=True) or {}
-        base_url = str(data.get('base_url', '')).strip()
-        model = str(data.get('model', '')).strip()
-        api_key = str(data.get('api_key', '')).strip()
+        base_url = str(request.form.get('base_url', '')).strip()
+        model = str(request.form.get('model', '')).strip()
+        api_key = str(request.form.get('api_key', '')).strip()
 
-        GlobalVariable.set_value(
+        _upsert_global_variable(
             'workflow_ai_base_url',
             base_url,
             description='AI 工作流生成接口地址',
             is_secret=False
         )
-        GlobalVariable.set_value(
+        _upsert_global_variable(
             'workflow_ai_model',
             model,
             description='AI 工作流生成模型',
             is_secret=False
         )
-        GlobalVariable.set_value(
+        _upsert_global_variable(
             'workflow_ai_api_key',
             api_key,
             description='AI 工作流生成 API Key',
             is_secret=True
         )
-        return jsonify({'success': True, 'message': 'AI 配置已保存到数据库'})
+        db.session.commit()
+        flash('AI 配置已保存到全局变量', 'success')
     except Exception as e:
         log_error(0, f"保存 AI 配置失败: {e}", "WORKFLOW_AI_CONFIG_SAVE_ERROR", error=str(e))
-        return jsonify({'success': False, 'message': f'保存配置失败: {e}'})
+        flash(f'保存配置失败: {e}', 'danger')
+
+    return redirect(url_for('Admin.workflow_ai_page'))
 
 
 def workflow_ai_generate():
@@ -441,11 +449,11 @@ def workflow_ai_generate():
         prompt = str(data.get('prompt', '')).strip()
 
         if not prompt:
-            return jsonify({'success': False, 'message': '需求描述不能为空'})
+            return fail_api('需求描述不能为空')
 
         system_prompt = _load_ai_prompt()
         if not system_prompt:
-            return jsonify({'success': False, 'message': 'AI 提示词文件不存在或读取失败'})
+            return fail_api('AI 提示词文件不存在或读取失败')
 
         ok, ai_result = _request_openai_compatible(
             base_url=base_url,
@@ -455,37 +463,22 @@ def workflow_ai_generate():
             user_prompt=prompt
         )
         if not ok:
-            return jsonify({'success': False, 'message': ai_result})
+            return fail_api(ai_result)
 
         json_text = _extract_json_block(ai_result)
         try:
             workflow_config = json.loads(json_text)
         except json.JSONDecodeError as e:
-            return jsonify({
-                'success': False,
-                'message': f'AI 返回不是有效 JSON: {e}',
-                'raw_output': ai_result
-            })
+            return table_api(f'AI 返回不是有效 JSON: {e}', raw_output=ai_result, code=500)
 
         valid, err, normalized = _validate_workflow_ai_config(workflow_config)
         if not valid:
-            return jsonify({
-                'success': False,
-                'message': f'结构校验未通过: {err}',
-                'workflow': workflow_config,
-                'raw_output': ai_result
-            })
+            return table_api(f'结构校验未通过: {err}', workflow=workflow_config, raw_output=ai_result, code=500)
 
-        return jsonify({
-            'success': True,
-            'message': '生成成功，结构校验通过',
-            'workflow': normalized,
-            'raw_output': ai_result
-        })
+        return table_api('生成成功，结构校验通过', workflow=normalized, raw_output=ai_result)
 
     except Exception as e:
-        log_error(0, f"AI 生成工作流失败: {e}", "WORKFLOW_AI_GENERATE_ERROR", error=str(e))
-        return jsonify({'success': False, 'message': f'AI 生成失败: {e}'})
+        return fail_api(f'AI 生成失败: {e}')
 
 
 def workflow_ai_generate_stream():
@@ -651,11 +644,11 @@ def workflow_ai_create():
         data = request.get_json(silent=True) or {}
         workflow_config = data.get('workflow')
         if workflow_config is None:
-            return jsonify({'success': False, 'message': '缺少 workflow 数据'})
+            return fail_api('缺少 workflow 数据')
 
         valid, err, normalized = _validate_workflow_ai_config(workflow_config)
         if not valid:
-            return jsonify({'success': False, 'message': f'结构校验未通过: {err}'})
+            return fail_api(f'结构校验未通过: {err}')
 
         original_name = normalized['name']
         name = original_name
@@ -676,19 +669,18 @@ def workflow_ai_create():
         )
         _clear_workflow_cache(created.id)
 
-        return jsonify({
-            'success': True,
-            'message': '工作流创建成功',
-            'workflow_id': created.id,
-            'name': name,
-            'renamed': name != original_name,
-            'edit_url': url_for('Admin.workflow_edit', workflow_id=created.id)
-        })
+        return table_api(
+            '工作流创建成功',
+            workflow_id=created.id,
+            name=name,
+            renamed=name != original_name,
+            edit_url=url_for('Admin.workflow_edit', workflow_id=created.id)
+        )
 
     except Exception as e:
         log_error(0, f"AI 工作流创建失败: {e}", "WORKFLOW_AI_CREATE_ERROR", error=str(e))
         db.session.rollback()
-        return jsonify({'success': False, 'message': f'创建失败: {e}'})
+        return fail_api(f'创建失败: {e}')
 
 
 def workflow_create():
@@ -1307,10 +1299,7 @@ def snippets_list():
 
         # 检查目录是否存在
         if not os.path.exists(snippets_dir):
-            return jsonify({
-                'success': True,
-                'snippets': []
-            })
+            return table_api('请求成功', snippets=[])
 
         # 遍历目录中的 .py 文件
         for filename in os.listdir(snippets_dir):
@@ -1336,18 +1325,11 @@ def snippets_list():
                     log_error(0, f"读取代码片段失败: {filename}", "SNIPPET_READ_ERROR", error=str(e))
                     continue
 
-        return jsonify({
-            'success': True,
-            'snippets': snippets
-        })
+        return table_api('请求成功', snippets=snippets)
 
     except Exception as e:
         log_error(0, f"获取代码片段列表失败: {e}", "SNIPPETS_LIST_ERROR", error=str(e))
-        return jsonify({
-            'success': False,
-            'message': f'获取代码片段失败: {str(e)}',
-            'snippets': []
-        })
+        return fail_api(f'获取代码片段失败: {str(e)}')
 
 
 def workflow_debug_record(workflow_id):
@@ -1358,24 +1340,13 @@ def workflow_debug_record(workflow_id):
         record = get_debug_record(workflow_id)
         
         if record:
-            return jsonify({
-                'success': True,
-                'record': record
-            })
-        else:
-            return jsonify({
-                'success': True,
-                'record': None,
-                'message': '暂无调试记录'
-            })
+            return table_api('已加载调试记录', record=record)
+        return table_api('暂无调试记录', record=None)
             
     except Exception as e:
         log_error(0, f"获取工作流调试记录失败: {e}", "WORKFLOW_DEBUG_GET_ERROR",
                   workflow_id=workflow_id, error=str(e))
-        return jsonify({
-            'success': False,
-            'message': f'获取调试记录失败: {str(e)}'
-        })
+        return fail_api(f'获取调试记录失败: {str(e)}')
 
 
 def workflow_debug_clear(workflow_id):
@@ -1385,15 +1356,9 @@ def workflow_debug_clear(workflow_id):
         
         clear_debug_record(workflow_id)
         
-        return jsonify({
-            'success': True,
-            'message': '调试记录已清除'
-        })
+        return success_api('调试记录已清除')
             
     except Exception as e:
         log_error(0, f"清除工作流调试记录失败: {e}", "WORKFLOW_DEBUG_CLEAR_ERROR",
                   workflow_id=workflow_id, error=str(e))
-        return jsonify({
-            'success': False,
-            'message': f'清除调试记录失败: {str(e)}'
-        })
+        return fail_api(f'清除调试记录失败: {str(e)}')

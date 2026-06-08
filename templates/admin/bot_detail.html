@@ -339,14 +339,14 @@
                 .then(function (data) {
                     console.log('启动请求响应数据:', data);
 
-                    if (data.success) {
-                        showToast(data.message || '机器人启动成功', 'success');
+                    if (data.code === 200) {
+                        showToast(data.msg || '机器人启动成功', 'success');
                         // 简单刷新页面，让服务器渲染正确状态
                         setTimeout(() => {
                             location.reload();
                         }, 1500);
                     } else {
-                        throw new Error(data.message || '启动机器人失败');
+                        throw new Error(data.msg || '启动机器人失败');
                     }
                 })
                 .catch(function (error) {
@@ -414,14 +414,14 @@
                 .then(function (data) {
                     console.log('停止请求响应数据:', data);
 
-                    if (data.success) {
-                        showToast(data.message || '机器人停止成功', 'success');
+                    if (data.code === 200) {
+                        showToast(data.msg || '机器人停止成功', 'success');
                         // 简单刷新页面，让服务器渲染正确状态
                         setTimeout(() => {
                             location.reload();
                         }, 1500);
                     } else {
-                        throw new Error(data.message || '停止机器人失败');
+                        throw new Error(data.msg || '停止机器人失败');
                     }
                 })
                 .catch(function (error) {
@@ -559,7 +559,7 @@
         fetch(`/admin/bots/{{ bot.id }}/status`)
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.status) {
+                if (data.code === 200 && data.status) {
                     const status = data.status;
 
                     // 更新运行时长
@@ -611,7 +611,7 @@
         return fetch(`/admin/bots/{{ bot.id }}/logs`)
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.logs) {
+                if (data.code === 200 && data.logs) {
                     const terminalBody = document.querySelector('#terminalBody');
                     if (terminalBody) {
                         terminalBody.innerHTML = '';

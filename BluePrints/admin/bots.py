@@ -26,6 +26,7 @@ from Core.protocols import (
 )
 from Models import Bot, User, db, Workflow
 from Models.Extensions import get_current_time
+from http_json import fail_api, success_api, table_api
 from utils.page_utils import adapt_pagination
 
 _bot_manager_instance = None
@@ -370,19 +371,16 @@ def admin_bot_detail(bot_id):
 
 def admin_delete_bot(bot_id):
     """管理员删除机器人"""
-    if request.method == 'DELETE':
-        bot = Bot.query.get_or_404(bot_id)
+    bot = Bot.query.get_or_404(bot_id)
 
-        try:
-            bot_name = bot.name
-            db.session.delete(bot)
-            db.session.commit()
-            flash(f'机器人 {bot_name} 删除成功！', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash(f'删除机器人失败: {str(e)}', 'danger')
-    else:
-        flash('请求的操作不存在', 'danger')
+    try:
+        bot_name = bot.name
+        db.session.delete(bot)
+        db.session.commit()
+        flash(f'机器人 {bot_name} 删除成功！', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'删除机器人失败: {str(e)}', 'danger')
 
     return redirect(url_for('Admin.admin_bots'))
 
@@ -405,24 +403,15 @@ def admin_start_bot(bot_id):
 
             log_info(bot_id, f"机器人 {bot.name} 启动成功", "BOT_START_SUCCESS")
 
-            return jsonify({
-                'success': True,
-                'message': f'机器人 {bot.name} 启动成功'
-            })
+            return success_api(f'机器人 {bot.name} 启动成功')
         else:
             log_error(bot_id, f"机器人 {bot.name} 启动失败: {result['message']}", "BOT_START_FAILED")
-            return jsonify({
-                'success': False,
-                'message': result['message']
-            })
+            return fail_api(result['message'])
 
     except Exception as e:
         log_error(bot_id if 'bot_id' in locals() else 0, f"启动机器人异常: {str(e)}", "BOT_START_EXCEPTION",
                   error=str(e))
-        return jsonify({
-            'success': False,
-            'message': f'启动失败: {str(e)}'
-        }), 500
+        return fail_api(f'启动失败: {str(e)}'), 500
 
 
 def admin_stop_bot(bot_id):
@@ -443,24 +432,15 @@ def admin_stop_bot(bot_id):
 
             log_info(bot_id, f"机器人 {bot.name} 停止成功", "BOT_STOP_SUCCESS")
 
-            return jsonify({
-                'success': True,
-                'message': f'机器人 {bot.name} 已停止'
-            })
+            return success_api(f'机器人 {bot.name} 已停止')
         else:
             log_error(bot_id, f"机器人 {bot.name} 停止失败: {result['message']}", "BOT_STOP_FAILED")
-            return jsonify({
-                'success': False,
-                'message': result['message']
-            })
+            return fail_api(result['message'])
 
     except Exception as e:
         log_error(bot_id if 'bot_id' in locals() else 0, f"停止机器人异常: {str(e)}", "BOT_STOP_EXCEPTION",
                   error=str(e))
-        return jsonify({
-            'success': False,
-            'message': f'停止失败: {str(e)}'
-        }), 500
+        return fail_api(f'停止失败: {str(e)}'), 500
 
 
 def admin_restart_bot(bot_id):
@@ -476,21 +456,12 @@ def admin_restart_bot(bot_id):
             bot.is_running = True
             db.session.commit()
 
-            return jsonify({
-                'success': True,
-                'message': f'机器人 {bot.name} 重启成功'
-            })
+            return success_api(f'机器人 {bot.name} 重启成功')
         else:
-            return jsonify({
-                'success': False,
-                'message': result['message']
-            })
+            return fail_api(result['message'])
 
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'重启失败: {str(e)}'
-        })
+        return fail_api(f'重启失败: {str(e)}')
 
 
 def admin_force_reset_all_bots():
@@ -504,22 +475,13 @@ def admin_force_reset_all_bots():
 
         if success:
             log_info(0, "管理员强制重置所有机器人状态成功", "ADMIN_FORCE_RESET_SUCCESS")
-            return jsonify({
-                'success': True,
-                'message': '所有机器人状态已强制重置为停止'
-            })
+            return success_api('所有机器人状态已强制重置为停止')
         else:
-            return jsonify({
-                'success': False,
-                'message': '强制重置失败，请查看日志'
-            })
+            return fail_api('强制重置失败，请查看日志')
 
     except Exception as e:
         log_error(0, f"管理员强制重置异常: {str(e)}", "ADMIN_FORCE_RESET_EXCEPTION", error=str(e))
-        return jsonify({
-            'success': False,
-            'message': f'强制重置失败: {str(e)}'
-        }), 500
+        return fail_api(f'强制重置失败: {str(e)}'), 500
 
 
 def admin_bot_status(bot_id):
@@ -551,9 +513,9 @@ def admin_bot_status(bot_id):
                 error_count = 0
                 start_time = 0
 
-            return jsonify({
-                'success': True,
-                'status': {
+            return table_api(
+                '请求成功',
+                status={
                     'is_running': True,
                     'uptime': uptime,
                     'message_count': message_count,
@@ -564,11 +526,11 @@ def admin_bot_status(bot_id):
                     'avg_response_time': 0,  # 默认响应时间
                     'last_update': datetime.now().timestamp()
                 }
-            })
+            )
         else:
-            return jsonify({
-                'success': True,
-                'status': {
+            return table_api(
+                '请求成功',
+                status={
                     'is_running': False,
                     'uptime': '未运行',
                     'message_count': 0,
@@ -579,13 +541,10 @@ def admin_bot_status(bot_id):
                     'avg_response_time': 0,
                     'last_update': datetime.now().timestamp()
                 }
-            })
+            )
 
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取状态失败: {str(e)}'
-        })
+        return fail_api(f'获取状态失败: {str(e)}')
 
 
 def admin_bot_logs(bot_id):
@@ -595,16 +554,10 @@ def admin_bot_logs(bot_id):
         # 读取完整日志文件，不限制行数
         log_lines = _get_bot_logs(bot_id, is_running, max_lines=None)
 
-        return jsonify({
-            'success': True,
-            'logs': log_lines
-        })
+        return table_api('请求成功', logs=log_lines)
 
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取日志失败: {str(e)}'
-        })
+        return fail_api(f'获取日志失败: {str(e)}')
 
 
 def admin_bot_log_files(bot_id):
@@ -615,16 +568,10 @@ def admin_bot_log_files(bot_id):
         file_logger = get_file_logger()
         log_files = file_logger.list_bot_log_files(bot_id)
 
-        return jsonify({
-            'success': True,
-            'files': log_files
-        })
+        return table_api('请求成功', files=log_files)
 
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取日志文件失败: {str(e)}'
-        })
+        return fail_api(f'获取日志文件失败: {str(e)}')
 
 
 def admin_bot_log_content(bot_id):
@@ -639,18 +586,10 @@ def admin_bot_log_content(bot_id):
         file_logger = get_file_logger()
         log_lines = file_logger.get_bot_logs(bot_id, date, limit=500)
 
-        return jsonify({
-            'success': True,
-            'date': date,
-            'lines': log_lines,
-            'count': len(log_lines)
-        })
+        return table_api('请求成功', date=date, lines=log_lines, count=len(log_lines))
 
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取日志内容失败: {str(e)}'
-        })
+        return fail_api(f'获取日志内容失败: {str(e)}')
 
 
 def admin_log_stats():
@@ -685,22 +624,14 @@ def admin_log_stats():
             except Exception as e:
                 log_lines = [f"读取系统日志失败: {str(e)}"]
 
-            return jsonify({
-                'success': True,
-                'date': date,
-                'lines': log_lines,
-                'count': len(log_lines)
-            })
+            return table_api('请求成功', date=date, lines=log_lines, count=len(log_lines))
 
         # 普通请求，返回页面
         return render_template('admin/system_logs.html')
 
     except Exception as e:
         if request.headers.get('Content-Type') == 'application/json' or request.args.get('ajax'):
-            return jsonify({
-                'success': False,
-                'message': f'获取系统日志失败: {str(e)}'
-            })
+            return fail_api(f'获取系统日志失败: {str(e)}')
         else:
             flash(f'获取系统日志失败: {str(e)}', 'error')
             return render_template('admin/system_logs.html')

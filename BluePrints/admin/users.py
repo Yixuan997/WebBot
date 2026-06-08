@@ -77,17 +77,14 @@ def edit_user(user_id):
 
 # 删除用户
 def delete_user(user_id):
-    if request.method == 'DELETE':
-        try:
-            delete_user = User.query.get_or_404(user_id)
-            username = delete_user.username  # 保存用户名用于消息显示
-            db.session.delete(delete_user)
-            db.session.commit()
-            flash(f'用户 {username} 已成功删除', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash(f'删除用户失败: {str(e)}', 'danger')
-        return redirect(url_for('Admin.users'))
+    try:
+        delete_user = User.query.get_or_404(user_id)
+        username = delete_user.username  # 保存用户名用于消息显示
+        db.session.delete(delete_user)
+        db.session.commit()
+        flash(f'用户 {username} 已成功删除', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'删除用户失败: {str(e)}', 'danger')
 
-    flash('请求的操作不存在', 'danger')
     return redirect(url_for('Admin.users'))

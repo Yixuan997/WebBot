@@ -33,7 +33,7 @@ def _to_bool(value: str | None) -> bool:
 
 
 def _upsert_global_var(key: str, value: str, description: str, is_secret: bool = False) -> None:
-    item = GlobalVariable.get_by_key(key)
+    item = GlobalVariable.query.filter_by(key=key).first()
     if item:
         item.value = value
         item.description = description
@@ -68,9 +68,9 @@ def _mask_proxy_url(proxy_url: str) -> str:
 
 def get_global_proxy_settings() -> dict:
     try:
-        enabled_var = GlobalVariable.get_by_key(PROXY_ENABLED_KEY)
-        url_var = GlobalVariable.get_by_key(PROXY_URL_KEY)
-        no_proxy_var = GlobalVariable.get_by_key(PROXY_NO_PROXY_KEY)
+        enabled_var = GlobalVariable.query.filter_by(key=PROXY_ENABLED_KEY).first()
+        url_var = GlobalVariable.query.filter_by(key=PROXY_URL_KEY).first()
+        no_proxy_var = GlobalVariable.query.filter_by(key=PROXY_NO_PROXY_KEY).first()
 
         enabled = _to_bool(enabled_var.value if enabled_var else "0")
         proxy_url = (url_var.value if url_var else "").strip()
@@ -142,4 +142,3 @@ def apply_global_proxy_settings() -> dict:
         log_info(0, "全局网络代理已关闭", "GLOBAL_PROXY_CLEARED")
 
     return settings
-

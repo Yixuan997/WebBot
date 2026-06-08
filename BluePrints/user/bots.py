@@ -197,30 +197,26 @@ def edit_bot(bot_id):
 
 def delete_bot(bot_id):
     """删除机器人"""
-    if request.method == 'DELETE':
-        user_id = session.get('user_id')
+    user_id = session.get('user_id')
 
-        # 获取机器人（确保是当前用户的）
-        bot = Bot.query.filter_by(id=bot_id, owner_id=user_id).first()
-        if not bot:
-            flash('机器人不存在或无权限访问', 'danger')
-            return redirect(url_for('user.bots'))
+    # 获取机器人（确保是当前用户的）
+    bot = Bot.query.filter_by(id=bot_id, owner_id=user_id).first()
+    if not bot:
+        flash('机器人不存在或无权限访问', 'danger')
+        return redirect(url_for('user.bots'))
 
-        try:
-            bot_name = bot.name
-            db.session.delete(bot)
-            db.session.commit()
+    try:
+        bot_name = bot.name
+        db.session.delete(bot)
+        db.session.commit()
 
-            flash(f'机器人 {bot_name} 删除成功', 'success')
-            return redirect(url_for('user.bots'))
+        flash(f'机器人 {bot_name} 删除成功', 'success')
+        return redirect(url_for('user.bots'))
 
-        except Exception as e:
-            db.session.rollback()
-            flash(f'删除失败：{str(e)}', 'danger')
-            return redirect(url_for('user.bots'))
-
-    flash('请求的操作不存在', 'danger')
-    return redirect(url_for('user.bots'))
+    except Exception as e:
+        db.session.rollback()
+        flash(f'删除失败：{str(e)}', 'danger')
+        return redirect(url_for('user.bots'))
 
 
 def bot_action(bot_id, action):

@@ -32,7 +32,7 @@ user_bp.add_url_rule('/bots/create', view_func=role_required('user')(create_bot)
                      endpoint='create_bot')
 user_bp.add_url_rule('/bots/<int:bot_id>/edit', view_func=role_required('user')(edit_bot), methods=['GET', 'POST'],
                      endpoint='edit_bot')
-user_bp.add_url_rule('/bots/<int:bot_id>/delete', view_func=role_required('user')(delete_bot), methods=['DELETE'],
+user_bp.add_url_rule('/bots/<int:bot_id>/delete', view_func=role_required('user')(delete_bot), methods=['POST'],
                      endpoint='delete_bot')
 user_bp.add_url_rule('/bots/<int:bot_id>/<action>', view_func=role_required('user')(bot_action), methods=['POST'],
                      endpoint='bot_action')

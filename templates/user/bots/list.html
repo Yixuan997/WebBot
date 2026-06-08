@@ -139,20 +139,24 @@
                         </svg>
                         编辑
                     </a>
-                    <button class="btn btn-outline-danger btn-sm" type="button"
-                            onclick="deleteBot('{{ url_for('user.delete_bot', bot_id=bot.id) }}', '{{ bot.name }}')">
-                        <svg class="icon me-1" fill="none" height="16" stroke="currentColor"
-                             stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
-                             width="16" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
-                            <line x1="4" x2="20" y1="7" y2="7"/>
-                            <line x1="10" x2="10" y1="11" y2="17"/>
-                            <line x1="14" x2="14" y1="11" y2="17"/>
-                            <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/>
-                            <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>
-                        </svg>
-                        删除
-                    </button>
+                    <form method="post"
+                          action="{{ url_for('user.delete_bot', bot_id=bot.id) }}"
+                          class="d-inline"
+                          onsubmit="return confirm('确定要删除机器人 ' + {{ bot.name|tojson }} + ' 吗？此操作不可撤销！');">
+                        <button class="btn btn-outline-danger btn-sm" type="submit">
+                            <svg class="icon me-1" fill="none" height="16" stroke="currentColor"
+                                 stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"
+                                 width="16" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M0 0h24v24H0z" fill="none" stroke="none"/>
+                                <line x1="4" x2="20" y1="7" y2="7"/>
+                                <line x1="10" x2="10" y1="11" y2="17"/>
+                                <line x1="14" x2="14" y1="11" y2="17"/>
+                                <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/>
+                                <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>
+                            </svg>
+                            删除
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -180,17 +184,4 @@
     </div>
 </div>
 {% endif %}
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function deleteBot(url, name) {
-    if (!confirm('确定要删除机器人 ' + name + ' 吗？此操作不可撤销！')) return;
-    fetch(url, {
-        method: 'DELETE',
-        redirect: 'follow'
-    }).then(() => location.reload())
-      .catch(() => alert('删除失败'));
-}
-</script>
 {% endblock %}

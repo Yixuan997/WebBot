@@ -1086,10 +1086,11 @@ function zoomFit() {
     if (!nodeEls.length) return;
 
 
-    // 先归一化到基准缩放，避免二次 fit 的累计误差
-    if (typeof drawflowEditor.zoom_reset === 'function') {
-        drawflowEditor.zoom_reset();
-    }
+    // 先归一化到基准缩放，避免二次 fit 的累计误差。
+    // 不调用 drawflow 的 zoom_reset/zoom_refresh：它们会按 zoom_last_value 二次换算 canvas_x/y，
+    // 大流程图首次适配时容易被放大成横向偏移。
+    drawflowEditor.zoom = 1;
+    drawflowEditor.zoom_last_value = 1;
     drawflowEditor.canvas_x = 0;
     drawflowEditor.canvas_y = 0;
     precanvas.style.transformOrigin = '0 0';
@@ -1121,18 +1122,17 @@ function zoomFit() {
     const rawScale = Math.min(targetW / contentW, targetH / contentH);
     const scale = Math.max(0.08, Math.min(2, rawScale));
 
-    // 居中展示（不是贴左上角）
-    const tx = ((canvas.clientWidth - contentW * scale) / 2) - minLeft * scale;
-    const ty = ((canvas.clientHeight - contentH * scale) / 2) - minTop * scale;
+    // 按内容包围盒中心对齐到可视画布中心，节点多/内容很高时也不会偏向一侧。
+    const contentCenterX = minLeft + contentW / 2;
+    const contentCenterY = minTop + contentH / 2;
+    const tx = (canvas.clientWidth / 2) - contentCenterX * scale;
+    const ty = (canvas.clientHeight / 2) - contentCenterY * scale;
 
     drawflowEditor.zoom = scale;
+    drawflowEditor.zoom_last_value = scale;
     drawflowEditor.canvas_x = tx;
     drawflowEditor.canvas_y = ty;
-    if (typeof drawflowEditor.zoom_refresh === 'function') {
-        drawflowEditor.zoom_refresh();
-    } else {
-        precanvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
-    }
+    precanvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
 }
 
 
@@ -1446,9 +1446,9 @@ function loadSnippets(fieldName, currentValue) {
         .then(res => res.json())
         .then(data => {
             const selectEl = document.getElementById(`field_${fieldName}`);
-            if (selectEl && data.success) {
-                snippetsData = data.snippets;
-                const options = data.snippets.map(s => 
+            if (selectEl && data.code === 200) {
+                snippetsData = data.snippets || [];
+                const options = snippetsData.map(s => 
                     `<option value="${s.filename}" ${currentValue === s.filename ? 'selected' : ''}>${s.name}</option>`
                 ).join('');
                 selectEl.innerHTML = `<option value="">请选择代码片段</option>${options}`;
@@ -1489,18 +1489,18 @@ function loadDebugRecord() {
     fetch(`/admin/workflows/${workflowId}/debug`)
         .then(res => res.json())
         .then(data => {
-            if (data.success && data.record) {
+            if (data.code === 200 && data.record) {
                 debugRecord = data.record;
                 debugNodeMap = new Map((debugRecord.nodes || []).map(n => [n.id, n]));
                 renderNodes();  // 重新渲染节点以显示调试信息
                 showDebugSummary();
                 if (selectedNodeId) showNodeDebugPanel(selectedNodeId);
-                showToast('已加载调试记录', 'success');
+                showToast(data.msg || '已加载调试记录', 'success');
             } else {
                 debugRecord = null;
                 debugNodeMap = new Map();
                 hideNodeDebugPanel();
-                showToast(data.message || '暂无调试记录', 'warning');
+                showToast(data.msg || '暂无调试记录', 'warning');
             }
         })
         .catch(err => {
@@ -1516,15 +1516,15 @@ function clearDebugRecord() {
     fetch(`/admin/workflows/${workflowId}/debug/clear`, { method: 'POST' })
         .then(res => res.json())
         .then(data => {
-            if (data.success) {
+            if (data.code === 200) {
                 debugRecord = null;
                 debugNodeMap = new Map();
                 renderNodes();
                 hideDebugSummary();
                 hideNodeDebugPanel();
-                showToast('调试记录已清除', 'success');
+                showToast(data.msg || '调试记录已清除', 'success');
             } else {
-                showToast(data.message || '清除失败', 'danger');
+                showToast(data.msg || '清除失败', 'danger');
             }
         })
         .catch(err => {

@@ -8,72 +8,148 @@
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">变量列表</h3>
-        <div class="card-actions">
-            <button class="btn btn-primary btn-sm" onclick="showCreateModal()" data-bs-toggle="modal" data-bs-target="#varModal">
+        <div class="card-actions btn-list flex-nowrap">
+            <form class="input-icon flex-shrink-0" method="get" style="width: 200px;">
+                <input class="form-control" name="search" placeholder="搜索变量..." type="text"
+                       value="{{ search or '' }}">
+                <span class="input-icon-addon">
+                    <svg class="icon" fill="none" height="24" stroke="currentColor" stroke-linecap="round"
+                         stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" width="24"
+                         xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><circle
+                            cx="10"
+                            cy="10"
+                            r="7"/><line
+                            x1="21" x2="15" y1="21" y2="15"/></svg>
+                </span>
+            </form>
+            <button class="btn btn-primary btn-sm flex-shrink-0" onclick="showCreateModal()" data-bs-toggle="modal" data-bs-target="#varModal">
                 <svg class="icon" fill="none" height="16" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" width="16"><path d="M0 0h24v24H0z" fill="none" stroke="none"/><path d="M12 5l0 14"/><path d="M5 12l14 0"/></svg>
                 添加变量
             </button>
         </div>
     </div>
-    <div class="card-body p-0">
+<div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-vcenter card-table table-striped">
-                <thead>
-                <tr>
-                    <th>变量名</th>
-                    <th>变量值</th>
-                    <th>描述</th>
-                    <th>更新时间</th>
-                    <th style="width: 100px;">操作</th>
-                </tr>
-                </thead>
-                <tbody>
-                {% for var in variables %}
-                <tr>
-                    <td>
-                        <code class="bg-secondary-lt px-2 py-1">{{ var.key }}</code>
-                    </td>
-                    <td style="max-width: 200px;">
-                        <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ var.value }}">{{ var.value[:50] }}{% if var.value|length > 50 %}...{% endif %}</span>
-                    </td>
-                    <td>{{ var.description or '-' }}</td>
-                    <td style="white-space: nowrap;">{{ var.updated_at.strftime('%Y-%m-%d %H:%M') if var.updated_at else '-' }}</td>
-                    <td>
-                        <div class="btn-actions">
-                            <button class="btn btn-action" onclick="showEditModal({{ var.id }})" data-bs-toggle="modal" data-bs-target="#varModal" title="编辑">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/><path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/><path d="M16 5l3 3"/></svg>
+        <table class="table table-vcenter card-table table-striped table-hover">
+            <thead>
+            <tr>
+                <th>变量名</th>
+                <th>变量值</th>
+                <th>描述</th>
+                <th>更新时间</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for var in variables %}
+            <tr>
+                <td>
+                    <code class="bg-secondary-lt px-2 py-1">{{ var.key }}</code>
+                </td>
+                <td style="max-width: 200px;">
+                    <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ var.value }}">{{ var.value[:50] }}{% if var.value|length > 50 %}...{% endif %}</span>
+                </td>
+                <td>{{ var.description or '-' }}</td>
+                <td style="white-space: nowrap;">{{ var.updated_at.strftime('%Y-%m-%d %H:%M') if var.updated_at else '未知' }}</td>
+                <td>
+                    <div class="btn-actions">
+                        <button class="btn btn-action"
+                                onclick="showEditModal(this)"
+                                data-bs-toggle="modal"
+                                data-bs-target="#varModal"
+                                data-id="{{ var.id }}"
+                                data-key="{{ var.key }}"
+                                data-value="{{ var.value }}"
+                                data-description="{{ var.description or '' }}"
+                                data-update-url="{{ url_for('Admin.globals_update', var_id=var.id) }}"
+                                title="编辑">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1"/>
+                                <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z"/>
+                                <path d="M16 5l3 3"/>
+                            </svg>
+                        </button>
+                        <form action="{{ url_for('Admin.globals_delete', var_id=var.id) }}"
+                              method="post"
+                              class="d-inline"
+                              data-confirm-message="确定要删除变量 {{ var.key }} 吗？"
+                              onsubmit="return confirm(this.dataset.confirmMessage)">
+                            <button class="btn btn-action" type="submit" title="删除">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path d="M4 7l16 0"/>
+                                    <path d="M10 11l0 6"/>
+                                    <path d="M14 11l0 6"/>
+                                    <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/>
+                                    <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>
+                                </svg>
                             </button>
-                            <button class="btn btn-action" onclick="deleteVar({{ var.id }}, '{{ var.key }}')" title="删除">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 7l16 0"/><path d="M10 11l0 6"/><path d="M14 11l0 6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/></svg>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td class="text-center text-muted py-4" colspan="5">
-                        <div class="empty">
-                            <p class="empty-title">暂无全局变量</p>
-                            <p class="empty-subtitle text-muted">点击"添加变量"创建第一个全局变量</p>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td class="text-center text-muted py-4" colspan="6">
+                    <div class="empty">
+                        <div class="empty-img"><img alt="" height="128"
+                                                    src="/static/illustrations/undraw_printing_invoices_5r4r.svg"></div>
+                        <p class="empty-title">暂无全局变量</p>
+                        <p class="empty-subtitle text-muted">还没有创建任何全局变量</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
         </div>
     </div>
-    <div class="card-footer">
-        <div class="text-muted">
-            使用方式：在工作流节点配置中使用 <code>{{ '{{global.变量名}}' }}</code> 引用全局变量
-        </div>
+    <div class="card-footer d-flex align-items-center">
+        <p class="m-0 text-muted">显示 <span>{{ variables|length }}</span> 条，共 <span>{{ pagination.total }}</span> 条</p>
+        <ul class="pagination m-0 ms-auto">
+            <!-- 上一页 -->
+            {% if current_page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('Admin.globals_list', page=current_page-1, search=search) }}">
+                    &laquo;
+                </a>
+            </li>
+            {% endif %}
+
+            <!-- 页码列表 -->
+            {% for page in page_numbers %}
+            {% if page == '...' %}
+            <li class="page-item disabled">
+                <span class="page-link">...</span>
+            </li>
+            {% elif page == current_page %}
+            <li class="page-item active">
+                <span class="page-link">{{ page }}</span>
+            </li>
+            {% else %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('Admin.globals_list', page=page, search=search) }}">{{ page }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+
+            <!-- 下一页 -->
+            {% if current_page < pagination.pages %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('Admin.globals_list', page=current_page+1, search=search) }}">
+                    &raquo;
+                </a>
+            </li>
+            {% endif %}
+        </ul>
     </div>
 </div>
 
 <!-- 创建/编辑弹窗 -->
 <div class="modal modal-blur fade" id="varModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
+        <form id="varForm" class="modal-content" action="{{ url_for('Admin.globals_create') }}" method="post">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalTitle">添加变量</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -82,23 +158,23 @@
                 <input type="hidden" id="varId">
                 <div class="mb-3">
                     <label class="form-label required">变量名</label>
-                    <input type="text" class="form-control" id="varKey" placeholder="如: api_key">
+                    <input type="text" class="form-control" id="varKey" name="key" placeholder="如: api_key" required pattern="[A-Za-z_][A-Za-z0-9_]*">
                     <small class="form-hint">只能包含字母、数字和下划线</small>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">变量值</label>
-                    <textarea class="form-control" id="varValue" rows="3" placeholder="变量的值"></textarea>
+                    <textarea class="form-control" id="varValue" name="value" rows="3" placeholder="变量的值"></textarea>
                 </div>
                 <div class="mb-3">
                     <label class="form-label">描述</label>
-                    <input type="text" class="form-control" id="varDescription" placeholder="变量用途说明">
+                    <input type="text" class="form-control" id="varDescription" name="description" placeholder="变量用途说明">
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary ms-auto" onclick="saveVar()">保存</button>
+                <button type="submit" class="btn btn-primary ms-auto">保存</button>
             </div>
-        </div>
+        </form>
     </div>
 </div>
 {% endblock %}
@@ -109,6 +185,7 @@ let editingId = null;
 
 function showCreateModal() {
     editingId = null;
+    document.getElementById('varForm').action = "{{ url_for('Admin.globals_create') }}";
     document.getElementById('modalTitle').textContent = '添加变量';
     document.getElementById('varId').value = '';
     document.getElementById('varKey').value = '';
@@ -116,77 +193,14 @@ function showCreateModal() {
     document.getElementById('varDescription').value = '';
 }
 
-function showEditModal(id) {
-    editingId = id;
+function showEditModal(button) {
+    editingId = button.dataset.id;
+    document.getElementById('varForm').action = button.dataset.updateUrl;
     document.getElementById('modalTitle').textContent = '编辑变量';
-    
-    // 获取变量详情
-    fetch(`/admin/globals/${id}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                const v = data.variable;
-                document.getElementById('varId').value = v.id;
-                document.getElementById('varKey').value = v.key;
-                document.getElementById('varValue').value = v.value;
-                document.getElementById('varDescription').value = v.description || '';
-            } else {
-                showToast(data.message || '获取变量失败', 'danger');
-            }
-        })
-        .catch(err => showToast('获取变量失败', 'danger'));
-}
-
-function saveVar() {
-    const key = document.getElementById('varKey').value.trim();
-    const value = document.getElementById('varValue').value;
-    const description = document.getElementById('varDescription').value.trim();
-
-    if (!key) {
-        showToast('请输入变量名', 'warning');
-        return;
-    }
-
-    // 验证变量名格式
-    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(key)) {
-        showToast('变量名只能包含字母、数字和下划线，且不能以数字开头', 'warning');
-        return;
-    }
-
-    const url = editingId ? `/admin/globals/${editingId}` : '/admin/globals/create';
-    const method = editingId ? 'PUT' : 'POST';
-
-    fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, value, description })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            showToast(data.message, 'success');
-            location.reload();
-        } else {
-            showToast(data.message || '保存失败', 'danger');
-        }
-    })
-    .catch(err => showToast('保存失败', 'danger'));
-}
-
-function deleteVar(id, key) {
-    if (!confirm(`确定要删除变量 ${key} 吗？`)) return;
-    
-    fetch(`/admin/globals/${id}`, { method: 'DELETE' })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                showToast(data.message, 'success');
-                location.reload();
-            } else {
-                showToast(data.message || '删除失败', 'danger');
-            }
-        })
-        .catch(err => showToast('删除失败', 'danger'));
+    document.getElementById('varId').value = button.dataset.id || '';
+    document.getElementById('varKey').value = button.dataset.key || '';
+    document.getElementById('varValue').value = button.dataset.value || '';
+    document.getElementById('varDescription').value = button.dataset.description || '';
 }
 </script>
 {% endblock %}

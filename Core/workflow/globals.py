@@ -30,7 +30,7 @@ class GlobalVariableManager:
             from Models import GlobalVariable
             from Database.Redis.client import set_value
 
-            variables = GlobalVariable.get_all()
+            variables = GlobalVariable.query.all()
             self._cache = {var.key: var.value for var in variables}
 
             # 同步到 Redis
@@ -85,11 +85,24 @@ class GlobalVariableManager:
     def set(self, key: str, value: str, description: str = None, is_secret: bool = False):
         """设置全局变量（同时更新数据库和缓存）"""
         try:
-            from Models import GlobalVariable
+            from Models import db, GlobalVariable
             from Database.Redis.client import set_value
 
             # 更新数据库
-            GlobalVariable.set_value(key, value, description, is_secret)
+            var = GlobalVariable.query.filter_by(key=key).first()
+            if var:
+                var.value = value
+                if description is not None:
+                    var.description = description
+                var.is_secret = is_secret
+            else:
+                db.session.add(GlobalVariable(
+                    key=key,
+                    value=value,
+                    description=description,
+                    is_secret=is_secret
+                ))
+            db.session.commit()
 
             # 更新缓存
             self._cache[key] = value
@@ -103,11 +116,14 @@ class GlobalVariableManager:
     def delete(self, key: str):
         """删除全局变量"""
         try:
-            from Models import GlobalVariable
+            from Models import db, GlobalVariable
             from Database.Redis.client import set_value
 
             # 从数据库删除
-            GlobalVariable.delete_by_key(key)
+            var = GlobalVariable.query.filter_by(key=key).first()
+            if var:
+                db.session.delete(var)
+                db.session.commit()
 
             # 更新缓存
             if key in self._cache:

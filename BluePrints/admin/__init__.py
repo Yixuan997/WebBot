@@ -13,7 +13,7 @@ from .bots import (admin_bots, admin_create_bot, admin_edit_bot, admin_bot_detai
 from .browser import (browser_status, restart_browser, start_browser, stop_browser)
 from .dashboard import dashboard
 from .email import email, test_email
-from .globals import globals_list, globals_create, globals_update, globals_delete, globals_get, globals_reload
+from .globals import globals_list, globals_create, globals_update, globals_delete, globals_reload
 from .system import system
 from .update import update, check_update, get_latest_release_content, download_and_apply_update, restart_application
 from .users import users, edit_user, delete_user
@@ -21,7 +21,7 @@ from .workflow import (workflow_list, workflow_create, workflow_edit, workflow_d
                        workflow_toggle, workflow_detail, workflow_update_basic, snippets_list,
                        workflow_reload_cache, workflow_export, workflow_import,
                        workflow_ai_page, workflow_ai_generate, workflow_ai_generate_stream, workflow_ai_create,
-                       workflow_ai_config_get, workflow_ai_config_save,
+                       workflow_ai_config_save,
                        workflow_debug_record, workflow_debug_clear)
 from ..utils import role_required
 
@@ -54,7 +54,7 @@ Admin_bp.add_url_rule('/email/test', view_func=role_required('admin')(test_email
 Admin_bp.add_url_rule('/users', view_func=role_required('admin')(users), methods=['GET'], endpoint='users')  # 用户管理
 Admin_bp.add_url_rule('/users/<int:user_id>/edit', view_func=role_required('admin')(edit_user), methods=['GET', 'POST'],
                       endpoint='edit_user')  # 编辑用户
-Admin_bp.add_url_rule('/users/<int:user_id>/delete', view_func=role_required('admin')(delete_user), methods=['DELETE'],
+Admin_bp.add_url_rule('/users/<int:user_id>/delete', view_func=role_required('admin')(delete_user), methods=['POST'],
                       endpoint='delete_user')  # 删除用户
 
 # 机器人管理
@@ -68,7 +68,7 @@ Admin_bp.add_url_rule('/bots/<int:bot_id>/edit', view_func=role_required('admin'
                       methods=['GET', 'POST'],
                       endpoint='admin_edit_bot')  # 编辑机器人
 Admin_bp.add_url_rule('/bots/<int:bot_id>/delete', view_func=role_required('admin')(admin_delete_bot),
-                      methods=['DELETE'],
+                      methods=['POST'],
                       endpoint='admin_delete_bot')  # 删除机器人
 
 # 机器人控制
@@ -136,9 +136,6 @@ Admin_bp.add_url_rule('/workflows/import', view_func=role_required('admin')(work
 Admin_bp.add_url_rule('/workflows/ai', view_func=role_required('admin')(workflow_ai_page),
                       methods=['GET'],
                       endpoint='workflow_ai_page')  # AI 生成工作流页面
-Admin_bp.add_url_rule('/workflows/ai/config', view_func=role_required('admin')(workflow_ai_config_get),
-                      methods=['GET'],
-                      endpoint='workflow_ai_config_get')  # 读取 AI 配置
 Admin_bp.add_url_rule('/workflows/ai/config', view_func=role_required('admin')(workflow_ai_config_save),
                       methods=['POST'],
                       endpoint='workflow_ai_config_save')  # 保存 AI 配置
@@ -163,11 +160,9 @@ Admin_bp.add_url_rule('/globals', view_func=role_required('admin')(globals_list)
                       endpoint='globals_list')  # 全局变量列表
 Admin_bp.add_url_rule('/globals/create', view_func=role_required('admin')(globals_create), methods=['POST'],
                       endpoint='globals_create')  # 创建全局变量
-Admin_bp.add_url_rule('/globals/<int:var_id>', view_func=role_required('admin')(globals_get), methods=['GET'],
-                      endpoint='globals_get')  # 获取单个全局变量
-Admin_bp.add_url_rule('/globals/<int:var_id>', view_func=role_required('admin')(globals_update), methods=['PUT'],
+Admin_bp.add_url_rule('/globals/<int:var_id>/update', view_func=role_required('admin')(globals_update), methods=['POST'],
                       endpoint='globals_update')  # 更新全局变量
-Admin_bp.add_url_rule('/globals/<int:var_id>', view_func=role_required('admin')(globals_delete), methods=['DELETE'],
+Admin_bp.add_url_rule('/globals/<int:var_id>/delete', view_func=role_required('admin')(globals_delete), methods=['POST'],
                       endpoint='globals_delete')  # 删除全局变量
 Admin_bp.add_url_rule('/globals/reload', view_func=role_required('admin')(globals_reload), methods=['POST'],
                       endpoint='globals_reload')  # 重载全局变量缓存
