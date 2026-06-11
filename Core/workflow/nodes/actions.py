@@ -170,7 +170,7 @@ class SendMessageNode(BaseNode):
                 case _:
                     message = MessageBuilder.text(content, event=event)
 
-            # 4. 设置响应（不再标记 _handled，由 end 节点统一处理）
+            # 4. 设置响应；没有后续节点时由引擎结束流程。
             context._response = message
 
             # 5. 处理跳转

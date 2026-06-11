@@ -604,11 +604,11 @@
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                showAlert('success', data.message);
+            if (data.code === 200) {
+                showAlert('success', data.msg);
                 setTimeout(() => location.reload(), 1500);
             } else {
-                showAlert('danger', data.error);
+                showAlert('danger', data.msg || '操作失败');
                 btn.disabled = false;
                 btn.innerHTML = originalText;
             }
@@ -640,11 +640,11 @@
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                showAlert('success', data.message);
+            if (data.code === 200) {
+                showAlert('success', data.msg);
                 setTimeout(() => location.reload(), 2000);
             } else {
-                showAlert('danger', data.error);
+                showAlert('danger', data.msg || '重启失败');
                 btn.disabled = false;
                 btn.innerHTML = originalText;
             }
@@ -672,10 +672,10 @@
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                showAlert('success', data.message);
+            if (data.code === 200) {
+                showAlert('success', data.msg);
             } else {
-                showAlert('danger', data.message || '重载失败');
+                showAlert('danger', data.msg || '重载失败');
             }
             btn.disabled = false;
             btn.innerHTML = originalText;

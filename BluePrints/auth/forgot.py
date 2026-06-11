@@ -6,11 +6,12 @@
 @Date   ：2025/6/15 13:00
 """
 
-from flask import render_template, request, flash, redirect, url_for, jsonify
+from flask import render_template, request, flash, redirect, url_for
 from werkzeug.security import generate_password_hash
 
 from Database.Redis import get_value, delete_key
 from Database.Redis.keys import captcha_key, email_verification_key
+from http_json import fail_api, table_api
 from Models import User, db
 
 
@@ -112,14 +113,14 @@ def check_email_exists():
         email = data.get('email')
 
         if not email:
-            return jsonify({'success': False, 'message': '邮箱地址不能为空'})
+            return fail_api('邮箱地址不能为空')
 
         # 检查邮箱是否存在
         user = User.query.filter_by(email=email).first()
         if not user:
-            return jsonify({'success': False, 'message': '该邮箱未注册'})
+            return fail_api('该邮箱未注册')
 
-        return jsonify({'success': True, 'message': '邮箱验证通过', 'username': user.username})
+        return table_api('邮箱验证通过', username=user.username)
 
     except Exception as e:
-        return jsonify({'success': False, 'message': f'验证失败：{str(e)}'})
+        return fail_api(f'验证失败：{str(e)}')

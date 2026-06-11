@@ -13,8 +13,9 @@ import zipfile
 from pathlib import Path
 
 import requests
-from flask import render_template, flash, redirect, url_for, jsonify
+from flask import render_template, flash, redirect, url_for
 
+from http_json import fail_api, success_api, table_api
 from version import __version__, LATEST_RELEASE_API, DOWNLOAD_URL_TEMPLATE, get_version_info
 
 # 简单的更新状态管理
@@ -221,20 +222,11 @@ def check_update():
 
 def get_latest_release_content():
     """获取最新Release内容"""
-    from flask import jsonify
-
     latest_release = get_latest_release()
 
     if latest_release:
-        return jsonify({
-            'success': True,
-            'data': latest_release
-        })
-    else:
-        return jsonify({
-            'success': False,
-            'error': '无法获取最新Release信息'
-        })
+        return table_api('请求成功', data=latest_release)
+    return fail_api('无法获取最新Release信息')
 
 
 def _validate_zip_path(entry_name: str, base_dir: str) -> tuple[bool, str]:
@@ -313,7 +305,7 @@ def download_and_apply_update():
 
     # 检查是否已有更新在进行
     if is_update_in_progress():
-        return jsonify({'success': False, 'error': '更新进程已在运行，请稍后再试'})
+        return fail_api('更新进程已在运行，请稍后再试')
 
     # 设置更新状态
     set_update_status(True)
@@ -323,13 +315,13 @@ def download_and_apply_update():
         # 获取最新Release信息
         latest_release = get_latest_release()
         if not latest_release:
-            return jsonify({'success': False, 'error': '无法获取最新版本信息'})
+            return fail_api('无法获取最新版本信息')
 
         latest_version = latest_release['tag_name']
         current_version = f"v{__version__}"
 
         if latest_version == current_version:
-            return jsonify({'success': False, 'error': '当前已是最新版本'})
+            return fail_api('当前已是最新版本')
 
         # 获取下载URL和asset信息
         download_url = None
@@ -343,7 +335,7 @@ def download_and_apply_update():
                 break
 
         if not download_url:
-            return jsonify({'success': False, 'error': '未找到可下载的更新包'})
+            return fail_api('未找到可下载的更新包')
 
         download_success = False
 
@@ -390,7 +382,7 @@ def download_and_apply_update():
         is_valid, verify_message = verify_github_asset(str(update_zip_path), asset_info)
         if not is_valid:
             update_zip_path.unlink()  # 删除无效的更新包
-            return jsonify({'success': False, 'error': f'文件验证失败：{verify_message}'})
+            return fail_api(f'文件验证失败：{verify_message}')
 
         # 步骤3: 解压更新包（带路径安全验证）
         current_dir = Path.cwd()
@@ -413,7 +405,7 @@ def download_and_apply_update():
                         is_safe, result = _validate_zip_path(relative_name, str(current_dir))
                         if not is_safe:
                             update_zip_path.unlink()
-                            return jsonify({'success': False, 'error': f'安全验证失败：检测到可疑路径 {relative_name}'})
+                            return fail_api(f'安全验证失败：检测到可疑路径 {relative_name}')
                         member.filename = relative_name
                         zip_ref.extract(member, '.')
             else:
@@ -422,7 +414,7 @@ def download_and_apply_update():
                         is_safe, result = _validate_zip_path(member.filename, str(current_dir))
                         if not is_safe:
                             update_zip_path.unlink()
-                            return jsonify({'success': False, 'error': f'安全验证失败：检测到可疑路径 {member.filename}'})
+                            return fail_api(f'安全验证失败：检测到可疑路径 {member.filename}')
                         zip_ref.extract(member, '.')
 
         # 清理更新包
@@ -443,14 +435,14 @@ def download_and_apply_update():
         restart_thread.daemon = True
         restart_thread.start()
 
-        return jsonify({'success': True})
+        return success_api('更新成功，正在重启')
 
     except Exception as e:
         # 清理文件
         if update_zip_path.exists():
             update_zip_path.unlink()
 
-        return jsonify({'success': False, 'error': f'更新失败: {str(e)}'})
+        return fail_api(f'更新失败: {str(e)}')
 
     finally:
         # 重置更新状态
@@ -521,11 +513,7 @@ def restart_gunicorn_process():
 def health_check():
     """健康检查端点 - 用于检测服务器是否重启完成"""
     import time
-    return jsonify({
-        'status': 'ok',
-        'timestamp': time.time(),
-        'version': __version__
-    })
+    return table_api('ok', status='ok', timestamp=time.time(), version=__version__)
 
 
 def restart_application():
@@ -544,7 +532,7 @@ def restart_application():
         restart_thread.daemon = True
         restart_thread.start()
 
-        return jsonify({'success': True, 'message': '重启命令已发送'})
+        return success_api('重启命令已发送')
 
     except Exception as e:
-        return jsonify({'success': False, 'error': f'重启失败: {str(e)}'})
+        return fail_api(f'重启失败: {str(e)}')

@@ -201,6 +201,7 @@ class WorkflowEngine:
                             continue
                     elif next_id:
                         log_error(0, f"节点 {node_id} 跳转到不存在的节点: {next_id}", "WORKFLOW_JUMP_ERROR")
+                        break
                 
                 # 处理 stop_sequence（无跳转时）
                 elif isinstance(result, dict) and result.get('stop_sequence'):
@@ -222,17 +223,12 @@ class WorkflowEngine:
                             current_index = return_index
                             continue
 
-                # 纯连线模式：无显式下一跳时不再按数组顺序兜底
-                if node_type == 'end':
-                    break
-                log_error(
-                    0,
-                    f"节点 {node_id} 未配置下一跳，工作流终止",
-                    "WORKFLOW_NEXT_NODE_MISSING",
-                    workflow=self.name,
-                    node_id=node_id,
-                    node_type=node_type
-                )
+                # 没有后续节点时流程结束。
+                if loop_stack:
+                    return_index = self._return_to_foreach(loop_stack, visited_nodes, current_index)
+                    if return_index is not None:
+                        current_index = return_index
+                        continue
                 break
 
             except Exception as e:
@@ -313,13 +309,11 @@ class WorkflowEngine:
         if next_index >= len(self.workflow_steps):
             return True
         
-        # 检查下一个节点是否为 end 或已访问过
+        # 检查下一个节点是否已访问过
         next_node = self.workflow_steps[next_index]
-        next_type = next_node.get('type')
         next_id = next_node.get('id')
         
-        # 遇到 end 节点或已访问过的节点
-        return next_type == 'end' or next_id in visited_nodes
+        return next_id in visited_nodes
 
     def _handle_loop_start(self, result: dict, node_id: str, current_index: int,
                            node_index_map: dict, loop_stack: list, visited_nodes: set) -> int | None:
@@ -352,11 +346,9 @@ class WorkflowEngine:
             should_return = (node_id == loop_end_id)
         else:
             # 方式2：通过下一个节点状态判断
-            next_node_type = self.workflow_steps[next_index].get('type') if next_index < len(self.workflow_steps) else None
             should_return = (
                 next_index >= len(self.workflow_steps) or
                 next_index <= loop_info['foreach_index'] or
-                next_node_type == 'end' or
                 (next_index < len(self.workflow_steps) and
                  self.workflow_steps[next_index].get('id') in visited_nodes)
             )

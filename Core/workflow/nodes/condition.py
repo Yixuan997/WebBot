@@ -106,7 +106,7 @@ class ConditionNode(BaseNode):
             'required': False,
             'default': '',
             'options': [],  # 前端动态填充
-            'help': '选择跳转目标节点（留空则继续下一个节点）'
+            'help': '选择跳转目标节点（留空则该分支结束）'
         },
         {
             'name': 'false_branch',
@@ -115,7 +115,7 @@ class ConditionNode(BaseNode):
             'required': False,
             'default': '',
             'options': [],  # 前端动态填充
-            'help': '选择跳转目标节点（留空则继续下一个节点或中断）'
+            'help': '选择跳转目标节点（留空则该分支结束）'
         },
         {
             'name': 'stop_after_branch',

@@ -301,11 +301,11 @@
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                alert(data.message);
+            if (data.code === 200) {
+                alert(data.msg);
                 location.reload();
             } else {
-                document.getElementById('importError').textContent = data.message;
+                document.getElementById('importError').textContent = data.msg || '导入失败';
                 document.getElementById('importError').style.display = 'block';
                 btn.disabled = false;
                 btn.textContent = '导入';

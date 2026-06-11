@@ -1,4 +1,4 @@
-﻿const workflowPageData = window.WORKFLOW_PAGE_DATA || {};
+const workflowPageData = window.WORKFLOW_PAGE_DATA || {};
 const availableNodes = Array.isArray(workflowPageData.availableNodes) ? workflowPageData.availableNodes : [];
 const existingWorkflow = Array.isArray(workflowPageData.existingWorkflow) ? workflowPageData.existingWorkflow : [];
 const existingProtocols = Array.isArray(workflowPageData.existingProtocols) ? workflowPageData.existingProtocols : [];
@@ -52,7 +52,7 @@ function setCanvasLoading(visible) {
 
 function updateWorkflowStats() {
     const total = nodes.length;
-    const business = nodes.filter(n => !['start', 'end'].includes(n.type)).length;
+    const business = nodes.filter(n => n.type !== 'start').length;
     const totalEl = document.getElementById('totalNodesCount');
     const businessEl = document.getElementById('businessNodesCount');
     if (totalEl) totalEl.textContent = total;
@@ -175,7 +175,6 @@ function getNodeVisual(node, nodeMeta) {
     };
     const byType = {
         start: { headColor: '#2f6fec', icon: 'S', badgeText: '' },
-        end: { headColor: '#111827', icon: 'E', badgeText: '' },
         condition: { headColor: '#f2993a', icon: '?', badgeText: '' },
         loop: { headColor: '#0ea5a4', icon: 'L', badgeText: '' },
         python_snippet: { headColor: '#6d28d9', icon: 'Py', badgeText: '' },
@@ -306,20 +305,10 @@ function computeAutoLayoutPositions(allEdges) {
         }
     });
 
-    // 强制布局语义：start始终第一层，end始终最后一层
+    // 强制布局语义：start始终第一层，其余节点按连线层级自然排布。
     const startIds = nodes.filter(n => n.type === 'start').map(n => n.id);
-    const endIds = nodes.filter(n => n.type === 'end').map(n => n.id);
     startIds.forEach(id => {
         levelMap[id] = 0;
-    });
-    const maxNonEndLevel = Math.max(
-        0,
-        ...nodes
-            .filter(n => n.type !== 'end')
-            .map(n => levelMap[n.id] ?? 0)
-    );
-    endIds.forEach(id => {
-        levelMap[id] = maxNonEndLevel + 1;
     });
 
     const levels = {};
@@ -385,7 +374,7 @@ function computeAutoLayoutPositions(allEdges) {
         });
     });
 
-    // 保持纵向流：开始在上、结束在下，不再强制 start/end 横向偏移
+    // 保持纵向流：开始在上，其余节点按图结构自然向下展开。
     return positions;
 }
 
@@ -424,7 +413,6 @@ function buildDrawflowData() {
 
         let title = nodeMeta?.name || node.type;
         if (node.type === 'start') title = '开始';
-        if (node.type === 'end') title = '结束';
         const subtitle = getNodeSubtitle(node, nodeMeta);
 
         const schemaNames = new Set((nodeMeta?.config_schema || []).map(f => f.name));
@@ -590,9 +578,6 @@ function validateWorkflowBeforeSave() {
 
     if (!nodes.some(n => n.type === 'start')) {
         errors.push('缺少开始节点(start)。');
-    }
-    if (!nodes.some(n => n.type === 'end')) {
-        errors.push('缺少结束节点(end)。');
     }
 
     nodes.forEach(node => {
@@ -868,8 +853,8 @@ function moveSelectedNode(step) {
     const node = nodes[idx];
     const targetNode = nodes[targetIdx];
     if (!node || !targetNode) return;
-    if (node.type === 'start' || node.type === 'end' || targetNode.type === 'start' || targetNode.type === 'end') {
-        showToast('开始/结束节点位置固定，不能交换。', 'warning');
+    if (node.type === 'start' || targetNode.type === 'start') {
+        showToast('开始节点位置固定，不能交换。', 'warning');
         return;
     }
 
@@ -910,8 +895,8 @@ const categoryMapping = {
 };
 
 function addNode(sourceNodeId = '') {
-    // 过滤掉 start 和 end 节点
-    const filteredNodes = availableNodes.filter(node => node.type !== 'start' && node.type !== 'end');
+    // 过滤掉 start 节点和不支持在画布中新增的节点。
+    const filteredNodes = availableNodes.filter(node => node.type !== 'start');
     
     // 按分类分组（使用映射后的分类）
     const nodesByCategory = {};
@@ -995,26 +980,16 @@ function selectNodeType(nodeIndex, sourceNodeId = '') {
         node.config[field.name] = field.default !== undefined ? field.default : '';
     });
     
-    // 有来源节点时，优先插入到来源节点后面；否则插入到 End 节点前
+    // 有来源节点时，优先插入到来源节点后面；否则追加到末尾。
     if (sourceNodeId) {
         const sourceIndex = nodes.findIndex(n => n.id === sourceNodeId);
         if (sourceIndex >= 0) {
             nodes.splice(sourceIndex + 1, 0, node);
         } else {
-            const endNodeIndex = nodes.findIndex(n => n.type === 'end');
-            if (endNodeIndex !== -1) {
-                nodes.splice(endNodeIndex, 0, node);
-            } else {
-                nodes.push(node);
-            }
-        }
-    } else {
-        const endNodeIndex = nodes.findIndex(n => n.type === 'end');
-        if (endNodeIndex !== -1) {
-            nodes.splice(endNodeIndex, 0, node);
-        } else {
             nodes.push(node);
         }
+    } else {
+        nodes.push(node);
     }
 
     let autoLinked = false;
@@ -1368,8 +1343,8 @@ function deleteNode(index) {
     if (confirm('确定要删除这个节点吗？')) {
         const removedNode = nodes[index];
         if (!removedNode) return;
-        if (['start', 'end'].includes(removedNode.type)) {
-            showToast('开始/结束节点不允许删除。', 'warning');
+        if (removedNode.type === 'start') {
+            showToast('开始节点不允许删除。', 'warning');
             return;
         }
         nodes.forEach(n => {

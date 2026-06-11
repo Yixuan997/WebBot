@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
+            if (data.code === 200) {
                 const release = data.data;
 
                 // 构建Release内容HTML
@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <line x1="15" y1="9" x2="9" y2="15"/>
                             </svg>
                             <div>加载失败</div>
-                            <small>${data.error || '网络错误，请稍后重试'}</small>
+                            <small>${data.msg || '网络错误，请稍后重试'}</small>
                         </div>
                     </div>
                 `;
@@ -317,15 +317,26 @@ function applyUpdate() {
 
     // 发送更新请求
     fetch('{{ url_for("Admin.apply_update") }}', {method: 'POST'})
-    .finally(() => {
-        // 无论成功失败，都显示重启状态（因为可能已经开始重启了）
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>正在重启...';
+        .then(response => response.json())
+        .then(data => {
+            if (data.code !== 200) {
+                btn.disabled = false;
+                btn.innerHTML = '一键更新';
+                alert(data.msg || '更新失败');
+                return;
+            }
 
-        // 1分钟后自动刷新页面
-        setTimeout(() => {
-            window.location.reload();
-        }, 60000); // 60秒 = 1分钟
-    });
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>正在重启...';
+            setTimeout(() => {
+                window.location.reload();
+            }, 60000);
+        })
+        .catch(() => {
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>正在重启...';
+            setTimeout(() => {
+                window.location.reload();
+            }, 60000);
+        });
 }
 </script>
 {% endblock %}

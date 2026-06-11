@@ -9,11 +9,12 @@ import random
 import string
 from datetime import datetime
 
-from flask import request, jsonify, render_template
+from flask import request, render_template
 from flask_mail import Message
 
 from Database.Redis import set_value, get_value, delete_key
 from Database.Redis.keys import email_verification_key
+from http_json import fail_api, success_api, table_api
 from Models import Email
 
 
@@ -103,24 +104,24 @@ def send_email_service():
         email_type = data.get('type')  # verification, notification
 
         if not email:
-            return jsonify({'success': False, 'message': '邮箱地址不能为空'})
+            return fail_api('邮箱地址不能为空')
 
         if not email_type:
-            return jsonify({'success': False, 'message': '邮件类型不能为空'})
+            return fail_api('邮件类型不能为空')
 
         # 检查邮件配置
         if not get_email_config():
-            return jsonify({'success': False, 'message': '邮件服务未配置，请联系管理员'})
+            return fail_api('邮件服务未配置，请联系管理员')
 
         if email_type == 'verification':
             return _send_verification_email(email, data)
         elif email_type == 'notification':
             return _send_notification_email(email, data)
         else:
-            return jsonify({'success': False, 'message': '未知的邮件类型'})
+            return fail_api('未知的邮件类型')
 
     except Exception as e:
-        return jsonify({'success': False, 'message': f'发送失败：{str(e)}'})
+        return fail_api(f'发送失败：{str(e)}')
 
 
 def send_verification_code():
@@ -130,23 +131,23 @@ def send_verification_code():
             # 从JSON获取数据
             data = request.get_json()
             if not data:
-                return jsonify({'success': False, 'message': '请求数据格式错误'})
+                return fail_api('请求数据格式错误')
 
             email = data.get('email')
             purpose = data.get('purpose', 'register')
 
             if not email:
-                return jsonify({'success': False, 'message': '邮箱地址不能为空'})
+                return fail_api('邮箱地址不能为空')
 
             # 简单的邮箱格式验证
             import re
             email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
             if not re.match(email_regex, email):
-                return jsonify({'success': False, 'message': '请输入正确的邮箱格式'})
+                return fail_api('请输入正确的邮箱格式')
 
             # 检查邮件配置
             if not get_email_config():
-                return jsonify({'success': False, 'message': '邮件服务未配置，请联系管理员'})
+                return fail_api('邮件服务未配置，请联系管理员')
 
             # 发送验证码
             data = {'purpose': purpose}
@@ -154,7 +155,7 @@ def send_verification_code():
             return result
 
     except Exception as e:
-        return jsonify({'success': False, 'message': f'发送失败：{str(e)}'})
+        return fail_api(f'发送失败：{str(e)}')
 
 
 def _send_verification_email(email, data):
@@ -197,7 +198,7 @@ def _send_verification_email(email, data):
     }
 
     if purpose not in templates:
-        return jsonify({'success': False, 'message': '未知的验证码用途'})
+        return fail_api('未知的验证码用途')
 
     template = templates[purpose]
     subject = template['subject']
@@ -220,13 +221,8 @@ def _send_verification_email(email, data):
     success, message = send_email(email, subject, body, html)
 
     if success:
-        return jsonify({
-            'success': True,
-            'message': '验证码已发送到您的邮箱，请查收',
-            'expires_in': 300  # 5分钟
-        })
-    else:
-        return jsonify({'success': False, 'message': message})
+        return table_api('验证码已发送到您的邮箱，请查收', expires_in=300)
+    return fail_api(message)
 
 
 def _send_notification_email(email, data):
@@ -239,7 +235,7 @@ def _send_notification_email(email, data):
     actions = data.get('actions', [])  # 操作按钮列表
 
     if not subject or not content:
-        return jsonify({'success': False, 'message': '主题和内容不能为空'})
+        return fail_api('主题和内容不能为空')
 
     # 根据通知类型选择颜色和背景
     type_configs = {
@@ -285,9 +281,8 @@ def _send_notification_email(email, data):
     success, message = send_email(email, f"QQ机器人管理系统 - {subject}", content, html)
 
     if success:
-        return jsonify({'success': True, 'message': '通知邮件发送成功'})
-    else:
-        return jsonify({'success': False, 'message': message})
+        return success_api('通知邮件发送成功')
+    return fail_api(message)
 
 
 def verify_code():
@@ -299,26 +294,26 @@ def verify_code():
         purpose = data.get('purpose', 'register')
 
         if not email or not code:
-            return jsonify({'success': False, 'message': '邮箱和验证码不能为空'})
+            return fail_api('邮箱和验证码不能为空')
 
         # 从Redis获取验证码
         redis_key = email_verification_key(purpose, email)
         stored_code = get_value(redis_key)
 
         if not stored_code:
-            return jsonify({'success': False, 'message': '验证码已过期或不存在'})
+            return fail_api('验证码已过期或不存在')
 
         # 处理bytes类型
         if isinstance(stored_code, bytes):
             stored_code = stored_code.decode()
 
         if str(stored_code) != str(code):
-            return jsonify({'success': False, 'message': '验证码错误'})
+            return fail_api('验证码错误')
 
         # 验证成功，删除验证码
         delete_key(redis_key)
 
-        return jsonify({'success': True, 'message': '验证码验证成功'})
+        return success_api('验证码验证成功')
 
     except Exception as e:
-        return jsonify({'success': False, 'message': f'验证失败：{str(e)}'})
+        return fail_api(f'验证失败：{str(e)}')

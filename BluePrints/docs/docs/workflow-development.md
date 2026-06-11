@@ -61,7 +61,7 @@ graph TB
     I -->|匹配| J[业务处理节点]
     I -->|不匹配| K[结束]
     J --> L[发送响应节点]
-    L --> M[结束节点]
+    L --> M[结束]
     
     style A fill:#e1f5fe
     style B fill:#fff3e0
@@ -184,7 +184,7 @@ bot_id            # 当前执行 bot 的 ID
 ### 2. 添加节点
 
 ```
-[开始] → [关键词] → [代码片段] → [结束]
+[开始] → [关键词] → [代码片段] → 结束
 ```
 
 **节点配置：**
@@ -200,8 +200,8 @@ bot_id            # 当前执行 bot 的 ID
    - 选择代码片段：`echo_message.py`
    - 或自定义代码逻辑
 
-4. **结束节点**（自动添加）
-   - 允许继续执行：否
+4. **流程结束**
+   - 最后一个节点不配置后续节点
 
 ### 3. 保存并测试
 
@@ -209,13 +209,13 @@ bot_id            # 当前执行 bot 的 ID
 
 ### 4. 执行路径规则（重要）
 
-当前工作流引擎按**显式跳转字段**执行，不再按节点数组顺序自动兜底：
+当前工作流引擎按**跳转字段**执行，不再按节点数组顺序自动兜底：
 
 - 通用跳转：`next_node`
 - 条件分支：`true_branch` / `false_branch`
 - 循环入口：`loop_body`
 
-建议：除 `end` 节点外，所有业务节点都明确配置下一跳；未配置时流程通常会在该节点终止。
+建议：需要继续执行时明确配置下一跳；没有后续节点时流程结束。
 
 ## 📦 节点类型
 
@@ -251,15 +251,11 @@ raw_data.message[0].data.id    # 被回复消息的ID（当消息是回复时）
 raw_data.message[0].type       # 第一个消息段类型
 ```
 
-#### 2. 结束节点 (end)
+#### 2. 结束
 
-**功能**：工作流出口，标记流程结束
-
-**配置项**：
-- `allow_continue`: 是否允许其他工作流继续处理（默认：true）
+**功能**：节点没有下游连线时，流程会在该节点结束；系统不再使用 `end` 节点。
 
 ---
-
 ### 触发节点
 
 #### 1. 关键词触发 (keyword_trigger)
@@ -311,7 +307,7 @@ raw_data.message[0].type       # 第一个消息段类型
   - `regex`: 正则匹配
 - `compare_value`: 比较值（`regex` 时为正则表达式）
 - `true_branch`: 满足条件跳转的节点ID（必填）
-- `false_branch`: 不满足条件跳转的节点ID（必填）
+- `false_branch`: 不满足条件跳转的节点ID（可选，留空则该分支结束）
 
 **高级模式配置项**：
 - `mode`: `advanced`
@@ -358,7 +354,7 @@ raw_data.message[0].type       # 第一个消息段类型
 - `keyboard_id`: 按钮ID（markdown类型时可选）
 - `ark_template_id`: ARK模板ID（ark类型时使用，如 23/24/37）
 - `skip_if_unsupported`: 协议不支持时是否跳过（默认 true）
-- `next_node`: 执行后跳转的节点ID（建议填写；留空可能终止流程）
+- `next_node`: 执行后跳转的节点ID（可选，留空则结束当前路径）
 
 **示例**：
 ```json
@@ -506,7 +502,7 @@ raw_data.message[0].type       # 第一个消息段类型
 - `action`: API端点名称，如 `send_msg`, `delete_msg`, `set_group_card`
 - `params`: JSON格式的请求参数，支持模板（可使用点号访问嵌套变量如 `{{response_json.data.url}}`）
 - `enable_template`: 是否启用变量替换（默认 true）
-- `next_node`: 执行后跳转的节点ID（建议填写；留空可能终止流程）
+- `next_node`: 执行后跳转的节点ID（可选，留空则结束当前路径）
 
 **输出变量**：
 - `endpoint_response`: API响应结果（直接是数据本体，不像HTTP节点有 status/retcode/data 包裹）
@@ -982,7 +978,7 @@ subscribed_at # 订阅时间
   "condition_type": "regex",
   "compare_value": "^查询\\s+(.+)\\s+的(.+)$",
   "true_branch": "node_2",
-  "false_branch": "end"
+  "false_branch": ""
 }
 ```
 

@@ -186,12 +186,12 @@
         })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
+                if (data.code === 200) {
                     showEmailSuccess(`邮箱验证通过，用户：${data.username}`);
                     emailVerified = true;
                     enableEmailCode();
                 } else {
-                    showEmailError(data.message);
+                    showEmailError(data.msg || '邮箱验证失败');
                     emailVerified = false;
                     disableEmailCode();
                 }
@@ -268,11 +268,11 @@
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                showAlert('success', data.message);
+            if (data.code === 200) {
+                showAlert('success', data.msg);
                 startEmailCodeCountdown(); // 开始60秒倒计时
             } else {
-                showAlert('danger', data.message);
+                showAlert('danger', data.msg || '发送失败');
                 resetEmailCodeButton(); // 重置按钮状态
             }
         })

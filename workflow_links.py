@@ -2,17 +2,13 @@
 工作流一体化迁移脚本
 
 用途：
-1. 将历史“按数组顺序执行”的工作流，批量补成显式连线并写回数据库
-2. 将旧变量引用一次性升级为新变量：
-   - user_id -> sender.user_id
-   - sender_name -> sender.nickname
+默认执行迁移：
+1. 删除数据库工作流中的旧终止节点
+2. 删除所有指向旧终止节点的连线
+3. 自动备份后写回数据库
 
 用法：
-  python -X utf8 workflow_links.py --dry-run
   python -X utf8 workflow_links.py
-  python -X utf8 workflow_links.py --only-enabled
-  python -X utf8 workflow_links.py --backup ./workflow_backup.json
-  python -X utf8 workflow_links.py --links-only
 """
 from __future__ import annotations
 
@@ -42,7 +38,7 @@ TEMPLATE_REPLACEMENTS = (
 
 
 def normalize_explicit_links(workflow_steps: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
-    """按纯连线模式补全显式连线，返回 (新步骤列表, 补边数量)。"""
+    """按跳转字段补全执行路径，返回 (新步骤列表, 补边数量)。"""
     steps = copy.deepcopy(workflow_steps or [])
     if len(steps) < 2:
         return steps, 0
@@ -86,6 +82,34 @@ def normalize_explicit_links(workflow_steps: list[dict[str, Any]]) -> tuple[list
         patched_count += 1
 
     return steps, patched_count
+
+
+def remove_end_nodes_and_links(workflow_steps: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int, int]:
+    """删除旧终止节点和相关连线，返回 (新步骤, 删除节点数, 删除连线数)。"""
+    steps = copy.deepcopy(workflow_steps or [])
+    removed_nodes = 0
+    removed_edges = 0
+
+    filtered_steps: list[dict[str, Any]] = []
+    for step in steps:
+        if not isinstance(step, dict):
+            filtered_steps.append(step)
+            continue
+
+        if step.get("id") == "end" or step.get("type") == "end":
+            removed_nodes += 1
+            continue
+
+        config = step.get("config")
+        if isinstance(config, dict):
+            for field in EDGE_FIELDS:
+                if config.get(field) == "end":
+                    config.pop(field, None)
+                    removed_edges += 1
+
+        filtered_steps.append(step)
+
+    return filtered_steps, removed_nodes, removed_edges
 
 
 def _replace_template_refs(text: str) -> tuple[str, int]:
@@ -189,13 +213,14 @@ def migrate_workflow_steps(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="批量迁移工作流：显式连线 + 旧变量引用升级"
+        description="一键迁移工作流：删除旧终止节点和相关连线"
     )
     parser.add_argument("--dry-run", action="store_true", help="只预览，不写数据库")
     parser.add_argument("--only-enabled", action="store_true", help="仅处理启用中的工作流")
     parser.add_argument("--backup", type=str, default="", help="备份文件路径(JSON)")
     parser.add_argument("--no-backup", action="store_true", help="写库时不自动备份")
-    parser.add_argument("--links-only", action="store_true", help="仅补显式连线，不迁移旧变量引用")
+    parser.add_argument("--legacy-links", action="store_true", help="旧迁移模式：补跳转字段并升级旧变量")
+    parser.add_argument("--links-only", action="store_true", help="旧迁移模式专用：仅补跳转字段，不迁移旧变量引用")
     return parser.parse_args()
 
 
@@ -219,6 +244,86 @@ def main() -> int:
         workflows = query.order_by(Workflow.id.asc()).all()
 
         total = len(workflows)
+
+        if not args.legacy_links:
+            changed = 0
+            removed_nodes_total = 0
+            removed_edges_total = 0
+            backup_records: list[dict[str, Any]] = []
+            is_apply = not args.dry_run
+
+            for wf in workflows:
+                config = wf.get_config() or {}
+                old_steps = config.get("workflow", [])
+                new_steps, removed_nodes, removed_edges = remove_end_nodes_and_links(old_steps)
+                if removed_nodes <= 0 and removed_edges <= 0:
+                    continue
+
+                changed += 1
+                removed_nodes_total += removed_nodes
+                removed_edges_total += removed_edges
+                backup_records.append(
+                    {
+                        "id": wf.id,
+                        "name": wf.name,
+                        "enabled": wf.enabled,
+                        "removed_end_nodes": removed_nodes,
+                        "removed_end_edges": removed_edges,
+                        "workflow_before": old_steps,
+                    }
+                )
+
+                action = "UPDATE" if is_apply else "DRY-RUN"
+                print(
+                    f"[{action}] id={wf.id} name={wf.name} "
+                    f"removed_end_nodes={removed_nodes} removed_end_edges={removed_edges}"
+                )
+
+                if is_apply:
+                    config["workflow"] = new_steps
+                    wf.config = config
+
+            if not is_apply:
+                print(
+                    f"\n完成(预览): total={total}, changed={changed}, "
+                    f"removed_end_nodes={removed_nodes_total}, "
+                    f"removed_end_edges={removed_edges_total}"
+                )
+                print("提示: 确认无误后直接执行 python -X utf8 workflow_links.py 写入数据库。")
+                return 0
+
+            if changed == 0:
+                print(f"\n无需迁移: total={total}, changed=0")
+                return 0
+
+            if not args.no_backup:
+                backup_path = Path(args.backup) if args.backup else Path(
+                    f"workflow_remove_end_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                )
+                backup_payload = {
+                    "created_at": datetime.now().isoformat(timespec="seconds"),
+                    "mode": "remove_end",
+                    "total_workflows": total,
+                    "changed_workflows": changed,
+                    "removed_end_nodes": removed_nodes_total,
+                    "removed_end_edges": removed_edges_total,
+                    "records": backup_records,
+                }
+                backup_path.write_text(
+                    json.dumps(backup_payload, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                print(f"[BACKUP] {backup_path.resolve()}")
+
+            db.session.commit()
+            db.session.remove()
+            print(
+                f"\n迁移完成: total={total}, changed={changed}, "
+                f"removed_end_nodes={removed_nodes_total}, "
+                f"removed_end_edges={removed_edges_total}"
+            )
+            return 0
+
         changed = 0
         patched_total = 0
         migrated_total = 0

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import requests
-from flask import render_template, request, flash, redirect, url_for, jsonify, g, Response, stream_with_context
+from flask import render_template, request, flash, redirect, url_for, g, Response, stream_with_context
 
 from Core.logging.file_logger import log_info, log_error
 from Core.protocols import list_protocols
@@ -160,11 +160,11 @@ def _validate_workflow_ai_config(config: dict[str, Any]) -> tuple[bool, str, dic
 
     if 'start' not in id_set or node_types.get('start') != 'start':
         return False, '必须包含 id=start 且 type=start 的开始节点', {}
-    if 'end' not in id_set or node_types.get('end') != 'end':
-        return False, '必须包含 id=end 且 type=end 的结束节点', {}
 
     available_node_types = set(NodeRegistry.list_all().keys())
     for node_id, node_type in node_types.items():
+        if node_type == 'end':
+            return False, '不支持该节点类型：请删除该节点，节点无后续节点时流程会结束', {}
         if node_type not in available_node_types:
             return False, f'存在未知节点类型: {node_type} ({node_id})', {}
 
@@ -173,17 +173,10 @@ def _validate_workflow_ai_config(config: dict[str, Any]) -> tuple[bool, str, dic
         node_id = str(step.get('id', '')).strip()
         node_type = str(step.get('type', '')).strip()
         cfg = step.get('config', {}) or {}
-        if node_type == 'end':
-            continue
-
-        has_edge = False
         for field in AI_EDGE_FIELDS:
             target = cfg.get(field)
             if target:
-                has_edge = True
                 refs.append((node_id, field, str(target).strip()))
-        if not has_edge:
-            return False, f'节点 {node_id} 未配置显式连线（next_node/true_branch/false_branch/loop_body）', {}
 
     for source_id, field, target_id in refs:
         if target_id not in id_set:
@@ -709,14 +702,16 @@ def workflow_create():
 
         # 验证必填字段
         if not name:
-            return jsonify({'success': False, 'message': '工作流名称不能为空'})
+            flash('工作流名称不能为空', 'warning')
+            return redirect(url_for('Admin.workflow_create'))
 
         # 检查名称是否已存在
         existing = Workflow.query.filter_by(name=name).first()
         if existing:
-            return jsonify({'success': False, 'message': f'工作流名称"{name}"已存在'})
+            flash(f'工作流名称"{name}"已存在', 'warning')
+            return redirect(url_for('Admin.workflow_create'))
 
-        # 创建默认工作流配置（包含start和end节点）
+        # 创建默认工作流配置；最后一个节点不需要配置后续节点。
         default_config = {
             'name': name,
             'description': description,
@@ -728,13 +723,6 @@ def workflow_create():
                     'id': 'start',
                     'type': 'start',
                     'config': {}
-                },
-                {
-                    'id': 'end',
-                    'type': 'end',
-                    'config': {
-                        'allow_continue': True  # 默认允许继续执行
-                    }
                 }
             ]
         }
@@ -796,18 +784,12 @@ def workflow_edit(workflow_id):
         try:
             workflow_config = json.loads(workflow_data)
         except json.JSONDecodeError:
-            return jsonify({'success': False, 'message': '工作流配置格式错误'})
+            flash('工作流配置格式错误', 'warning')
+            return redirect(url_for('Admin.workflow_edit', workflow_id=workflow_id))
 
-        # 从 End节点配置中提取allow_continue标志
-        allow_continue = True  # 默认值
         workflow_nodes = workflow_config.get('workflow', [])
-        for node in workflow_nodes:
-            if node.get('type') == 'end':
-                allow_continue = node.get('config', {}).get('allow_continue', True)
-                break
 
         config = workflow.get_config()
-        config['allow_continue'] = allow_continue
         config['workflow'] = workflow_nodes
 
         workflow.update_config(config)
@@ -1010,18 +992,14 @@ def workflow_reload_cache():
         # 获取缓存统计信息
         stats = workflow_cache.get_stats()
 
-        return jsonify({
-            'success': True,
-            'message': f'缓存已重载，共 {count} 个工作流，{scheduled_count} 个定时任务已同步',
-            'stats': stats
-        })
+        return table_api(
+            f'缓存已重载，共 {count} 个工作流，{scheduled_count} 个定时任务已同步',
+            stats=stats
+        )
 
     except Exception as e:
         log_error(0, f"重载工作流缓存失败: {e}", "WORKFLOW_CACHE_RELOAD_ERROR", error=str(e))
-        return jsonify({
-            'success': False,
-            'message': f'重载失败: {str(e)}'
-        })
+        return fail_api(f'重载失败: {str(e)}')
 
 
 def _validate_zip_path(entry_name: str, base_dir: str, allowed_subdirs: list[str]) -> tuple[bool, str]:
@@ -1073,14 +1051,14 @@ def workflow_import():
     import io
 
     if 'file' not in request.files:
-        return jsonify({'success': False, 'message': '未选择文件'})
+        return fail_api('未选择文件')
 
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'success': False, 'message': '未选择文件'})
+        return fail_api('未选择文件')
 
     if not file.filename.endswith('.workflow'):
-        return jsonify({'success': False, 'message': '文件格式不正确，请选择 .workflow 文件'})
+        return fail_api('文件格式不正确，请选择 .workflow 文件')
 
     try:
         file_content = file.read()
@@ -1090,11 +1068,11 @@ def workflow_import():
             zip_buffer = io.BytesIO(file_content)
             zf = zipfile.ZipFile(zip_buffer, 'r')
         except zipfile.BadZipFile:
-            return jsonify({'success': False, 'message': '文件格式错误，不是有效的 ZIP 文件'})
+            return fail_api('文件格式错误，不是有效的 ZIP 文件')
 
         with zf:
             if 'workflow.json' not in zf.namelist():
-                return jsonify({'success': False, 'message': '文件缺少 workflow.json'})
+                return fail_api('文件缺少 workflow.json')
 
             data = json.loads(zf.read('workflow.json').decode('utf-8'))
 
@@ -1138,24 +1116,20 @@ def workflow_import():
                     log_error(0, f"回滚导入文件失败: {copied_name}",
                               "WORKFLOW_IMPORT_ROLLBACK_ERROR", error=str(cleanup_error))
 
-            return jsonify({
-                'success': False,
-                'message': '导入失败：检测到可疑文件，已中止导入',
-                'blocked_files': blocked_files
-            })
+            return table_api('导入失败：检测到可疑文件，已中止导入', blocked_files=blocked_files, code=500)
 
         # 校验格式
         if 'workflow' not in data:
-            return jsonify({'success': False, 'message': '文件格式错误，缺少 workflow 字段'})
+            return fail_api('文件格式错误，缺少 workflow 字段')
 
         workflow_data = data['workflow']
         name = workflow_data.get('name', '')
         if not name:
-            return jsonify({'success': False, 'message': '工作流名称不能为空'})
+            return fail_api('工作流名称不能为空')
 
         config = workflow_data.get('config', {})
         if not config.get('workflow'):
-            return jsonify({'success': False, 'message': '工作流配置不完整'})
+            return fail_api('工作流配置不完整')
 
         # 检查名称是否已存在
         original_name = name
@@ -1188,20 +1162,19 @@ def workflow_import():
         if copied_files:
             message += f'，已复制 {len(copied_files)} 个文件'
 
-        return jsonify({
-            'success': True,
-            'message': message,
-            'workflow_id': workflow.id,
-            'name': name,
-            'renamed': renamed,
-            'copied_files': copied_files
-        })
+        return table_api(
+            message,
+            workflow_id=workflow.id,
+            name=name,
+            renamed=renamed,
+            copied_files=copied_files
+        )
 
     except json.JSONDecodeError:
-        return jsonify({'success': False, 'message': '文件内容解析失败'})
+        return fail_api('文件内容解析失败')
     except Exception as e:
         log_error(0, f"导入工作流失败: {e}", "WORKFLOW_IMPORT_ERROR", error=str(e))
-        return jsonify({'success': False, 'message': f'导入失败: {str(e)}'})
+        return fail_api(f'导入失败: {str(e)}')
 
 
 def workflow_export(workflow_id):
@@ -1286,7 +1259,7 @@ def workflow_export(workflow_id):
 
     except Exception as e:
         log_error(0, f"导出工作流失败: {e}", "WORKFLOW_EXPORT_ERROR", workflow_id=workflow_id, error=str(e))
-        return jsonify({'success': False, 'message': f'导出失败: {str(e)}'}), 500
+        return fail_api(f'导出失败: {str(e)}'), 500
 
 
 def snippets_list():

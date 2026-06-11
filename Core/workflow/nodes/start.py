@@ -1,5 +1,5 @@
 ﻿"""
-工作流开始和结束节点
+工作流开始节点
 """
 from typing import Any
 
@@ -163,45 +163,3 @@ class StartNode(BaseNode):
             result['next_node'] = next_node
         return result
 
-
-class EndNode(BaseNode):
-    """结束节点 - 标记工作流结束"""
-
-    name = "结束"
-    description = "工作流结束"
-    category = "core"
-    icon = "⏹️"
-
-    # 输入输出
-    inputs = []
-    outputs = []
-
-    config_schema = [
-        {
-            'name': 'allow_continue',
-            'label': '允许继续执行',
-            'type': 'checkbox',
-            'default': True,
-            'help': '工作流结束后是否允许后续其他工作流继续匹配处理该消息'
-        }
-    ]
-
-    async def _execute(self, context) -> dict[str, Any]:
-        """
-        执行结束节点
-        
-        Args:
-            context: WorkflowContext
-            
-        Returns:
-            dict: 执行结果
-        """
-        # End 节点只负责中断执行，不设置任何标记
-        # 是否处理由 engine 根据 response 判断
-        return {
-            'success': True
-        }
-
-    def should_break(self, result: dict[str, Any]) -> bool:
-        """结束节点总是中断当前工作流"""
-        return True

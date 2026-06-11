@@ -234,7 +234,7 @@
                 }
                 
                 // 下一步按钮
-                if (data.success) {
+                if (data.code === 200) {
                     html += `<div class="text-end">
                         <button class="btn btn-primary" onclick="goToStep(2)">
                             下一步：配置数据库
