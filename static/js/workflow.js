@@ -142,14 +142,11 @@ function connectSourceToTarget(sourceId, targetId) {
 function buildEdges() {
     const exists = new Set(nodes.map(n => n.id));
     const edges = [];
-    const explicitBySource = {};
 
     nodes.forEach(node => {
         EDGE_FIELDS.forEach(field => {
             const targetId = node.config?.[field];
             if (targetId && exists.has(targetId)) {
-                if (!explicitBySource[node.id]) explicitBySource[node.id] = new Set();
-                explicitBySource[node.id].add(targetId);
                 edges.push({
                     sourceId: node.id,
                     targetId,
@@ -679,7 +676,7 @@ function openQuickLinkModal(nodeId) {
                 data-has-true="${hasTrue ? '1' : '0'}"
                 data-has-false="${hasFalse ? '1' : '0'}"
                 data-single-field="${escapeNodeHtml(singleField || '')}"
-              >搴旂敤</button>
+              >应用</button>
             </div>
           </div>
         </div>
@@ -934,7 +931,7 @@ function addNode(sourceNodeId = '') {
             <div class="modal-dialog modal-dialog-centered modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">閫夋嫨鑺傜偣绫诲瀷</h5>
+                        <h5 class="modal-title">选择节点类型</h5>
                         <button type="button" class="btn-close js-modal-close"></button>
                     </div>
                     <div class="modal-body" style="max-height: 500px; overflow-y: auto;">
@@ -1138,26 +1135,43 @@ function buildJumpSelectOptions(node, value) {
     }).join('');
 }
 
+function addVariableOption(variables, name, label, source) {
+    const variableName = String(name || '').trim();
+    if (!variableName || variables.some(v => v.name === variableName)) return;
+    variables.push({name: variableName, label, source});
+}
+
 function buildVariableSelectOptions(index, value) {
     const variables = [];
 
     for (let i = 0; i < index; i++) {
         const prevNode = nodes[i];
-        const prevTemplate = availableNodes.find(n => n.type === prevNode.type);
+        const prevTemplate = getNodeTemplateByType(prevNode.type);
 
         if (prevTemplate && prevTemplate.outputs) {
             prevTemplate.outputs.forEach(out => {
-                variables.push({name: out.name, label: `${prevTemplate.name} -> ${out.label}`, source: prevNode.id});
+                addVariableOption(variables, out.name, `${prevTemplate.name} -> ${out.label || out.name}`, prevNode.id);
             });
         }
 
-        if (prevNode.config && prevNode.config.save_to) {
-            const saveTo = prevNode.config.save_to;
-            if (!variables.find(v => v.name === saveTo)) {
-                variables.push({name: saveTo, label: `${prevTemplate ? prevTemplate.name : prevNode.type} -> ${saveTo}`, source: prevNode.id});
-            }
+        if (prevNode.config) {
+            const sourceLabel = prevTemplate ? prevTemplate.name : prevNode.type;
+            [
+                'save_to',
+                'variable_name',
+                'item_variable',
+            ].forEach(fieldName => {
+                addVariableOption(
+                    variables,
+                    prevNode.config[fieldName],
+                    `${sourceLabel} -> ${prevNode.config[fieldName]}`,
+                    prevNode.id
+                );
+            });
         }
     }
+
+    addVariableOption(variables, value, `当前值 -> ${value}`, 'current');
 
     return variables.map(v => (
         '<option value="' + escapeNodeHtml(v.name) + '" ' + (value === v.name ? 'selected' : '') + '>' + escapeNodeHtml(v.label) + '</option>'
@@ -1266,7 +1280,7 @@ function buildEditNodeModalHtml(nodeTemplateName, fieldsHtml, index) {
 
 function editNode(index) {
     const node = nodes[index];
-    const nodeTemplate = availableNodes.find(n => n.type === node.type);
+    const nodeTemplate = getNodeTemplateByType(node.type);
     const fieldsHtml = (nodeTemplate.config_schema || []).map(field => buildFieldBlockHtml(node, field, index)).join('');
     const modal = document.createElement('div');
     modal.innerHTML = buildEditNodeModalHtml(nodeTemplate.name, fieldsHtml, index);
@@ -1297,7 +1311,7 @@ function editNode(index) {
 
 function saveNode(index) {
     const node = nodes[index];
-    const nodeTemplate = availableNodes.find(n => n.type === node.type);
+    const nodeTemplate = getNodeTemplateByType(node.type);
     
     // 先收集所有字段的当前值
     const currentValues = {};
@@ -1584,7 +1598,7 @@ function showNodeDebugPanel(nodeId) {
     if (!panel || !body || !nodeId) return;
 
     const node = nodes.find(n => n.id === nodeId);
-    const nodeMeta = availableNodes.find(n => n.type === node?.type);
+    const nodeMeta = getNodeTemplateByType(node?.type);
     const debugInfo = getNodeDebugInfo(nodeId);
 
     if (!debugRecord) {
