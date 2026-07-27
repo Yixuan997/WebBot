@@ -33,6 +33,7 @@ env/
 *.swo
 *~
 .DS_Store
+.helloagents/
 
 # 本地配置
 .env

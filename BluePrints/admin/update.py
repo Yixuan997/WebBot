@@ -451,23 +451,8 @@ def download_and_apply_update():
 
 def get_gunicorn_pidfile_path():
     """获取Gunicorn PID文件路径"""
-    try:
-        # 如果存在gunicorn_conf.py，快速解析pidfile配置
-        conf_path = os.path.join(os.getcwd(), 'gunicorn_conf.py')
-        if os.path.exists(conf_path):
-            with open(conf_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-
-            import re
-            pidfile_match = re.search(r'pidfile\s*=\s*[\'"]([^\'"]+)[\'"]', content)
-            if pidfile_match:
-                pidfile_path = pidfile_match.group(1)
-                return pidfile_path
-
-        return None
-
-    except Exception:
-        return None
+    project_dir = Path(__file__).resolve().parents[2]
+    return str(project_dir / 'gunicorn.pid')
 
 
 def restart_gunicorn_process():
@@ -500,14 +485,17 @@ def restart_gunicorn_process():
             os.kill(master_pid, signal.SIGHUP)
 
         else:
-            # 找不到 PID 文件时，退回到直接重启当前进程
-            python_exe = sys.executable
-            script_args = sys.argv
-            os.execv(python_exe, [python_exe] + script_args)
+            from Core.logging.file_logger import log_error
+            log_error(
+                0,
+                "未找到 Gunicorn PID 文件，已取消自动重启",
+                "GUNICORN_PIDFILE_NOT_FOUND",
+                pidfile_path=pidfile_path,
+            )
 
-    except Exception:
-        # 出错时静默失败，避免影响当前请求返回
-        pass
+    except Exception as error:
+        from Core.logging.file_logger import log_error
+        log_error(0, f"Gunicorn 自动重启失败: {error}", "GUNICORN_RESTART_ERROR", error=str(error))
 
 
 def health_check():
