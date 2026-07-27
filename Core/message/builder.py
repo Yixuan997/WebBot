@@ -278,3 +278,21 @@ class MessageBuilder:
             protocol = adapter.get_protocol_name()
             raise ValueError(f"协议 '{protocol}' 不支持 ARK 消息")
         return adapter.build_message('ark', content=content, template_id=template_id)
+
+    @classmethod
+    def ark_card(cls, template_id: int = 24, event: 'BaseEvent' = None, **data) -> 'BaseMessage':
+        """
+        构建 ARK 卡片。
+
+        Args:
+            template_id: ARK模板ID，常用 23/24/37
+            event: 事件对象（可选）
+            **data: 如 title/description/url/image/prompt
+        """
+        import json
+
+        return cls.ark(
+            json.dumps(data, ensure_ascii=False),
+            template_id=template_id,
+            event=event
+        )

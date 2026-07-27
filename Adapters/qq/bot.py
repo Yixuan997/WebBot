@@ -6,7 +6,6 @@ QQ Bot类
 
 from typing import Any, TYPE_CHECKING
 
-from .event import QQMessageEvent
 from .message import QQMessage
 from ..base.bot import BaseBot
 
@@ -61,8 +60,8 @@ class QQBot(BaseBot):
         Returns:
             发送结果
         """
-        if not isinstance(event, QQMessageEvent):
-            raise ValueError("QQBot can only handle QQMessageEvent")
+        if not hasattr(event, "get_target"):
+            raise ValueError("QQBot event must provide get_target()")
 
         # 转换消息为QQ API格式
         qq_format = message.to_api_format()
@@ -71,14 +70,15 @@ class QQBot(BaseBot):
         target = event.get_target()
 
         # 获取reply_to_msg_id
-        reply_to_msg_id = event.message_id if kwargs.get("reply", True) else None
+        message_id = getattr(event, "message_id", None)
+        reply_to_msg_id = message_id if message_id and kwargs.get("reply", True) else None
 
         # 发送
         return await self._send_to_target(
             target,
             qq_format,
             reply_to_msg_id,
-            event.message_id
+            message_id
         )
 
     async def _send_to_target(

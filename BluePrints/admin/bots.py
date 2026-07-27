@@ -8,10 +8,13 @@
 管理后台机器人管理功能
 """
 
+import json
+import os
 import threading
+import time
 from datetime import datetime
 
-from flask import render_template, request, flash, redirect, url_for, jsonify
+from flask import render_template, request, flash, redirect, url_for, jsonify, Response, stream_with_context
 from sqlalchemy import or_
 
 from Core.bot.manager import BotManager
@@ -58,9 +61,6 @@ def _get_bot_logs(bot_id, is_running, max_lines=None):
         max_lines: 最大行数，None 表示不限制
     """
     try:
-        import os
-        from datetime import datetime
-
         # 构建日志文件路径
         today = datetime.now().strftime('%Y-%m-%d')
         log_file_path = os.path.join('logs', f'bot_{bot_id}', f'{today}.log')
@@ -635,3 +635,55 @@ def admin_log_stats():
         else:
             flash(f'获取系统日志失败: {str(e)}', 'error')
             return render_template('admin/system_logs.html')
+
+
+def admin_log_stream():
+    """系统日志 SSE 流，用于后台实时日志。"""
+    date = request.args.get('date') or datetime.now().strftime('%Y-%m-%d')
+    log_file_path = os.path.join('logs', 'system', f'{date}.log')
+
+    @stream_with_context
+    def event_stream():
+        position = 0
+        last_heartbeat = time.time()
+
+        try:
+            if os.path.exists(log_file_path):
+                with open(log_file_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    for line in lines[-100:]:
+                        text = line.strip()
+                        if text:
+                            yield f"data: {json.dumps({'line': text}, ensure_ascii=False)}\n\n"
+                    position = f.tell()
+
+            while True:
+                if os.path.exists(log_file_path):
+                    with open(log_file_path, 'r', encoding='utf-8') as f:
+                        f.seek(position)
+                        lines = f.readlines()
+                        position = f.tell()
+
+                    for line in lines:
+                        text = line.strip()
+                        if text:
+                            yield f"data: {json.dumps({'line': text}, ensure_ascii=False)}\n\n"
+
+                if time.time() - last_heartbeat >= 15:
+                    yield ": heartbeat\n\n"
+                    last_heartbeat = time.time()
+
+                time.sleep(1)
+        except GeneratorExit:
+            return
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'message': str(e)}, ensure_ascii=False)}\n\n"
+
+    return Response(
+        event_stream(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+        }
+    )

@@ -26,7 +26,7 @@
             </div>
             <div class="card-body p-0">
                 <!-- 日志显示区域 -->
-                <div class="bg-dark text-light" id="terminalBody"
+                <div class="bg-dark text-light" id="terminalBody" aria-live="polite"
                      style="height: 650px; overflow-y: auto; font-size: 13px; line-height: 1.4; font-family: 'Consolas', 'Monaco', 'Courier New', monospace; padding: 20px; border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
                     <div class="text-light mb-1" style="word-wrap: break-word; white-space: pre-wrap;">
                         正在加载系统日志...
@@ -70,7 +70,7 @@
                 <div class="mt-3">
                     <div class="alert alert-info">
                         <ul class="mb-0">
-                                <li>日志按时间倒序显示，最新的日志在底部</li>
+                                <li>页面打开后会自动接收实时日志，最新日志显示在底部</li>
                                 <li>系统会自动清理超过保留期限的日志文件</li>
                                 <li>如果发现异常，请重点关注ERROR和CRITICAL级别的日志</li>
                                 <li>日志文件存储在 <code>logs/</code> 目录下</li>
@@ -85,6 +85,61 @@
 
 {% block extra_js %}
 <script>
+    let logStream = null;
+    const maxLogLines = 1000;
+
+    function getTerminalBody() {
+        return document.querySelector('#terminalBody');
+    }
+
+    function appendLogLine(logLine, className = 'text-light') {
+        const terminalBody = getTerminalBody();
+        if (!terminalBody) return;
+
+        const placeholder = terminalBody.querySelector('[data-placeholder="1"]');
+        if (placeholder) placeholder.remove();
+
+        const line = document.createElement('div');
+        line.className = className + ' mb-1';
+        line.style.cssText = 'word-wrap: break-word; white-space: pre-wrap;';
+        line.textContent = logLine;
+        terminalBody.appendChild(line);
+
+        while (terminalBody.children.length > maxLogLines) {
+            terminalBody.removeChild(terminalBody.firstElementChild);
+        }
+
+        terminalBody.scrollTop = terminalBody.scrollHeight;
+    }
+
+    function closeLogStream() {
+        if (logStream) {
+            logStream.close();
+            logStream = null;
+        }
+    }
+
+    function startLogStream() {
+        if (!window.EventSource) return;
+
+        closeLogStream();
+        logStream = new EventSource('{{ url_for("Admin.admin_log_stream") }}');
+
+        logStream.onmessage = function (event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.line) appendLogLine(data.line);
+            } catch (error) {
+                appendLogLine(event.data);
+            }
+        };
+
+        logStream.onerror = function () {
+            closeLogStream();
+            setTimeout(startLogStream, 3000);
+        };
+    }
+
     function refreshLogs() {
         updateSystemLogs();
         showToast('日志已刷新', 'info');
@@ -96,13 +151,14 @@
             .then(response => response.json())
             .then(data => {
                 if (data.code === 200 && data.lines) {
-                    const terminalBody = document.querySelector('#terminalBody');
+                    const terminalBody = getTerminalBody();
                     if (terminalBody) {
                         terminalBody.innerHTML = '';
 
                         if (data.lines.length === 0) {
                             const line = document.createElement('div');
                             line.className = 'text-muted mb-1';
+                            line.dataset.placeholder = '1';
                             line.style.cssText = 'word-wrap: break-word; white-space: pre-wrap;';
                             line.textContent = '暂无系统日志记录';
                             terminalBody.appendChild(line);
@@ -120,7 +176,7 @@
                         terminalBody.scrollTop = terminalBody.scrollHeight;
                     }
                 } else {
-                    const terminalBody = document.querySelector('#terminalBody');
+                    const terminalBody = getTerminalBody();
                     if (terminalBody) {
                         terminalBody.innerHTML = '<div class="text-danger mb-1">获取系统日志失败: ' + (data.msg || '未知错误') + '</div>';
                     }
@@ -128,7 +184,7 @@
             })
             .catch(error => {
                 console.error('更新系统日志失败:', error);
-                const terminalBody = document.querySelector('#terminalBody');
+                const terminalBody = getTerminalBody();
                 if (terminalBody) {
                     terminalBody.innerHTML = '<div class="text-danger mb-1">网络错误: ' + error.message + '</div>';
                 }
@@ -139,6 +195,9 @@
     document.addEventListener('DOMContentLoaded', function () {
         // 立即加载一次系统日志
         updateSystemLogs();
+        startLogStream();
     });
+
+    window.addEventListener('beforeunload', closeLogStream);
 </script>
 {% endblock %}

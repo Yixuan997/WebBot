@@ -138,13 +138,26 @@ class QQMessageSegment(BaseMessageSegment):
         """将简写按钮格式转换为 keyboard.content 官方结构。"""
         label = str(data.get("text", "")).strip()
         link = str(data.get("link", "")).strip()
+        action_data = link or str(data.get("data", "")).strip()
         style = data.get("style", 1)
-        if not label or not link:
+        action_type = data.get("action_type")
+        permission_type = data.get("permission_type", 2)
+        if not label or not action_data:
             return {}
         try:
             style = int(style)
         except (TypeError, ValueError):
             style = 1
+        try:
+            permission_type = int(permission_type)
+        except (TypeError, ValueError):
+            permission_type = 2
+        if action_type is None:
+            action_type = 0 if link else 2
+        try:
+            action_type = int(action_type)
+        except (TypeError, ValueError):
+            action_type = 0 if link else 2
         return {
             "rows": [
                 {
@@ -157,9 +170,9 @@ class QQMessageSegment(BaseMessageSegment):
                                 "style": style
                             },
                             "action": {
-                                "type": 0,
-                                "permission": {"type": 2},
-                                "data": link
+                                "type": action_type,
+                                "permission": {"type": permission_type},
+                                "data": action_data
                             }
                         }
                     ]
@@ -182,7 +195,65 @@ class QQMessageSegment(BaseMessageSegment):
             return parsed
         if "text" in parsed and "link" in parsed:
             return cls._build_simple_link_button_keyboard(parsed)
+        if "text" in parsed and "data" in parsed:
+            return cls._build_simple_link_button_keyboard(parsed)
         return {}
+
+    @staticmethod
+    def _ark_kv(key: str, value: object) -> dict:
+        return {"key": key, "value": "" if value is None else str(value)}
+
+    @classmethod
+    def build_ark_kv(cls, template_id: int, data: dict) -> list:
+        """将常用 ARK 简写对象转换为 QQ 官方 kv 数组。"""
+        if not isinstance(data, dict):
+            return []
+
+        prompt = data.get("prompt") or data.get("desc") or data.get("description") or data.get("title") or "WebBot"
+
+        if template_id == 23:
+            desc = data.get("desc") or data.get("description") or data.get("content") or data.get("title") or ""
+            link = data.get("link") or data.get("url") or ""
+            button_text = data.get("button_text") or data.get("button") or ""
+            button_link = data.get("button_link") or link
+            items = []
+            if desc:
+                obj_kv = [cls._ark_kv("desc", desc)]
+                if link:
+                    obj_kv.append(cls._ark_kv("link", link))
+                items.append({"obj_kv": obj_kv})
+            if button_text and button_link:
+                items.append({
+                    "obj_kv": [
+                        cls._ark_kv("desc", button_text),
+                        cls._ark_kv("link", button_link)
+                    ]
+                })
+            return [
+                cls._ark_kv("#DESC#", data.get("card_desc") or data.get("title") or desc),
+                cls._ark_kv("#PROMPT#", prompt),
+                {"key": "#LIST#", "obj": items}
+            ]
+
+        if template_id == 24:
+            return [
+                cls._ark_kv("#DESC#", data.get("card_desc") or data.get("desc") or data.get("description") or ""),
+                cls._ark_kv("#PROMPT#", prompt),
+                cls._ark_kv("#TITLE#", data.get("title") or ""),
+                cls._ark_kv("#METADESC#", data.get("description") or data.get("desc") or data.get("content") or ""),
+                cls._ark_kv("#METACOVER#", data.get("image") or data.get("cover") or ""),
+                cls._ark_kv("#METAURL#", data.get("url") or data.get("link") or "")
+            ]
+
+        if template_id == 37:
+            return [
+                cls._ark_kv("#METATITLE#", data.get("title") or ""),
+                cls._ark_kv("#METASUBTITLE#", data.get("subtitle") or data.get("description") or data.get("desc") or ""),
+                cls._ark_kv("#PROMPT#", prompt),
+                cls._ark_kv("#METACOVER#", data.get("image") or data.get("cover") or data.get("url") or "")
+            ]
+
+        return [cls._ark_kv(key, value) for key, value in data.items()]
 
     def to_api_format(self) -> dict:
         """

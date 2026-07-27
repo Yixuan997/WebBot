@@ -189,7 +189,8 @@ class WorkflowCache:
 
                     log_info(0, f"工作流缓存已重载: {len(self._workflows)} 个工作流 "
                              f"(消息: {type_counter['message']}, 定时: {type_counter['schedule']}, "
-                             f"通知: {type_counter['notice']}, 请求: {type_counter['request']})",
+                             f"通知: {type_counter['notice']}, 请求: {type_counter['request']}, "
+                             f"交互: {type_counter['interaction']})",
                              "WORKFLOW_CACHE_RELOAD",
                              count=len(self._workflows), **{f'{k}_count': v for k, v in type_counter.items()})
                     
@@ -302,10 +303,11 @@ class WorkflowCache:
 
                 config = workflow.get('config', {})
 
-                # 事件名称过滤（notice/request 事件）
+                # 事件名称过滤（notice/request/interaction 事件）
                 if event_name:
                     event_filter = config.get('event_filter', [])
-                    if event_filter and event_name not in event_filter:
+                    normalized_filter = {str(item).lower() for item in event_filter}
+                    if event_filter and str(event_name).lower() not in normalized_filter:
                         skipped_by_event += 1
                         continue
 

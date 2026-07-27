@@ -39,10 +39,10 @@ graceful_timeout = 30  # 优雅关闭超时时间
 # 设置进程文件目录（用于停止服务和重启服务，请勿删除）
 pidfile = os.path.join(BASE_DIR, 'gunicorn.pid')
 
-# 设置访问日志和错误信息日志路径
-# 设置访问日志和错误信息日志路径
-accesslog = '/www/wwwlogs/python/Bot/gunicorn_acess.log'
-errorlog = '/www/wwwlogs/python/Bot/gunicorn_error.log'
+# 设置访问日志和错误日志路径
+LOG_DIR = os.path.join('/www/wwwlogs/python', os.path.basename(BASE_DIR))
+accesslog = os.path.join(LOG_DIR, 'gunicorn_acess.log')
+errorlog = os.path.join(LOG_DIR, 'gunicorn_error.log')
 
 # 日志级别，这个日志级别指的是错误日志的级别，而访问日志的级别无法设置
 # debug:调试级别，记录的信息最多；

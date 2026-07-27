@@ -6,6 +6,7 @@
 @Date   ：2025/6/6 23:55 
 """
 import platform
+import os
 import threading
 import time
 from datetime import datetime
@@ -98,7 +99,6 @@ def dashboard():
     memory_usage = memory.percent
 
     # 根据操作系统选择磁盘路径
-    import os
     disk_path = 'C:\\' if os.name == 'nt' else '/'
     disk = psutil.disk_usage(disk_path)
     disk_usage = disk.percent

@@ -9,7 +9,7 @@ from flask import Blueprint
 
 from .bots import (admin_bots, admin_create_bot, admin_edit_bot, admin_bot_detail, admin_delete_bot,
                    admin_start_bot, admin_stop_bot, admin_restart_bot, admin_bot_status, admin_bot_logs,
-                   admin_bot_log_files, admin_bot_log_content, admin_log_stats)
+                   admin_bot_log_files, admin_bot_log_content, admin_log_stats, admin_log_stream)
 from .browser import (browser_status, restart_browser, start_browser, stop_browser)
 from .dashboard import dashboard
 from .email import email, test_email
@@ -91,6 +91,8 @@ Admin_bp.add_url_rule('/bots/<int:bot_id>/log-content', view_func=role_required(
                       endpoint='admin_bot_log_content')  # 机器人日志内容
 Admin_bp.add_url_rule('/logs/stats', view_func=role_required('admin')(admin_log_stats), methods=['GET'],
                       endpoint='admin_log_stats')  # 日志统计
+Admin_bp.add_url_rule('/logs/stream', view_func=role_required('admin')(admin_log_stream), methods=['GET'],
+                      endpoint='admin_log_stream')  # 系统日志 SSE
 
 # 浏览器管理
 

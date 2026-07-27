@@ -348,6 +348,7 @@ class QQWebhookHandler(BaseWebhookHandler):
 
             # 透传完整 webhook body 的快照副本
             if isinstance(event_payload, dict):
+                event_payload['_qq_event_type'] = event_type
                 event_payload['_qq_webhook_body'] = json.loads(
                     webhook_body_json
                 )

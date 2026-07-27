@@ -75,6 +75,19 @@ class MessageHandler:
                              comment=getattr(event, 'comment', ''))
                     workflows = workflow_cache.get_workflows_by_trigger('request', protocol, owner_id, request_type)
 
+                elif post_type == 'interaction':
+                    # 交互事件（按钮/回调等）
+                    interaction_type = getattr(event, 'interaction_type', '')
+                    event_name = getattr(event, 'event_type', '') or interaction_type
+                    log_info(0, f"交互事件: {interaction_type}", "INTERACTION_EVENT_RECEIVED",
+                             interaction_type=interaction_type,
+                             event_name=event_name,
+                             group_id=getattr(event, 'group_id', None),
+                             user_id=getattr(event, 'user_id', None))
+                    workflows = workflow_cache.get_workflows_by_trigger(
+                        'interaction', protocol, owner_id, event_name
+                    )
+
                 else:
                     # 消息事件
                     content = event.get_plaintext().strip()

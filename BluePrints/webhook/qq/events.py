@@ -151,6 +151,63 @@ class QQEventProcessor:
             log_error(bot_id, f"消息处理异常: {process_error}", "QQ_MESSAGE_PROCESS_ERROR",
                       error=str(process_error))
 
+    def _process_event_safely(self, bot_id: int, event_data: dict, bot_manager):
+        """把 QQ 非消息事件投递到统一工作流处理链路。"""
+        try:
+            from flask import current_app
+            try:
+                app = current_app._get_current_object()
+            except RuntimeError:
+                from app import app
+
+            with app.app_context():
+                from Adapters import get_adapter_manager
+                from Adapters.qq.adapter import QQAdapter
+
+                adapter_manager = get_adapter_manager()
+                adapter = adapter_manager.running_adapters.get(bot_id)
+
+                if not adapter:
+                    log_error(bot_id, "适配器未运行", "QQ_ADAPTER_NOT_RUNNING")
+                    return
+
+                event = QQAdapter.json_to_event(event_data)
+                if not event:
+                    log_warn(bot_id, "解析事件失败", "QQ_EVENT_PARSE_FAILED")
+                    return
+
+                event.bot = adapter.bot
+                message_async_dispatcher.submit(
+                    adapter.bot.handle_event(event),
+                    bot_id=bot_id,
+                    source="qq_webhook_event"
+                )
+        except Exception as process_error:
+            log_error(bot_id, f"事件处理异常: {process_error}", "QQ_EVENT_PROCESS_ERROR",
+                      error=str(process_error))
+
+    @staticmethod
+    def _build_workflow_event(
+            bot_id: int,
+            post_type: str,
+            event_type: str,
+            payload: dict,
+            **extra
+    ) -> dict:
+        """构造投递给工作流的 QQ 标准事件数据。"""
+        payload = payload if isinstance(payload, dict) else {}
+        event_data = dict(payload)
+        event_data.update(extra)
+        event_data.update({
+            'bot_id': bot_id,
+            'post_type': post_type,
+            'event_type': event_type,
+            'qq_event_type': event_type,
+            'timestamp': payload.get('timestamp'),
+            'qq_webhook_body': payload.get('_qq_webhook_body'),
+        })
+        return event_data
+
     def handle_c2c_message(self, bot_id: int, payload: dict, bot_manager) -> dict:
         """处理QQ单聊消息"""
         try:
@@ -460,6 +517,17 @@ class QQEventProcessor:
             if bot_manager and hasattr(bot_manager, 'plugin_manager'):
                 bot_manager.plugin_manager.trigger_hook('member_event', member_info, bot_id=bot_id)
 
+            workflow_event = self._build_workflow_event(
+                bot_id,
+                'notice',
+                event_type,
+                payload,
+                user_id=member_info['user'].get('id'),
+                guild_id=member_info['guild_id'],
+                raw_user_id=member_info['user'].get('id'),
+            )
+            self._process_event_safely(bot_id, workflow_event, bot_manager)
+
             return {"status": "success", "message": f"Member event {event_type} processed"}
 
         except Exception as e:
@@ -484,6 +552,17 @@ class QQEventProcessor:
             # 触发好友管理钩子
             if bot_manager and hasattr(bot_manager, 'plugin_manager'):
                 bot_manager.plugin_manager.trigger_hook('friend_event', friend_info, bot_id=bot_id)
+
+            workflow_event = self._build_workflow_event(
+                bot_id,
+                'notice',
+                event_type,
+                payload,
+                user_id=friend_info['openid'],
+                openid=friend_info['openid'],
+                raw_user_id=friend_info['openid'],
+            )
+            self._process_event_safely(bot_id, workflow_event, bot_manager)
 
             return {"status": "success", "message": f"Friend event {event_type} processed"}
 
@@ -511,6 +590,18 @@ class QQEventProcessor:
             # 触发群聊机器人管理钩子
             if bot_manager and hasattr(bot_manager, 'plugin_manager'):
                 bot_manager.plugin_manager.trigger_hook('group_robot_event', group_info, bot_id=bot_id)
+
+            workflow_event = self._build_workflow_event(
+                bot_id,
+                'notice',
+                event_type,
+                payload,
+                group_id=group_info['group_openid'],
+                group_openid=group_info['group_openid'],
+                user_id=group_info['op_member_openid'],
+                raw_user_id=group_info['op_member_openid'],
+            )
+            self._process_event_safely(bot_id, workflow_event, bot_manager)
 
             return {"status": "success", "message": f"Group robot event {event_type} processed"}
 
@@ -546,6 +637,19 @@ class QQEventProcessor:
             if bot_manager and hasattr(bot_manager, 'plugin_manager'):
                 bot_manager.plugin_manager.trigger_hook('message_setting_event', setting_info, bot_id=bot_id)
 
+            workflow_event = self._build_workflow_event(
+                bot_id,
+                'notice',
+                event_type,
+                payload,
+                user_id=setting_info['openid'],
+                group_id=setting_info['group_openid'],
+                openid=setting_info['openid'],
+                group_openid=setting_info['group_openid'],
+                raw_user_id=setting_info['openid'],
+            )
+            self._process_event_safely(bot_id, workflow_event, bot_manager)
+
             return {"status": "success", "message": f"Message setting event {event_type} processed"}
 
         except Exception as e:
@@ -575,6 +679,18 @@ class QQEventProcessor:
             # 触发互动事件钩子
             if bot_manager and hasattr(bot_manager, 'plugin_manager'):
                 bot_manager.plugin_manager.trigger_hook('interaction_event', interaction_info, bot_id=bot_id)
+
+            user = interaction_info['user'] if isinstance(interaction_info['user'], dict) else {}
+            workflow_event = self._build_workflow_event(
+                bot_id,
+                'interaction',
+                'INTERACTION_CREATE',
+                payload,
+                interaction_type=interaction_info['type'],
+                interaction_id=interaction_info['id'],
+                user_id=user.get('id') or user.get('openid') or user.get('user_openid') or '',
+            )
+            self._process_event_safely(bot_id, workflow_event, bot_manager)
 
             return {"status": "success", "message": "Interaction event processed"}
 

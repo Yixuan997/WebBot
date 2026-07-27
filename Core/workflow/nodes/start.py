@@ -19,6 +19,12 @@ class StartNode(BaseNode):
     outputs = [
         {'name': 'event', 'label': 'event - 完整事件对象', 'type': 'object'},
         {'name': 'post_type', 'label': 'post_type - 事件类型 (message/notice/request)', 'type': 'string'},
+        {'name': 'event_name', 'label': 'event_name - 事件名称', 'type': 'string'},
+        {'name': 'event_type', 'label': 'event_type - 协议原始事件类型', 'type': 'string'},
+        {'name': 'notice_type', 'label': 'notice_type - 通知类型', 'type': 'string'},
+        {'name': 'request_type', 'label': 'request_type - 请求类型', 'type': 'string'},
+        {'name': 'interaction_type', 'label': 'interaction_type - 交互类型', 'type': 'string'},
+        {'name': 'raw_data', 'label': 'raw_data - 原始事件数据', 'type': 'object'},
         {'name': 'message', 'label': 'message - 消息内容(纯文本)', 'type': 'string'},
         {'name': 'message_cq', 'label': 'message_cq - 消息内容(CQ码/组合消息)', 'type': 'string'},
         {'name': 'message_full', 'label': 'message_full - 完整消息对象', 'type': 'object'},
@@ -61,7 +67,19 @@ class StartNode(BaseNode):
         
         # 保存完整事件对象（脚本可以直接从 event 取任何字段）
         # context.set_variable('event', event)
-        context.set_variable('post_type', getattr(event, 'post_type', 'message'))
+        post_type = getattr(event, 'post_type', 'message')
+        event_name = event.get_event_name() if hasattr(event, 'get_event_name') else post_type
+        event_type = getattr(event, 'event_type', '') or getattr(event, 'notice_type', '') or getattr(event, 'request_type', '')
+        notice_type = getattr(event, 'notice_type', '')
+        request_type = getattr(event, 'request_type', '')
+        interaction_type = getattr(event, 'interaction_type', '')
+
+        context.set_variable('post_type', post_type)
+        context.set_variable('event_name', event_name)
+        context.set_variable('event_type', event_type)
+        context.set_variable('notice_type', notice_type)
+        context.set_variable('request_type', request_type)
+        context.set_variable('interaction_type', interaction_type)
 
         # 提取消息内容和类型
         message_text = ""
@@ -101,7 +119,13 @@ class StartNode(BaseNode):
 
         # 提取发送者信息
         raw_data = getattr(event, 'raw_data', {}) or {}
-        user_id = getattr(event, 'user_id', '') or raw_data.get('author', {}).get('id', '')
+        user_id = (
+            getattr(event, 'user_id', '') or
+            raw_data.get('author', {}).get('id', '') or
+            raw_data.get('openid', '') or
+            raw_data.get('member_openid', '') or
+            raw_data.get('op_member_openid', '')
+        )
         sender_obj = raw_data.get('sender', {}) or {}
         sender_name = sender_obj.get('nickname', '') or sender_obj.get('card', '') or raw_data.get('author', {}).get('username', '')
         sender_data = dict(sender_obj) if isinstance(sender_obj, dict) else {}
@@ -133,6 +157,7 @@ class StartNode(BaseNode):
         context.set_variable('message_cq', message_cq)  # CQ码/组合消息（适合提取图片等非文本段）
         context.set_variable('raw_message', raw_message)  # 原始消息（包含 CQ 码）
         context.set_variable('message_full', getattr(event, 'message', None))  # 完整消息对象
+        context.set_variable('raw_data', raw_data)
         context.set_variable('message_type', message_type)
         context.set_variable('has_image', has_image)
         context.set_variable('has_at', has_at)

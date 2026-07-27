@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional
 from Core.logging.file_logger import log_info, log_error, log_debug
 from .bot import QQBot
 from .config import QQConfig
-from .event import QQMessageEvent, QQEvent
+from .event import QQMessageEvent, QQEvent, QQNoticeEvent, QQInteractionEvent
 from ..base.adapter import BaseAdapter
 from ..base.bot import BaseBot
 
@@ -94,15 +94,19 @@ class QQAdapter(BaseAdapter):
             QQEvent对象，如果解析失败返回None
         """
         try:
-            # 判断事件类型（QQ目前主要是消息事件）
-            if "content" in json_data or "type" in json_data:
-                # 消息事件
+            post_type = json_data.get("post_type")
+            if post_type == "notice":
+                return QQNoticeEvent.from_raw(json_data)
+            if post_type == "interaction":
+                return QQInteractionEvent.from_raw(json_data)
+
+            message_raw_types = {"group_at", "c2c", "at_message", "channel", "direct_message"}
+            if "content" in json_data or json_data.get("type") in message_raw_types:
                 return QQMessageEvent.from_raw(json_data)
-            else:
-                # 其他事件类型（暂不支持）
-                log_debug(0, f"未知的QQ事件类型", "QQ_UNKNOWN_EVENT",
-                          event_keys=list(json_data.keys()))
-                return None
+
+            log_debug(0, f"未知的QQ事件类型", "QQ_UNKNOWN_EVENT",
+                      event_keys=list(json_data.keys()))
+            return None
 
         except Exception as e:
             log_error(0, f"解析QQ事件失败: {e}", "QQ_EVENT_PARSE_ERROR",
@@ -202,12 +206,16 @@ class QQAdapter(BaseAdapter):
         import json
         from .message import QQMessage, QQMessageSegment
         try:
-            kv = json.loads(content)
-            if not isinstance(kv, list):
-                raise ValueError("ARK内容必须是JSON数组格式")
+            parsed = json.loads(content)
+            if isinstance(parsed, list):
+                kv = parsed
+            elif isinstance(parsed, dict):
+                kv = QQMessageSegment.build_ark_kv(int(template_id), parsed)
+            else:
+                raise ValueError("ARK内容必须是JSON数组或JSON对象格式")
         except json.JSONDecodeError as e:
             raise ValueError(f"ARK内容JSON解析失败: {e}")
-        return QQMessage([QQMessageSegment.ark(template_id, kv)])
+        return QQMessage([QQMessageSegment.ark(int(template_id), kv)])
     PROTOCOL = "qq"
     DISPLAY_NAME = "QQ"
     WEBHOOK_PATH = "qq"

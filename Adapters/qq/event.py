@@ -168,12 +168,134 @@ class QQMessageEvent(QQEvent):
 
 @dataclass
 class QQNoticeEvent(QQEvent):
-    """QQ通知事件（待扩展）"""
+    """QQ通知事件"""
 
     post_type: str = "notice"
+    notice_type: str = ""
+    event_type: str = ""
+    user_id: str = ""
+    group_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    guild_id: Optional[str] = None
 
     def get_event_name(self) -> str:
-        return "notice"
+        return f"notice.{self.notice_type}" if self.notice_type else "notice"
+
+    def get_user_id(self) -> str:
+        return self.user_id
+
+    def get_session_id(self) -> str:
+        if self.group_id:
+            return f"group_{self.group_id}"
+        if self.channel_id:
+            return f"channel_{self.channel_id}"
+        if self.guild_id:
+            return f"guild_{self.guild_id}"
+        return f"user_{self.user_id}" if self.user_id else "notice"
+
+    @classmethod
+    def from_raw(cls, raw_data: dict) -> "QQNoticeEvent":
+        import time as time_module
+
+        event_type = raw_data.get("event_type") or raw_data.get("qq_event_type") or raw_data.get("notice_type") or ""
+        user_id = (
+            raw_data.get("user_id") or
+            raw_data.get("openid") or
+            raw_data.get("member_openid") or
+            raw_data.get("op_member_openid") or
+            raw_data.get("raw_user_id") or
+            ""
+        )
+        group_id = raw_data.get("group_id") or raw_data.get("group_openid")
+
+        return cls(
+            time=raw_data.get("time", int(time_module.time())),
+            self_id=str(raw_data.get("bot_id", "")),
+            notice_type=event_type,
+            event_type=event_type,
+            user_id=str(user_id) if user_id is not None else "",
+            group_id=str(group_id) if group_id is not None else None,
+            channel_id=raw_data.get("channel_id"),
+            guild_id=raw_data.get("guild_id"),
+            raw_data=raw_data,
+        )
+
+    def get_target(self) -> str:
+        if self.group_id:
+            return f"group:{self.group_id}"
+        if self.channel_id:
+            return f"channel:{self.channel_id}"
+        if self.guild_id:
+            return f"dm:{self.guild_id}"
+        return f"user:{self.user_id}"
+
+
+@dataclass
+class QQInteractionEvent(QQEvent):
+    """QQ交互事件"""
+
+    post_type: str = "interaction"
+    interaction_type: str = ""
+    event_type: str = "INTERACTION_CREATE"
+    interaction_id: str = ""
+    user_id: str = ""
+    group_id: Optional[str] = None
+    channel_id: Optional[str] = None
+    guild_id: Optional[str] = None
+    data: dict = field(default_factory=dict)
+
+    def get_event_name(self) -> str:
+        return f"interaction.{self.interaction_type}" if self.interaction_type else "interaction"
+
+    def get_user_id(self) -> str:
+        return self.user_id
+
+    def get_session_id(self) -> str:
+        if self.group_id:
+            return f"group_{self.group_id}"
+        if self.channel_id:
+            return f"channel_{self.channel_id}"
+        if self.guild_id:
+            return f"guild_{self.guild_id}"
+        return f"user_{self.user_id}" if self.user_id else "interaction"
+
+    @classmethod
+    def from_raw(cls, raw_data: dict) -> "QQInteractionEvent":
+        import time as time_module
+
+        user = raw_data.get("user") or {}
+        data = raw_data.get("data") or {}
+        interaction_type = str(raw_data.get("interaction_type") or raw_data.get("type") or "")
+        user_id = (
+            raw_data.get("user_id") or
+            user.get("id") or
+            user.get("openid") or
+            user.get("user_openid") or
+            ""
+        )
+
+        return cls(
+            time=raw_data.get("time", int(time_module.time())),
+            self_id=str(raw_data.get("bot_id", "")),
+            interaction_type=interaction_type,
+            event_type=raw_data.get("event_type") or raw_data.get("qq_event_type") or "INTERACTION_CREATE",
+            interaction_id=str(raw_data.get("id") or ""),
+            user_id=str(user_id) if user_id is not None else "",
+            group_id=raw_data.get("group_id") or raw_data.get("group_openid"),
+            channel_id=raw_data.get("channel_id"),
+            guild_id=raw_data.get("guild_id"),
+            data=data if isinstance(data, dict) else {},
+            raw_data=raw_data,
+        )
+
+    def get_target(self) -> str:
+        if self.group_id:
+            return f"group:{self.group_id}"
+        if self.channel_id:
+            return f"channel:{self.channel_id}"
+        if self.guild_id:
+            return f"dm:{self.guild_id}"
+        return f"user:{self.user_id}"
 
 
 @dataclass
